@@ -127,16 +127,15 @@ In the repo, **Settings → Environments → `staging`** (no reviewers):
 Supabase access tokens reach every organization an account belongs to, so no access token goes into `staging`.
 
 ## Part 6: Orchestrator machine (verify environment)
-The verify step for A2 runs on the machine that runs the ledger, and reads its own environment file. These two names go in that machine's **`.env.local`** (already git-ignored). They do **not** go in Vercel, and they do not go in GitHub.
+The verify step for A2 runs on the machine that runs the ledger, and reads its own environment file. This name goes in that machine's **`.env.local`** (already git-ignored). It does **not** go in Vercel, and it does not go in GitHub.
 
 | Name | What it is | Where you get it |
 |---|---|---|
 | `SUPABASE_STAGING_DB_URL` | the staging session-pooler URI with the password (the same one as Part 5) | Part 2, step 5 |
-| `SUPABASE_ACCESS_TOKEN` | a Supabase access token for the CLI, **separate from** the production release token in Part 7 | Supabase **Account → Access Tokens → Generate new token**, name `northside-quotes-verify`, shortest expiry offered (30 days at most). Add a calendar reminder 28 days out |
 
-1. Open `.env.local` in an editor on that machine and add the two names, one per line, with the values pasted from the other tab. Do not use `echo` or `export` in the terminal (they end up in shell history), and keep the existing `BASELEAP_LEDGER_*` and `BASELEAP_OPERATOR_*` lines as they are.
+1. Open `.env.local` in an editor on that machine and add the name, with the value pasted from the other tab. Do not use `echo` or `export` in the terminal (they end up in shell history), and keep the existing `BASELEAP_LEDGER_*` and `BASELEAP_OPERATOR_*` lines as they are.
 2. These `SUPABASE_*` names refer to the **app's staging project**, never the Baseleap Console database (the Console uses the `BASELEAP_LEDGER_*` names on purpose).
-3. A Supabase access token reaches every organization on the account that creates it. Create it from the account that holds the sandbox org, and no other account's projects should be reachable if you can avoid it.
+3. **No Supabase access token goes on this machine** (Matthew's Nov 18 rule: a personal access token reaches every organization on the account, so it never lives on an agent machine). A2 (migrations, RLS tests and type generation) needs no access token. It applies migrations and runs tests through `SUPABASE_STAGING_DB_URL`, or through the local Supabase stack. `supabase db push` is on the deny list and is not used, and neither is `supabase link`.
 
 ## Part 7: Production (before the pipeline drills; settle D-1 first)
 1. **Second Supabase project.** Same steps as Part 2, steps 1 to 4, named `Northside production`, region **Canada (Central), ca-central-1**, with sign-up off (step 2) and no Storage bucket by hand (step 3). Save its database password as `Northside (TEST) · Supabase production · Database password`. In **Authentication → URL Configuration**, Site URL `https://northside-quotes.vercel.app` and redirect `https://northside-quotes.vercel.app/**`. Production staff accounts are created by Baseleap at release time, not now.
@@ -148,7 +147,7 @@ The verify step for A2 runs on the machine that runs the ledger, and reads its o
 | Kind | Name | Value |
 |---|---|---|
 | Secret | `VERCEL_TOKEN` | Vercel release token (step 4) |
-| Secret | `SUPABASE_ACCESS_TOKEN` | Supabase release token (step 2). Same name as on the machine in Part 6, but a different token |
+| Secret | `SUPABASE_ACCESS_TOKEN` | Supabase release token (step 2). Lives only in this GitHub environment, never on an agent machine |
 | Secret | `SUPABASE_DB_PASSWORD` | production database password |
 | Variable | `VERCEL_ORG_ID` | Team ID |
 | Variable | `VERCEL_PROJECT_ID` | Project ID |
@@ -165,7 +164,7 @@ The verify step for A2 runs on the machine that runs the ledger, and reads its o
 | ☐ | Supabase staging | project in ca-central-1; sign-up off; no bucket made by hand; keys copied; session-pooler URI copied; URL configuration set |
 | ☐ | Vercel | project in team `baseleap`; Preview rows of the table with the right type; system variables exposed; production branch `main`; region `yul1`; Standard Protection with Vercel Authentication; bypass secret; no paid protection method on |
 | ☐ | GitHub `staging` | 5 secrets, 2 variables |
-| ☐ | Orchestrator machine | `SUPABASE_STAGING_DB_URL` and `SUPABASE_ACCESS_TOKEN` in `.env.local`; reminder set |
+| ☐ | Orchestrator machine | `SUPABASE_STAGING_DB_URL` in `.env.local` (no access token on this machine) |
 | ☐ | Password manager | every secret saved |
 | ☐ | Before the drills (Part 7) | production project (D-1), both release tokens, Vercel Production rows, GitHub `production` (3 secrets, 3 variables, `main` only, no admin bypass), `PRODUCTION_URL`, reminders |
 
@@ -175,5 +174,5 @@ DevOps then runs `node scripts/env-check.mjs --vercel`, which compares names onl
 After you change any Vercel variable, the running deployment keeps the old value until it's redeployed. DevOps redeploys staging; production only changes through a release.
 
 ## Afterwards
-- **Every 28 days:** new Vercel and Supabase tokens go into GitHub `production` and the machine's `.env.local`, then delete the old ones.
+- **Every 28 days:** new Vercel and Supabase release tokens go into GitHub `production`, then delete the old ones. Nothing is renewed on the orchestrator machine, because it holds no token.
 - **When the rehearsal ends:** delete the two Supabase projects and the Vercel project, revoke every token, and remove access to the throwaway repo the same day.

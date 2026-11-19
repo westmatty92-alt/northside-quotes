@@ -58,3 +58,36 @@
 - DECISION D-3: Vercel team billing. If it shows a trial that will charge, or any Upgrade prompt, open `spend_approval`. Do not turn on Password Protection, Passport or Trusted IPs (paid).
 
 **Order Matthew does them in:** 1 GitHub check, repo, push `main` and `staging` → 2 Supabase staging project (ca-central-1, sign-up off, keys, database address) → 3 Vercel project, Preview variables, Standard Protection, bypass secret → 4 Supabase URL configuration → 5 GitHub `staging` environment → 6 orchestrator `.env.local` (A2 verify) → 7 production (second Supabase project, release tokens, GitHub `production`, `main` protection) before the pipeline drills → 8 checklist, then approve the gate. About 60 to 90 minutes; parts 1 to 6 are what A2 needs.
+
+## Amendment — 2026-11-19: drop Supabase access token (Nov 18 rule)
+**Why:** Matthew's ruling (ledger decision 2026-11-19), from his Nov 18 rule: Supabase personal access tokens reach every org, so they never live on an agent machine. The orchestrator machine's `.env.local` now holds `SUPABASE_STAGING_DB_URL` only.
+**Status:** done, except the secret-pattern grep (denied, below).
+**File changed:** `docs/ops/account-setup.md` only. Nothing else in the packet was touched.
+
+**Exact lines changed (all in `docs/ops/account-setup.md`; line numbers are after the edit):**
+1. Part 6 intro (line 130), was: "These two names go in that machine's **`.env.local`** (already git-ignored). They do **not** go in Vercel, and they do not go in GitHub." Now: "This name goes in that machine's **`.env.local`** (already git-ignored). It does **not** go in Vercel, and it does not go in GitHub."
+2. Part 6 table: the `SUPABASE_ACCESS_TOKEN` row (the `northside-quotes-verify` token, 30-day expiry, calendar reminder) is deleted. The `SUPABASE_STAGING_DB_URL` row is unchanged.
+3. Part 6 step 1, was: "...add the two names, one per line, with the values pasted..." Now: "...add the name, with the value pasted from the other tab..." (rest of the sentence unchanged).
+4. Part 6 step 3, was: "A Supabase access token reaches every organization on the account that creates it. Create it from the account that holds the sandbox org..." Now: "**No Supabase access token goes on this machine** (Matthew's Nov 18 rule: ...). A2 (migrations, RLS tests and type generation) needs no access token. It applies migrations and runs tests through `SUPABASE_STAGING_DB_URL`, or through the local Supabase stack. `supabase db push` is on the deny list and is not used, and neither is `supabase link`."
+5. Part 7 table, `SUPABASE_ACCESS_TOKEN` row, was: "...Same name as on the machine in Part 6, but a different token". Now: "...Lives only in this GitHub environment, never on an agent machine". (The row stays: it is the production release token in GitHub `production`, see Notes.)
+6. Part 8 checklist, orchestrator row, was: "`SUPABASE_STAGING_DB_URL` and `SUPABASE_ACCESS_TOKEN` in `.env.local`; reminder set". Now: "`SUPABASE_STAGING_DB_URL` in `.env.local` (no access token on this machine)".
+7. Afterwards, was: "**Every 28 days:** new Vercel and Supabase tokens go into GitHub `production` and the machine's `.env.local`, then delete the old ones." Now: "**Every 28 days:** new Vercel and Supabase release tokens go into GitHub `production`, then delete the old ones. Nothing is renewed on the orchestrator machine, because it holds no token."
+
+**Steps that relied on the token:** none other. The packet never used `supabase link` or remote type generation. Part 5's line "no access token goes into `staging`" is unchanged. Equivalents for A2, as now stated in Part 6 step 3: migrations and RLS tests through `SUPABASE_STAGING_DB_URL` or the local stack; type generation from the same database URL or the local stack (`supabase gen types --db-url` / `--local` do not need a token; I did not run them, so unverified here). Nothing needs Matthew's own machine.
+
+**Commands run:**
+- `grep -n 'SUPABASE_ACCESS_TOKEN' docs/ops/account-setup.md` → one hit, line 150 (the Part 7 production release token row).
+- `grep -c 'SUPABASE_STAGING_DB_URL'` → 5 (was 4; the new Part 6 step 3 names it). `grep -c 'ca-central-1'` → 8. `grep -c '{{'` → 0.
+- Secret-pattern grep (token, key and JWT prefixes) → **not run: the permission system denied it again**, in a compound command and on its own. I did not try another route. Unverified by me. By inspection, the diff adds only variable names, no values.
+
+**Notes for the next step and for Matthew:**
+- **Still names the token elsewhere (not mine, not changed):** `PLAN.md` line 47, `.baseleap/plan-blueprint.json` (OPS-SETUP acceptance line 42 and the A2 verify), and `.baseleap/gates/account_setup-1.md` line 8 still say the orchestrator machine needs `SUPABASE_ACCESS_TOKEN`. The orchestrator should update these, or the A2 verify and the open gate will still ask Matthew to set it. Kit templates in `.claude/skills/` (`ops-secrets`, `ops-environments/templates/account-setup.md` and `environments.json`, `ops-release/templates/release.yml`, `ops-observe/templates/runbook.md`) also carry the token; the kit owner may want the same rule there.
+- **Question for Matthew:** the production release token (`SUPABASE_ACCESS_TOKEN` in GitHub `production`, used by `release.yml` for `supabase db push`) is also a personal access token that reaches every org on its account. I kept it because the instruction covered the agent machine and GitHub `production` is not one. If the Nov 18 rule also bars it from GitHub, the release workflow needs a different migration route (for example the production session-pooler URL as a `production` secret), which means a template change in a later pipeline step.
+- Note 37 above (A2's verify needs `SUPABASE_ACCESS_TOKEN`) is superseded: A2 needs only `SUPABASE_STAGING_DB_URL`.
+
+### Updated gate summary (paste into the `account_setup` packet, replaces the earlier one's orchestrator line)
+Same as the summary above, with these changes:
+- Orchestrator machine `.env.local`: `SUPABASE_STAGING_DB_URL` only (name only; not in Vercel, not in GitHub). **No Supabase access token on this machine** (Matthew's Nov 18 rule). A2 (migrations, RLS tests, type generation) uses the database URL or the local Supabase stack. `supabase db push` and `supabase link` are not used.
+- Checklist row for the machine: `SUPABASE_STAGING_DB_URL` in `.env.local`; nothing else to set, no reminder.
+- Order step 6 is now: orchestrator `.env.local` with the database address only (A2 verify).
+- Part 7 is unchanged: the production release tokens still go only into GitHub `production`.
