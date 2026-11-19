@@ -38,7 +38,38 @@
       "Bash(gh workflow run .github/workflows/release:*)",
       "Bash(vercel deploy --prebuilt --prod:*)",
       "Bash(npx --no-install supabase db push:*)"
-    ]
+    ],
+    "allow": [
+      "Bash(node scripts/*)",
+      "Bash(npm ci)",
+      "Bash(npm install *)",
+      "Bash(npm run *)",
+      "Bash(npm test*)",
+      "Bash(npx tsc *)",
+      "Bash(npx eslint *)",
+      "Bash(npx vitest *)",
+      "Bash(npx playwright *)",
+      "Bash(npx orval*)",
+      "Bash(npx --yes @google/design.md *)",
+      "Bash(npx --yes @redocly/cli *)",
+      "Bash(npx --no-install supabase start*)",
+      "Bash(npx --no-install supabase status*)",
+      "Bash(npx --no-install supabase stop*)",
+      "Bash(npx --no-install supabase test db*)",
+      "Bash(npx --no-install supabase migration new *)",
+      "Bash(npx --no-install supabase gen types *)",
+      "Bash(git add *)",
+      "Bash(git commit *)",
+      "Bash(git status*)",
+      "Bash(git diff*)",
+      "Bash(git log*)",
+      "Bash(git show*)",
+      "Bash(git branch*)",
+      "Bash(git worktree list*)",
+      "Bash(git rev-parse*)",
+      "WebFetch"
+    ],
+    "$comment": "allow (approved by Matthew, Nov 19 2026, full-team rehearsal): the build/test/lint/commit commands specialists need when they run in the background, where nobody can click an approval. deny always wins over allow, and the prod-guard and specialist-scope hooks still run on every call. No grep/cat/ls/printenv: from the shell they can read .env files; agents use the Read/Grep/Glob tools, which the deny list covers."
   },
   "hooks": {
     "UserPromptSubmit": [
