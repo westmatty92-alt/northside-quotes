@@ -1,0 +1,132 @@
+# .opengrep/baseleap.yml: Baseleap's own Opengrep (Semgrep-compatible) rules for the Next.js + Supabase stack (owned by bl-security).
+# Written for Baseleap; no registry rules copied. Validate: opengrep scan --validate --config .opengrep/baseleap.yml
+# Test: node .claude/skills/sec-appsec/tests/check-rules.mjs (fixture repo with expect: markers).
+rules:
+  - id: baseleap-service-role-import-in-ui
+    message: The service-role client bypasses RLS and must never be reachable from UI code. Import it only in the paths SECURITY_MODEL.md allows.
+    severity: ERROR
+    languages: [regex]
+    pattern-regex: from\s+['"]@/lib/server/admin['"]
+    paths:
+      include: ["src/app/(app)/**", "src/app/embed/**", "src/components/**", "src/hooks/**", "src/lib/api/**", "src/mocks/**"]
+
+  - id: baseleap-service-role-key-outside-admin
+    message: SUPABASE_SERVICE_ROLE_KEY is read outside src/lib/server/admin.ts / env.ts. Only those files may touch it.
+    severity: ERROR
+    languages: [regex]
+    pattern-regex: SUPABASE_SERVICE_ROLE_KEY
+    paths:
+      include: ["src/**"]
+      exclude: ["src/lib/server/admin.ts", "src/lib/server/env.ts"]
+
+  - id: baseleap-public-env-secret-name
+    message: A NEXT_PUBLIC_ variable is shipped to the browser. Secret-looking names must never be public.
+    severity: ERROR
+    languages: [regex]
+    pattern-regex: NEXT_PUBLIC_[A-Z0-9_]*(SECRET|SERVICE_ROLE|PRIVATE|PASSWORD|WEBHOOK|SK_)[A-Z0-9_]*
+
+  - id: baseleap-route-without-session-guard
+    message: Route handler has no requireSession() call. Every API route authenticates (webhooks and health are excluded by path). Confirm by reading the handler.
+    severity: WARNING
+    languages: [typescript]
+    paths:
+      include: ["src/app/api/**/route.ts"]
+      exclude: ["src/app/api/webhooks/**", "src/app/api/health/**"]
+    patterns:
+      - pattern: |
+          export async function $METHOD(...) { ... }
+      - metavariable-regex:
+          metavariable: $METHOD
+          regex: ^(GET|POST|PUT|PATCH|DELETE)$
+      - pattern-not: |
+          export async function $METHOD(...) { ... requireSession(...); ... }
+      - pattern-not: |
+          export async function $METHOD(...) { ... $S = await requireSession(...); ... }
+      - pattern-not: |
+          export async function $METHOD(...) { ... const $S = await requireSession(...); ... }
+
+  - id: baseleap-request-body-into-write
+    message: The raw request body is written to the database (mass assignment). Parse it with the generated strict Zod schema and write only contract fields.
+    severity: ERROR
+    languages: [typescript]
+    pattern-either:
+      - pattern: $C.from($T).insert(await $REQ.json())
+      - pattern: $C.from($T).update(await $REQ.json())
+      - pattern: $C.from($T).upsert(await $REQ.json())
+      - pattern: $C.from($T).insert({ ..., ...$BODY, ... })
+      - pattern: $C.from($T).update({ ..., ...$BODY, ... })
+
+  - id: baseleap-select-star
+    message: select('*') can leak internal columns into responses. Select explicit columns and map with toApi().
+    severity: WARNING
+    languages: [typescript]
+    pattern: $Q.select("*")
+    paths:
+      include: ["src/lib/server/**", "src/app/api/**"]
+
+  - id: baseleap-postmessage-wildcard
+    message: postMessage to '*' lets any embedding page read the message. Target the GHL origin from the security model.
+    severity: ERROR
+    languages: [typescript]
+    pattern: $W.postMessage($MSG, "*")
+
+  - id: baseleap-dangerously-set-inner-html
+    message: dangerouslySetInnerHTML renders raw HTML. Only allowed for sanitised, trusted content; confirm the source.
+    severity: WARNING
+    languages: [regex]
+    pattern-regex: dangerouslySetInnerHTML
+    paths:
+      include: ["src/**"]
+
+  - id: baseleap-cors-wildcard
+    message: Access-Control-Allow-Origin '*' on an app route. Same-origin by default; embed routes follow the frame-ancestors decision.
+    severity: ERROR
+    languages: [regex]
+    pattern-regex: Access-Control-Allow-Origin['"]?\s*[:,]\s*['"]\*['"]
+
+  - id: baseleap-eval
+    message: eval / new Function executes strings as code.
+    severity: ERROR
+    languages: [typescript]
+    pattern-either:
+      - pattern: eval(...)
+      - pattern: new Function(...)
+
+  - id: baseleap-insecure-random-token
+    message: Math.random() is not cryptographically secure. Use crypto.randomUUID() or crypto.getRandomValues() for tokens and ids.
+    severity: WARNING
+    languages: [typescript]
+    pattern: Math.random()
+    paths:
+      include: ["src/lib/server/**", "src/app/api/**"]
+
+  - id: baseleap-open-redirect
+    message: Redirect target comes from the request. Allow-list internal paths.
+    severity: WARNING
+    languages: [typescript]
+    mode: taint
+    pattern-sources:
+      - pattern: $REQ.nextUrl.searchParams.get(...)
+      - pattern: $SP.get("next")
+      - pattern: $SP.get("redirect")
+      - pattern: $SP.get("returnTo")
+    pattern-sinks:
+      - patterns:
+          - pattern-either:
+              - pattern-inside: redirect($URL, ...)
+              - pattern-inside: NextResponse.redirect($URL, ...)
+          - focus-metavariable: $URL
+
+  - id: baseleap-ssrf-fetch-from-request
+    message: An outgoing fetch URL comes from request data (SSRF). Use an allow-list of hosts.
+    severity: ERROR
+    languages: [typescript]
+    mode: taint
+    pattern-sources:
+      - pattern: await $REQ.json()
+      - pattern: $REQ.nextUrl.searchParams.get(...)
+      - pattern: await $REQ.formData()
+    pattern-sinks:
+      - patterns:
+          - pattern-inside: fetch($URL, ...)
+          - focus-metavariable: $URL

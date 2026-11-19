@@ -1,0 +1,114 @@
+openapi: 3.1.0
+info:
+  title: <Product> API
+  version: 1.0.0
+  license:
+    name: Proprietary
+    identifier: LicenseRef-Proprietary
+  description: Contract for <Product>. Single source of truth for bl-frontend and bl-backend. Locked at Gate 2.
+servers:
+  - url: /api
+security:
+  - bearerAuth: []
+tags:
+  - name: Bookings
+    description: Create, list and cancel bookings
+paths:
+  /bookings:
+    get:
+      operationId: listBookings
+      summary: List the signed-in user's bookings, newest first
+      tags: [Bookings]
+      x-stories: [US-002]
+      parameters:
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: A page of bookings
+          content:
+            application/json:
+              schema:
+                type: object
+                required: [data, next_cursor]
+                properties:
+                  data:
+                    type: array
+                    items: { $ref: '#/components/schemas/Booking' }
+                  next_cursor: { type: [string, 'null'] }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+    post:
+      operationId: createBooking
+      summary: Book an open slot
+      tags: [Bookings]
+      x-stories: [US-003]
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema: { $ref: '#/components/schemas/BookingCreate' }
+            example: { slot_id: 6f1c2a9e-6c1d-4f0e-9a43-2a1f0c3b9d10 }
+      responses:
+        '201':
+          description: Booked
+          content:
+            application/json:
+              schema: { $ref: '#/components/schemas/Booking' }
+        '401': { $ref: '#/components/responses/Unauthorized' }
+        '409': { $ref: '#/components/responses/Conflict' }
+        '422': { $ref: '#/components/responses/ValidationError' }
+components:
+  securitySchemes:
+    bearerAuth: { type: http, scheme: bearer, bearerFormat: JWT }
+  parameters:
+    Cursor:
+      name: cursor
+      in: query
+      schema: { type: string }
+      description: Opaque cursor from the previous page's next_cursor
+    Limit:
+      name: limit
+      in: query
+      schema: { type: integer, minimum: 1, maximum: 100, default: 20 }
+  schemas:
+    Booking:
+      type: object
+      additionalProperties: false
+      required: [id, slot_id, status, created_at]
+      properties:
+        id: { type: string, format: uuid }
+        slot_id: { type: string, format: uuid }
+        status: { type: string, enum: [confirmed, cancelled] }
+        created_at: { type: string, format: date-time }
+    BookingCreate:
+      type: object
+      additionalProperties: false
+      required: [slot_id]
+      properties:
+        slot_id: { type: string, format: uuid }
+    Problem:
+      type: object
+      required: [type, title, status]
+      properties:
+        type: { type: string, format: uri-reference }
+        title: { type: string }
+        status: { type: integer }
+        detail: { type: string }
+        errors:
+          type: array
+          items:
+            type: object
+            required: [field, message]
+            properties:
+              field: { type: string }
+              message: { type: string }
+  responses:
+    Unauthorized:
+      description: No valid session
+      content: { application/problem+json: { schema: { $ref: '#/components/schemas/Problem' } } }
+    Conflict:
+      description: The resource changed (e.g. slot already taken)
+      content: { application/problem+json: { schema: { $ref: '#/components/schemas/Problem' } } }
+    ValidationError:
+      description: Request failed validation
+      content: { application/problem+json: { schema: { $ref: '#/components/schemas/Problem' } } }

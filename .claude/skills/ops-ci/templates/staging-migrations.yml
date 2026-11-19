@@ -1,0 +1,95 @@
+# .github/workflows/staging-migrations.yml (owned by bl-devops). Verified on the DevOps sandbox, Nov 18 2026.
+# Applies supabase/migrations/** to the STAGING Supabase project when they change on `staging`.
+# Production gets its migrations only from release.yml, after Gate 3. This workflow reads only the staging
+# environment, and it refuses to run if the target looks like production.
+# The first run on an empty project applies every migration in order (the path trigger on this file covers first setup:
+# workflow_dispatch only works once the workflow is on the default branch).
+#
+# Needs in the GitHub `staging` environment (see ops-environments/templates/account-setup.md, Part 2):
+#   secret   SUPABASE_STAGING_DB_URL   session-pooler connection string, password filled in (never a Supabase access token)
+#   variable SUPABASE_STAGING_REF      staging project ref
+#   variable SUPABASE_PRODUCTION_REF_PUBLIC (repo or env) and PRODUCTION_HOSTS, for the refusal checks
+name: staging-migrations
+
+on:
+  push:
+    branches: [staging]
+    paths: ["supabase/migrations/**", ".github/workflows/staging-migrations.yml"]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: staging-migrations
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash # adds pipefail
+
+jobs:
+  migrate:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 15
+    environment: staging
+    env:
+      SUPABASE_PROJECT_REF: ${{ vars.SUPABASE_STAGING_REF }}
+      PRODUCTION_REF_PUBLIC: ${{ vars.SUPABASE_PRODUCTION_REF_PUBLIC }}
+      PRODUCTION_HOSTS: ${{ vars.PRODUCTION_HOSTS }}
+    steps:
+      - name: Refuse to target production
+        run: |
+          if [ -z "$SUPABASE_PROJECT_REF" ]; then
+            echo "::error::GitHub variable SUPABASE_STAGING_REF is not set in the staging environment."; exit 1
+          fi
+          if [ -n "$PRODUCTION_REF_PUBLIC" ] && [ "$SUPABASE_PROJECT_REF" = "$PRODUCTION_REF_PUBLIC" ]; then
+            echo "::error::SUPABASE_STAGING_REF equals the production project ref."; exit 1
+          fi
+          for p in $PRODUCTION_HOSTS; do
+            case "$p" in
+              *"$SUPABASE_PROJECT_REF"*) echo "::error::SUPABASE_STAGING_REF appears in PRODUCTION_HOSTS."; exit 1 ;;
+            esac
+          done
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+          cache: npm
+      - run: npm ci # lockfile-exact; no secrets in this step
+      # No Supabase access token here: a personal access token reaches every org and project the owner belongs to
+      # (Supabase tokens can't be limited to one org). The staging database's own connection string reaches that one
+      # database only. The URL is a secret; GitHub masks it in logs.
+      # Diagnostic: prints the SHAPE of the URL only (user, host, password length, character classes), never the
+      # password. Use it when auth fails: on the sandbox the URL was fine and the password had not been saved
+      # (Supabase "Generate" only fills the box; "Reset password" saves it).
+      - name: Shape of the staging connection string (no values printed)
+        env:
+          U: ${{ secrets.SUPABASE_STAGING_DB_URL }}
+        run: |
+          rest="${U#postgresql://}"; up="${rest%%@*}"; host="${rest#*@}"; user="${up%%:*}"; pass="${up#*:}"
+          alnum=no; [[ "$pass" =~ ^[A-Za-z0-9]+$ ]] && alnum=yes
+          ws=no; [[ "$U" =~ [[:space:]] ]] && ws=yes
+          br=no; [[ "$pass" == *"["* || "$pass" == *"]"* ]] && br=yes
+          echo "scheme_ok=$([[ "$U" == postgresql://* ]] && echo yes || echo no) user=$user host=${host%%/*} pass_len=${#pass} pass_letters_digits_only=$alnum whitespace_anywhere=$ws brackets_in_password=$br at_signs=$(tr -cd '@' <<<"$U" | wc -c)"
+      - name: Migrations (dry run, then apply) — staging database only
+        env:
+          SUPABASE_STAGING_DB_URL: ${{ secrets.SUPABASE_STAGING_DB_URL }}
+        run: |
+          case "$SUPABASE_STAGING_DB_URL" in
+            "") echo "::error::Secret SUPABASE_STAGING_DB_URL is not set in the staging environment."; exit 1 ;;
+            *"$SUPABASE_PROJECT_REF"*) ;;
+            *) echo "::error::SUPABASE_STAGING_DB_URL is not for project $SUPABASE_PROJECT_REF."; exit 1 ;;
+          esac
+          if [ -n "$PRODUCTION_REF_PUBLIC" ]; then
+            case "$SUPABASE_STAGING_DB_URL" in *"$PRODUCTION_REF_PUBLIC"*) echo "::error::SUPABASE_STAGING_DB_URL points at the production project."; exit 1 ;; esac
+          fi
+          {
+            echo '### Staging migrations: dry run'
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
+          npx --no-install supabase db push --remote="$SUPABASE_STAGING_DB_URL" --dry-run 2>&1 | sed '/postgresql:\/\//d' | tee -a "$GITHUB_STEP_SUMMARY"
+          echo '```' >> "$GITHUB_STEP_SUMMARY"
+          npx --no-install supabase db push --remote="$SUPABASE_STAGING_DB_URL" --yes 2>&1 | sed '/postgresql:\/\//d'

@@ -1,0 +1,8 @@
+name: bad
+on: push
+permissions:
+  contents: read
+jobs:
+  call:
+    uses: ./.github/workflows/other.yml
+    secrets: inherit

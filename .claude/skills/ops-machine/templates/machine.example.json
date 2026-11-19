@@ -1,0 +1,11 @@
+{
+  "machine_id": "<set at install, e.g. mini-pc-01>",
+  "operator": "<who approves on this machine>",
+  "client_id": "<Baseleap client id, or 'baseleap' for our own>",
+  "teams": ["dev"],
+  "timezone": "America/Toronto",
+  "kit_channel": "stable",
+  "kit_source": "<absolute path to a kit git bundle, or an https/ssh git URL (no credentials in it)>",
+  "kit_ref": "<kit tag or commit to run; with channel 'edge' it may be a branch>",
+  "heartbeat_url": "<Baseleap Needs-you endpoint, https://..., or empty to disable>"
+}

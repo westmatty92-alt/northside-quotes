@@ -1,0 +1,104 @@
+# .github/workflows/ci.yml: TEMPLATE (owned by bl-devops). Pin actions to full SHAs in the build session.
+name: ci
+
+on:
+  push:
+    branches: [staging, "lane/**"]
+  pull_request:
+    branches: [staging, main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  NEXT_PUBLIC_SUPABASE_URL: https://ci-placeholder.supabase.co
+  NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-placeholder-anon-key
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm test -- --project unit
+      - name: Generated code matches the contract and DESIGN.md
+        run: |
+          npm run gen:api
+          npm run gen:theme
+          git diff --exit-code -- src/lib/api/generated src/app/theme.css docs/tokens.json
+      - run: npm run build
+
+  api-tests:
+    # Backend integration tests against the staging Supabase branch. Skipped for PRs from forks (no secrets).
+    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    environment: staging
+    env:
+      SUPABASE_STAGING_URL: ${{ secrets.SUPABASE_STAGING_URL }}
+      SUPABASE_STAGING_ANON_KEY: ${{ secrets.SUPABASE_STAGING_ANON_KEY }}
+      SUPABASE_STAGING_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_STAGING_SERVICE_ROLE_KEY }}
+      SUPABASE_PRODUCTION_REF: ${{ vars.SUPABASE_PRODUCTION_REF }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npm test -- --project api
+
+  security:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - run: scripts/install-scanners.sh "$RUNNER_TEMP/bin" && echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+      - name: Security scan (opengrep, gitleaks, osv-scanner, npm audit)
+        env:
+          BASE_REF: ${{ github.base_ref || 'main' }}
+        run: |
+          git fetch --no-tags origin "$BASE_REF"
+          scripts/security-scan.sh "origin/$BASE_REF" HEAD ci
+      - if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: security-scan
+          path: .baseleap/reviews/ci/
+          retention-days: 14
+
+  workflows:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+      - run: scripts/install-scanners.sh "$RUNNER_TEMP/bin" actionlint && "$RUNNER_TEMP/bin/actionlint" -color
+      # Policy beyond actionlint (template: ops-ci/templates/workflow-policy.mjs → scripts/): forbids pull_request_target /
+      # workflow_run, permissions write-all or workflow-level write, job write scopes outside the allow-list,
+      # secrets: inherit, and untrusted github.event.* expressions inside run:. Verified in the DevOps sandbox (Nov 2026).
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+      - name: Workflow policy
+        run: node scripts/workflow-policy.mjs
+      - name: Workflow policy tests
+        run: node --test tests/workflow-policy.test.mjs

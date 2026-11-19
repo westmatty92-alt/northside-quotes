@@ -1,0 +1,12 @@
+# policy-exception: labels PRs from forks; never checks out or runs PR code
+name: excepted
+on:
+  pull_request_target:
+    types: [opened]
+permissions:
+  contents: read
+jobs:
+  label:
+    runs-on: ubuntu-24.04
+    steps:
+      - run: echo labelled

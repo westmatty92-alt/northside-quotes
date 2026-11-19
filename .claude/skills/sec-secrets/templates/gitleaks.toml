@@ -1,0 +1,42 @@
+# .gitleaks.toml: Baseleap secret-scanning config (owned by bl-security). Extends Gitleaks' default rules
+# (which already cover Stripe, GitHub, AWS, generic JWTs, private keys …) with stack-specific patterns.
+title = "Baseleap gitleaks config"
+
+[extend]
+useDefault = true
+
+[[rules]]
+id = "supabase-secret-key"
+description = "Supabase secret API key"
+regex = '''\bsb_secret_[A-Za-z0-9_-]{20,}'''
+keywords = ["sb_secret_"]
+
+[[rules]]
+id = "supabase-service-role-assignment"
+description = "Supabase service-role key assigned in code or config"
+regex = '''(?i)service_role[_a-z]*\s*[:=]\s*['"]?(eyJ[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,}\.[A-Za-z0-9_-]{10,})'''
+secretGroup = 1
+keywords = ["service_role"]
+
+[[rules]]
+id = "ghl-private-integration-token"
+description = "GoHighLevel private integration token"
+regex = '''\bpit-[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}\b'''
+keywords = ["pit-"]
+
+[[rules]]
+id = "postgres-connection-string-with-password"
+description = "Postgres connection string with an inline password"
+regex = '''postgres(?:ql)?://[^:\s/]+:([^@\s]{6,})@[^\s'"]+'''
+secretGroup = 1
+keywords = ["postgres://", "postgresql://"]
+
+[allowlist]
+description = "Placeholders and generated reports"
+paths = [
+  '''\.env\.example$''',
+  '''(^|/)\.baseleap/reviews/.*\.json$''',
+]
+regexes = [
+  '''(?i)(your|example|placeholder|changeme|xxx+)[-_a-z0-9]*''',
+]

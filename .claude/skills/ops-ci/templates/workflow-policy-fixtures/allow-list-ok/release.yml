@@ -1,0 +1,15 @@
+name: release
+on:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  release:
+    runs-on: ubuntu-24.04
+    permissions:
+      contents: read
+      deployments: write
+      id-token: write
+    steps:
+      - run: echo hi

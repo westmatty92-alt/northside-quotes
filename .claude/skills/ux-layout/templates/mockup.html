@@ -1,0 +1,36 @@
+<!doctype html>
+<!-- SCR-NN · <Screen name> · Stories: US-NNN · State: primary -->
+<!-- Rules: tokens only (var(--…) from ./tokens.css, which scripts/render-mockups.mjs generates from src/app/theme.css);
+     no raw hex or rgb(); fonts only from DESIGN.md (use var(--font-…)); no network requests; no lorem ipsum.
+     Variable names are the design.md css-tailwind export's: --color-*, --font-*, --text-*, --font-weight-*, --radius-*, --spacing-*.
+     One file per screen: SCR-NN-<name>.html; extra states as SCR-NN-<name>--<state>.html. -->
+<html lang="en-CA">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SCR-NN · Screen name</title>
+  <link rel="stylesheet" href="./tokens.css">
+  <style>
+    body { margin: 0; background: var(--color-surface); color: var(--color-text); font-family: var(--font-body), system-ui, -apple-system, sans-serif; }
+    h1, h2 { font-family: var(--font-h1), system-ui, sans-serif; font-weight: var(--font-weight-h1); }
+    .page { max-width: 1120px; margin: 0 auto; padding: var(--spacing-lg); }
+    .header { display: flex; justify-content: space-between; align-items: center; gap: var(--spacing-md); margin-bottom: var(--spacing-lg); }
+    .card { background: var(--color-surface-raised); border-radius: var(--radius-lg); padding: var(--spacing-lg); }
+    .btn-primary { background: var(--color-accent); color: var(--color-on-accent); border: 0; border-radius: var(--radius-md); min-height: 44px; padding: 0 var(--spacing-md); font: inherit; font-weight: 600; }
+    .btn-primary:focus-visible { outline: 3px solid var(--color-focus); outline-offset: 2px; }
+    @media (max-width: 639px) { .page { padding: var(--spacing-md); } .header { flex-direction: column; align-items: stretch; } }
+  </style>
+</head>
+<body>
+  <main class="page">
+    <header class="header">
+      <h1>Bookings</h1>
+      <button class="btn-primary" type="button">Book an appointment</button>
+    </header>
+    <section class="card" aria-labelledby="upcoming">
+      <h2 id="upcoming">Upcoming</h2>
+      <!-- Realistic content from the PRD/research — never lorem ipsum -->
+    </section>
+  </main>
+</body>
+</html>

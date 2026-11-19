@@ -1,0 +1,30 @@
+{
+  "$comment": "infra/environments.json: TEMPLATE (owned by bl-devops). Names and rules only, never values. Values are set by Matthew in Vercel / GitHub.",
+  "project": "REPLACE-client-app",
+  "environments": {
+    "production": { "branch": "main", "vercel": "production", "supabase": "REPLACE-production-project-ref", "url": "https://REPLACE-app.client.com" },
+    "staging": { "branch": "staging", "vercel": "preview", "supabase": "REPLACE-staging-branch-ref", "url": "REPLACE-staging-branch-url" },
+    "lane-frontend": { "branch": "lane/frontend", "vercel": "preview", "supabase": null },
+    "lane-backend": { "branch": "lane/backend", "vercel": "preview", "supabase": "REPLACE-staging-branch-ref" }
+  },
+  "variables": [
+    { "name": "NEXT_PUBLIC_SUPABASE_URL", "public": true, "production": "required", "preview": "required", "setBy": "matthew" },
+    { "name": "NEXT_PUBLIC_SUPABASE_ANON_KEY", "public": true, "production": "required", "preview": "required", "setBy": "matthew" },
+    { "name": "SUPABASE_SERVICE_ROLE_KEY", "sensitive": true, "production": "required", "preview": "required", "branches": { "lane/frontend": "absent" }, "setBy": "matthew" },
+    { "name": "NEXT_PUBLIC_API_MOCKING", "public": true, "production": "absent", "preview": "absent", "branches": { "lane/frontend": "required" }, "value": "on", "setBy": "devops" },
+    { "name": "GHL_PRIVATE_INTEGRATION_TOKEN", "sensitive": true, "production": "required", "preview": "required", "note": "sandbox location on preview", "setBy": "matthew" },
+    { "name": "CRON_SECRET", "sensitive": true, "production": "required", "preview": "optional", "setBy": "matthew" }
+  ],
+  "github": {
+    "staging": {
+      "secrets": ["SUPABASE_STAGING_URL", "SUPABASE_STAGING_ANON_KEY", "SUPABASE_STAGING_SERVICE_ROLE_KEY", "VERCEL_AUTOMATION_BYPASS_SECRET"],
+      "variables": ["PRODUCTION_HOSTS", "SUPABASE_PRODUCTION_REF"]
+    },
+    "production": {
+      "secrets": ["VERCEL_TOKEN", "SUPABASE_ACCESS_TOKEN", "SUPABASE_DB_PASSWORD"],
+      "variables": ["VERCEL_ORG_ID", "VERCEL_PROJECT_ID", "SUPABASE_PRODUCTION_REF", "PRODUCTION_URL"],
+      "requiredReviewers": ["matthew"]
+    }
+  },
+  "smokePaths": ["/", "/api/health"]
+}

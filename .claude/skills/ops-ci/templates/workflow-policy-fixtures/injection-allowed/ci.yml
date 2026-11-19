@@ -1,0 +1,12 @@
+name: ok
+on: deployment_status
+permissions:
+  contents: read
+jobs:
+  build:
+    runs-on: ubuntu-24.04
+    steps:
+      - run: echo "${{ github.event.deployment.sha }} ${{ github.event.deployment.environment }} ${{ github.event.deployment_status.state }}"
+      - env:
+          TITLE: ${{ github.event.pull_request.title }}
+        run: echo "$TITLE"

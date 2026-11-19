@@ -1,0 +1,237 @@
+# .github/workflows/release.yml: TEMPLATE (owned by bl-devops). The ONLY path to production. Verified end to end in the
+# DevOps sandbox (Nov 2026): release run 43993698910 and rollback drill run 44213878230 passed with this file.
+# APPROVAL MODE (pick per project, ops-release §2): public practice repo = GitHub required reviewer on the
+# `production` environment (as below); private client repo before the Console approval exists = Matthew-only
+# workflow_dispatch (refuse any other github.actor); later = verify the Console's signed approval for this commit.
+#
+# Flow: push to main (a merged staging -> main PR, after Gate 3)
+#   -> the job waits for Matthew's approval (GitHub `production` environment, required reviewer)
+#   -> drift check (names only) -> record the restore point (production deployment live now)
+#   -> migrations (dry run, then apply) -> prebuilt deploy WITHOUT domain assignment -> explicit promote
+#   -> read-only smoke (health must report THIS commit)
+#   -> on failure: roll back to the RECORDED deployment, then smoke must report the previous commit.
+# Vercel's own Git deploys of `main` are switched off in vercel.json, so nothing else deploys production.
+#
+# Why explicit promote: after an Instant Rollback in the dashboard, Vercel stops auto-assigning the production
+# domains to new production deployments until one is promoted. Deploy + promote works in both states.
+# The CLI is used only to pull, build and deploy, with --token and NO --scope (the project is linked from
+# VERCEL_ORG_ID + VERCEL_PROJECT_ID; the team-scoped token cannot read a user, which --scope would look up).
+# Promote and rollback use the Vercel REST API with ?teamId=, like the restore-point step. A rollback is the same
+# promote call with the recorded restore deployment id.
+#
+# CLI flags verified against vercel@65.16.0 --help (2026-11-17): -t/--token, deploy --prebuilt --prod --skip-domain.
+#   REST endpoints used: GET /v13/deployments/{host|id}, POST /v10/projects/{project}/promote/{deploymentId}.
+#
+# PINNING: `PIN-ME-*` refs and VERCEL_CLI_VERSION are deliberate placeholders; they fail loudly until
+# docs/ops/pin-actions.md has been run. Secrets are passed only to the steps that need them (never to `npm ci`).
+name: release
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-production
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash # adds pipefail
+
+env:
+  VERCEL_CLI_VERSION: "65.16.0" # exact x.y.z of the `vercel` CLI, see docs/ops/pin-actions.md
+
+jobs:
+  release:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    environment:
+      name: production
+      url: ${{ steps.deploy.outputs.url }}
+    env:
+      VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID }}
+      SUPABASE_PROJECT_REF: ${{ vars.SUPABASE_PRODUCTION_REF }}
+      PRODUCTION_URL: ${{ vars.PRODUCTION_URL }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version: 22
+          cache: npm
+
+      - name: Configuration is complete
+        run: |
+          : "${VERCEL_ORG_ID:?GitHub variable VERCEL_ORG_ID is not set in the production environment}"
+          : "${VERCEL_PROJECT_ID:?GitHub variable VERCEL_PROJECT_ID is not set in the production environment}"
+          : "${SUPABASE_PROJECT_REF:?GitHub variable SUPABASE_PRODUCTION_REF is not set in the production environment}"
+          : "${PRODUCTION_URL:?GitHub repository variable PRODUCTION_URL is not set}"
+          if ! [[ "$VERCEL_CLI_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::VERCEL_CLI_VERSION is not pinned to an exact version (docs/ops/pin-actions.md)."; exit 1
+          fi
+
+      - run: npm ci # lockfile-exact; no secrets in this step
+      - run: npm install --global "vercel@${VERCEL_CLI_VERSION}"
+
+      - name: Environment drift check (names only, nothing decrypted)
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_TEAM_ID: ${{ vars.VERCEL_ORG_ID }}
+        run: node scripts/env-check.mjs --vercel
+
+      - name: Record the restore point (production deployment live right now)
+        id: restore
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          # Metadata only (id, url, commit); no env values are read. No restore point = no release.
+          host="${PRODUCTION_URL#https://}"
+          host="${host#http://}"
+          host="${host%%/*}"
+          if ! curl --silent --show-error --fail-with-body --max-time 30 \
+            --header "Authorization: Bearer ${VERCEL_TOKEN}" \
+            --output "$RUNNER_TEMP/restore.json" \
+            "https://api.vercel.com/v13/deployments/${host}?teamId=${VERCEL_ORG_ID}"; then
+            echo "::error::Could not read the current production deployment of ${host}; refusing to release without a restore point."
+            exit 1
+          fi
+          RESTORE_FILE="$RUNNER_TEMP/restore.json" node - <<'NODE'
+            const fs = require("fs");
+            const d = JSON.parse(fs.readFileSync(process.env.RESTORE_FILE, "utf8"));
+            const ok = (v, re) => typeof v === "string" && re.test(v);
+            if (!ok(d.id, /^dpl_[A-Za-z0-9]+$/) || !ok(d.url, /^[A-Za-z0-9.-]+$/)) {
+              console.error("::error::Unexpected deployment metadata; refusing to release without a restore point.");
+              process.exit(1);
+            }
+            const sha = d.meta && ok(d.meta.githubCommitSha, /^[0-9a-f]{40}$/) ? d.meta.githubCommitSha : "";
+            fs.appendFileSync(process.env.GITHUB_OUTPUT, `id=${d.id}\nurl=${d.url}\nsha=${sha}\n`);
+          NODE
+
+      - name: Migrations (dry run, then apply)
+        env:
+          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
+          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+        run: |
+          npx --no-install supabase link --project-ref "$SUPABASE_PROJECT_REF"
+          npx --no-install supabase db push --remote="$SUPABASE_PROJECT_REF" --dry-run 2>&1 | tee "$RUNNER_TEMP/migrations-dry-run.txt"
+          npx --no-install supabase db push --remote="$SUPABASE_PROJECT_REF" --yes
+
+      - name: Pull production settings, build, and deploy the prebuilt output (not yet live)
+        id: deploy
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          vercel pull --yes --environment=production --token="$VERCEL_TOKEN"
+          # The build runs without the token: it only needs the pulled project settings.
+          env -u VERCEL_TOKEN vercel build --prod
+          # --skip-domain: create the production deployment without assigning the domains; promoted next.
+          url=$(vercel deploy --prebuilt --prod --skip-domain --token="$VERCEL_TOKEN")
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+
+      - name: Promote the new deployment to production (REST API)
+        id: promote
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          DEPLOY_URL: ${{ steps.deploy.outputs.url }}
+        run: |
+          host="${DEPLOY_URL#https://}"
+          host="${host#http://}"
+          host="${host%%/*}"
+          if ! [[ "$host" =~ ^[A-Za-z0-9.-]+$ ]]; then
+            echo "::error::Unexpected deployment address from vercel deploy."; exit 1
+          fi
+          if ! curl --silent --show-error --fail-with-body --max-time 60 \
+            --header "Authorization: Bearer ${VERCEL_TOKEN}" \
+            --output "$RUNNER_TEMP/new-deployment.json" \
+            --write-out 'lookup HTTP %{http_code}\n' \
+            "https://api.vercel.com/v13/deployments/${host}?teamId=${VERCEL_ORG_ID}"; then
+            echo "::error::Could not read the new deployment ${host}:"; cat "$RUNNER_TEMP/new-deployment.json"; echo; exit 1
+          fi
+          id=$(node -e 'const d=JSON.parse(require("fs").readFileSync(process.argv[1],"utf8")); process.stdout.write(typeof d.id==="string"?d.id:"")' "$RUNNER_TEMP/new-deployment.json")
+          if ! [[ "$id" =~ ^dpl_[A-Za-z0-9]+$ ]]; then
+            echo "::error::Unexpected deployment id for ${host}."; exit 1
+          fi
+          echo "id=$id" >> "$GITHUB_OUTPUT"
+          if ! curl --silent --show-error --fail-with-body --max-time 60 \
+            --request POST \
+            --header "Authorization: Bearer ${VERCEL_TOKEN}" \
+            --output "$RUNNER_TEMP/promote.json" \
+            --write-out 'promote HTTP %{http_code}\n' \
+            "https://api.vercel.com/v10/projects/${VERCEL_PROJECT_ID}/promote/${id}?teamId=${VERCEL_ORG_ID}"; then
+            echo "::error::Promote failed:"; cat "$RUNNER_TEMP/promote.json"; echo; exit 1
+          fi
+          echo "Promoted ${id} (${host})."
+
+      - name: Smoke check (read-only; health must report this commit)
+        id: smoke
+        env:
+          EXPECTED_SHA: ${{ github.sha }}
+        run: node scripts/smoke.mjs "$PRODUCTION_URL" "$EXPECTED_SHA"
+
+      - name: Roll back to the recorded deployment
+        id: rollback
+        if: failure() && steps.deploy.outcome == 'success' && (steps.promote.outcome == 'failure' || steps.smoke.outcome == 'failure')
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          RESTORE_ID: ${{ steps.restore.outputs.id }}
+        run: |
+          # Restore the KNOWN deployment recorded before this release, never "whatever was before".
+          if ! [[ "$RESTORE_ID" =~ ^dpl_[A-Za-z0-9]+$ ]]; then
+            echo "::error::No valid recorded deployment id to restore."; exit 1
+          fi
+          if ! curl --silent --show-error --fail-with-body --max-time 60 \
+            --request POST \
+            --header "Authorization: Bearer ${VERCEL_TOKEN}" \
+            --output "$RUNNER_TEMP/rollback.json" \
+            --write-out 'rollback HTTP %{http_code}\n' \
+            "https://api.vercel.com/v10/projects/${VERCEL_PROJECT_ID}/promote/${RESTORE_ID}?teamId=${VERCEL_ORG_ID}"; then
+            echo "::error::Rollback (promote of the recorded deployment) failed:"; cat "$RUNNER_TEMP/rollback.json"; echo; exit 1
+          fi
+          echo "::error::Release failed (promotion error, wrong or missing version, or a smoke path not 200): production restored to the recorded deployment. Migrations stay applied (expand/contract)."
+
+      - name: Smoke check after rollback (informational; must report the previous commit)
+        id: smoke_after
+        if: always() && steps.rollback.outcome == 'success'
+        continue-on-error: true
+        env:
+          PREVIOUS_SHA: ${{ steps.restore.outputs.sha }}
+        run: |
+          if [ -n "$PREVIOUS_SHA" ]; then
+            node scripts/smoke.mjs "$PRODUCTION_URL" "$PREVIOUS_SHA"
+          else
+            echo "::warning::Restore point has no commit metadata; checking paths only."
+            node scripts/smoke.mjs "$PRODUCTION_URL"
+          fi
+
+      - name: Release summary
+        if: always()
+        env:
+          DEPLOY_URL: ${{ steps.deploy.outputs.url }}
+          RESTORE_ID: ${{ steps.restore.outputs.id }}
+          RESTORE_URL: ${{ steps.restore.outputs.url }}
+          RESTORE_SHA: ${{ steps.restore.outputs.sha }}
+          PROMOTE: ${{ steps.promote.outcome }}
+          SMOKE: ${{ steps.smoke.outcome }}
+          ROLLBACK: ${{ steps.rollback.outcome }}
+          SMOKE_AFTER: ${{ steps.smoke_after.outcome }}
+        run: |
+          {
+            echo "### Release ${GITHUB_SHA::7}"
+            echo "- Restore point: ${RESTORE_URL:-not recorded} (${RESTORE_ID:-no id}, commit ${RESTORE_SHA:0:7})"
+            echo "- New deployment: ${DEPLOY_URL:-not deployed}"
+            echo "- Promoted to production: ${PROMOTE:-skipped}"
+            echo "- Smoke: ${SMOKE:-skipped}"
+            echo "- Rollback to the recorded deployment: ${ROLLBACK:-skipped} (smoke on the previous commit afterwards: ${SMOKE_AFTER:-skipped})"
+            echo "- Manual rollback: Vercel dashboard > Deployments > last good production deployment > Instant Rollback; the next release promotes explicitly"
+            if [ -f "$RUNNER_TEMP/migrations-dry-run.txt" ]; then
+              echo "- Migrations dry run:"
+              echo '```'
+              cat "$RUNNER_TEMP/migrations-dry-run.txt"
+              echo '```'
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
