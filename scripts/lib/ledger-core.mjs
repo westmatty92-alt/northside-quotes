@@ -115,6 +115,13 @@ function git(cwd, args) {
   return r.status === 0 ? r.stdout.trim() : null;
 }
 
+/** `git status --porcelain` paths. Never trimmed: the first line can start with a space (" M file"). */
+function porcelainPaths(cwd) {
+  const r = spawnSync('git', ['status', '--porcelain', '--untracked-files=all'], { cwd, encoding: 'utf8' });
+  if (r.status !== 0) return null;
+  return r.stdout.split('\n').filter((l) => l.length > 3).map((l) => l.slice(3).replace(/^"|"$/g, '').split(' -> ').pop());
+}
+
 /**
  * Files changed by a step: every file in commits "STEP <id>: …" since the step's base commit, plus, in a
  * lane worktree (one agent per lane), anything uncommitted. Returns null if the checkout isn't a git repo.
@@ -126,7 +133,7 @@ export function stepChangedFiles(cwd, base, localId) {
   const files = new Set();
   for (const sha of shas) for (const f of (git(cwd, ['show', '--name-only', '--format=', sha]) ?? '').split('\n').filter(Boolean)) files.add(f);
   if (/-wt-[a-z0-9-]+$/.test(path.basename(cwd))) {
-    for (const line of (git(cwd, ['status', '--porcelain', '--untracked-files=all']) ?? '').split('\n').filter(Boolean)) files.add(line.slice(3).replace(/^"|"$/g, '').split(' -> ').pop());
+    for (const f of porcelainPaths(cwd) ?? []) files.add(f);
   }
   return [...files];
 }
@@ -140,9 +147,8 @@ export function stepChangedFiles(cwd, base, localId) {
 export async function commitStep(db, planId, localId) {
   const step = await findStep(db, planId, localId);
   const cwd = step.manifest.checkout ?? stepCheckout(repoRoot(), step.agent);
-  const status = git(cwd, ['status', '--porcelain', '--untracked-files=all']);
-  if (status === null) throw new LedgerError(`not a git checkout: ${cwd}`, 4);
-  const changed = status.split('\n').filter(Boolean).map((l) => l.slice(3).replace(/^"|"$/g, '').split(' -> ').pop());
+  const changed = porcelainPaths(cwd);
+  if (changed === null) throw new LedgerError(`not a git checkout: ${cwd}`, 4);
   const mine = changed.filter((f) => ownedBy(step, f) || f.startsWith(`.baseleap/reports/${localId}`));
   const left = changed.filter((f) => !mine.includes(f));
   if (!mine.length) return { committed: [], left_uncommitted: left };
