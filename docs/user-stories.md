@@ -5,6 +5,8 @@ Tags: `[happy]` main path · `[edge]` boundary or unusual input · `[error]` fai
 
 Conventions used in the criteria:
 - "Inbox" is the sign-in-only page where the owner and helper see requests. "Request page" is the public Request a quote page.
+- The inbox has two views: "List" (the newest-first list, the view it opens in) and "Board" (columns New, Quoted, Won, Lost; US-016). Unless a story says "Board", "the inbox" means the List view.
+- GoHighLevel stage tags are `quote-new`, `quote-quoted`, `quote-won` and `quote-lost`; `quote-request` marks every contact the app created (US-009, US-017).
 - All times shown to people are in America/Toronto (Hamilton) time.
 - A "week" is Monday 00:00:00 to Sunday 23:59:59 America/Toronto.
 - 5 MB means 5,242,880 bytes.
@@ -32,7 +34,7 @@ As a homeowner, I want to describe my plumbing problem on one page and get a ref
 - **AC-001.12** [nfr] Given any request is submitted, when it is stored, then no email and no SMS is sent to anyone and no call is made to any email or SMS service.
 - **AC-001.13** [nfr] Given the staging project, when its region is inspected, then the database that holds the request is in ca-central-1.
 
-**Notes:** Field limits: name 2–100 characters; phone 10 digits after removing spaces, dashes, brackets and an optional leading +1; email valid format, up to 254 characters; address 5–200 characters; problem 10–2,000 characters; urgency is one of three options (Emergency, Soon, Flexible) with none preselected. The page shows one line of text: "Northside will use these details only to reply to your quote request." (wording pending OQ-10). Urgency labels: Emergency = "Emergency: active leak or no water, need someone today"; Soon = "Soon: within the next few days"; Flexible = "Flexible: within the next two weeks, no rush".
+**Notes:** Field limits: name 2–100 characters; phone 10 digits after removing spaces, dashes, brackets and an optional leading +1; email valid format, up to 254 characters; address 5–200 characters; problem 10–2,000 characters; urgency is one of three options (Emergency, Soon, Flexible) with none preselected. The page shows one line of text: "Northside will use these details only to reply to your quote request." (wording decided as OQ-10A; checked again before any real client). Urgency labels: Emergency = "Emergency: active leak or no water, need someone today"; Soon = "Soon: within the next few days"; Flexible = "Flexible: within the next two weeks, no rush".
 **Out of scope:** photo handling (US-002), spam checks (US-003), homeowner status lookup (Non-goal NG-3), service-area check (NG-8).
 
 ---
@@ -71,7 +73,7 @@ As the owner, I want junk submissions blocked without making homeowners solve a 
 - **AC-003.5** [error] Given the rate-limit counter cannot be read, when a valid submission arrives, then it is accepted and stored, and the honeypot and 3-second checks still apply.
 - **AC-003.6** [nfr] Given the Request page is loaded, when its network requests are listed, then there are 0 requests to any CAPTCHA or bot-detection vendor.
 
-**Notes:** Thresholds (honeypot, 3 seconds, 5 per 10 minutes per network address) are proposed defaults pending OQ-1. Every refusal records a `spam_submission_blocked` event.
+**Notes:** Thresholds (honeypot, 3 seconds, 5 per 10 minutes per network address) are decided defaults (OQ-1A). Every refusal records a `spam_submission_blocked` event.
 **Out of scope:** CAPTCHA or any challenge vendor (NG-2), blocking by country, reviewing blocked submissions.
 
 ---
@@ -113,7 +115,7 @@ As the owner, I want one inbox that lists every quote request with its photos, n
 - **AC-005.8** [nfr] Given 50 requests, when the owner opens the inbox on a desktop broadband connection, then the list is visible within 2 seconds.
 - **AC-005.9** [nfr] Given a 375 px wide phone screen, when the owner opens the inbox and a request, then no horizontal scrolling is needed.
 
-**Notes:** The list order is by submitted time only; changing status or price never moves a request. The owner replies to homeowners outside the app, by calling or texting the number shown.
+**Notes:** The list order is by submitted time only; changing status or price never moves a request. The owner replies to homeowners outside the app, by calling or texting the number shown. The inbox opens in the List view; the Board view is US-016 (OQ-14A).
 **Out of scope:** in-app messaging or email to the homeowner (NG-1), deleting or archiving requests (NG-7).
 
 ---
@@ -151,7 +153,7 @@ As the owner, I want to mark a request New, Quoted, Won or Lost, so that I can s
 - **AC-007.6** [error] Given the network drops while saving a status, when the save fails, then the request still shows its previous status with "Couldn't save. Try again." and nothing is stored.
 - **AC-007.7** [nfr] Given any status change, when it is stored, then the record holds the previous status, the new status, the time, and which signed-in user made it.
 
-**Notes:** Any status can be changed to any other status, because mistakes happen. New requests start as New. Concurrent edits follow the rule in AC-006.5.
+**Notes:** Any status can be changed to any other status, because mistakes happen. New requests start as New. Concurrent edits follow the rule in AC-006.5. These criteria describe changing status from the List view; dragging a card on the Board has the same rules and effects (US-016), and every real status change also updates the GoHighLevel stage tag when US-017 is built.
 **Out of scope:** automatic status changes, assignment to a user, reminders.
 
 ---
@@ -186,13 +188,13 @@ As the owner, I want every new request to also appear in my GoHighLevel as a tag
 - **AC-009.2** [error] Given GoHighLevel returns a server error, when a request is submitted, then the request is stored, the homeowner sees the confirmation, and the copy is marked as waiting to retry.
 - **AC-009.3** [error] Given the GoHighLevel token is missing or rejected, when a request is submitted, then the request is stored, the homeowner sees the confirmation, the copy is marked as failed, and no token value appears in logs or on any screen.
 - **AC-009.4** [edge] Given a copy attempt timed out although GoHighLevel did create the contact, when the retry runs, then the sub-account ends up with exactly one contact for that request.
-- **AC-009.5** [edge] Given a request already copied, when the owner changes its price, note or status, then the GHL contact is not changed.
+- **AC-009.5** [edge] Given a request already copied, when the owner changes its price or note, then the GHL contact is not changed (a status change updates only its stage tag, US-017).
 - **AC-009.6** [edge] Given a request with 3 photos, when it is copied, then no photo is sent to GoHighLevel.
 - **AC-009.7** [nfr] Given GoHighLevel takes 30 seconds to answer, when a homeowner submits, then the confirmation still appears within 3 seconds of the request being stored.
 - **AC-009.8** [nfr] Given the configuration, when it is inspected, then the only GoHighLevel destination is the test sub-account and no real client account.
 
-**Notes:** One-way copy, creation only. The contact carries name, phone, email, address and the tag `quote-request`; whether the reference number and problem text can also be attached without extra GHL setup is OQ-11 for the architect.
-**Out of scope:** two-way sync, GHL pipelines or opportunities (NG-6).
+**Notes:** One-way copy: the contact is created once, and afterwards the only thing the app changes on it is its stage tag (US-017). GHL's role here is email marketing; it never owns or changes a request. The contact carries name, phone, email, address and the tag `quote-request`; whether the reference number and problem text can also be attached without extra GHL setup is OQ-11 for the architect.
+**Out of scope:** two-way sync, GHL pipelines or opportunities (NG-6; the pipeline lives in our app, US-016).
 
 ---
 
@@ -224,7 +226,7 @@ As the owner, I want to filter the inbox to New, Quoted, Won or Lost, so that I 
 - **AC-011.3** [edge] Given a filter is on and the owner marks a listed request Won, when the save succeeds, then the request leaves a New filter list without a full page reload.
 - **AC-011.4** [error] Given the list cannot be loaded, when the owner chooses a filter, then she sees "Couldn't load requests. Try again." and the previous list is not shown as if it were filtered.
 
-**Notes:** Filter choices are All, New, Quoted, Won, Lost. The weekly count is not affected by the filter.
+**Notes:** Filter choices are All, New, Quoted, Won, Lost. The weekly count is not affected by the filter. The filter applies to the List view only; the Board always shows every request in its status column.
 **Out of scope:** saved filters, sorting by urgency.
 
 ---
@@ -254,8 +256,8 @@ As the owner, I want to search by reference number, name or phone, so that I can
 - **AC-013.2** [edge] Given no request matches "zzz", when the owner searches it, then she sees "No matching requests".
 - **AC-013.3** [edge] Given a request for "Dana Whitfield", when the owner searches "whit", then that request is listed.
 
-**Notes:** Build only if the architect says it is nearly free.
-**Out of scope:** searching the problem text or address.
+**Notes:** Build only if the architect says it is nearly free. Search applies to the List view only.
+**Out of scope:** searching the problem text or address, searching on the Board.
 
 ---
 
@@ -288,6 +290,62 @@ As the owner, I want to see who last changed a request and when, so that I can t
 
 ---
 
+### US-016: Owner moves requests across a pipeline board
+Priority: Must · Persona: Owner · Serves FR: FR-12, FR-21, FR-23
+
+As the owner, I want to see my requests as cards in New, Quoted, Won and Lost columns and drag a card to change its status, so that I can see the whole pipeline at a glance and update a job in one move.
+
+**Acceptance criteria**
+- **AC-016.1** [happy] Given the inbox holds 2 New, 1 Quoted, 1 Won and 1 Lost request, when the owner switches from List to Board, then she sees four columns in the order New, Quoted, Won, Lost holding 2, 1, 1 and 1 cards, and each card shows reference number, name, urgency and submitted time in Hamilton time.
+- **AC-016.2** [happy] Given request `NQ-7K3M9P` is a card in New, when the owner drags it into the Won column and drops it, then the card shows in Won, the request still shows Won after a page reload, the previous status, new status, time and user are stored, and the weekly Won count rises by 1 within 2 seconds.
+- **AC-016.3** [happy] Given an owner using only the keyboard, when she tabs to the card for `NQ-7K3M9P`, opens its "Move to" menu with Enter and chooses "Quoted" with the arrow keys and Enter, then the card shows in Quoted with the same stored change and weekly count effect as AC-016.2, focus stays on that card, and the message "NQ-7K3M9P moved to Quoted" is exposed to screen readers.
+- **AC-016.4** [happy] Given the owner moved `NQ-7K3M9P` to Won on the Board, when she switches to List, then the list shows newest first with `NQ-7K3M9P` at its submitted-time position and status Won, and switching back to Board shows its card in Won.
+- **AC-016.5** [happy] Given a card on the Board, when the owner clicks its reference number or presses Enter on it, then the request detail opens with every submitted field, the photos, the price, the note and the status control, the same as when opened from the list.
+- **AC-016.6** [edge] Given a card in Quoted, when the owner drops it back into the Quoted column, then nothing is stored, no new change time is recorded and no `quote_request_status_changed` event is fired.
+- **AC-016.7** [edge] Given a card is being dragged out of New, when the owner releases it outside all four columns or presses Escape, then the card returns to its position in New and nothing is stored.
+- **AC-016.8** [edge] Given the Won column holds cards submitted at 09:10 and 08:00 and `NQ-7K3M9P` submitted at 09:00 is dropped into it, when the column is shown, then the cards read 09:10, 09:00, 08:00 and the moved card is not placed at the top.
+- **AC-016.9** [edge] Given the Board is open, when the owner looks for a way to add, rename, delete or reorder a column, then none is offered anywhere on the Board.
+- **AC-016.10** [edge] Given 51 requests are Quoted and 2 are New, when the owner opens the Board, then Quoted shows its 50 newest cards with a "Show more" control that adds the remaining 1, and New shows both of its cards with no "Show more".
+- **AC-016.11** [edge] Given no request is Lost, when the owner opens the Board, then the Lost column shows "No lost requests" and a card dropped into it is accepted.
+- **AC-016.12** [edge] Given the owner and the helper both have the Board open and the helper moved `NQ-7K3M9P` from New to Won first, when the owner then drags that card, still shown in New on her screen, to Lost, then her card returns to New, she sees "This request was changed by someone else. Reload to see the latest." and the request stays Won.
+- **AC-016.13** [error] Given the network drops as the owner drops a card into Won, when the save fails, then the card first shows in Won marked "Saving", then returns to its original column and position, "Couldn't save. Try again." shows, nothing is stored and the weekly Won count is unchanged; the same happens when the move was made with the "Move to" menu.
+- **AC-016.14** [error] Given the owner's session has expired, when she drops a card into Won, then the card returns to its original column, nothing is saved and she is sent to the sign-in page.
+- **AC-016.15** [error] Given the requests cannot be loaded, when the owner switches to Board, then she sees "Couldn't load requests. Try again." and no empty columns are shown.
+- **AC-016.16** [nfr] Given the Board holds 10 cards across the four columns, when an automated WCAG 2.1 AA check runs on it, then it reports 0 serious or critical violations.
+- **AC-016.17** [nfr] Given a 375 px wide phone screen, when the owner opens the Board and chooses a status from a card's "Move to" menu with taps only, then the card moves to that column and the page needs no horizontal scrolling.
+- **AC-016.18** [nfr] Given 50 requests spread across the four columns, when the owner opens the Board on a desktop broadband connection, then all 50 cards are visible within 2 seconds.
+
+**Notes:** The List view stays as built in US-005 and the inbox opens in it (OQ-14A). Dropping a card or using "Move to" follows the same rules and has the same effects as changing status from the list (US-007, FR-12): any status to any other, the previous status, new status, time and user stored, the weekly count updated, the `quote_request_status_changed` event fired with `via` board, and (when US-017 is built) the GoHighLevel stage tag updated. Moving a card to Quoted changes the status only: it neither requires nor sets a price and does not fire `quote_request_quoted` (that event fires when a price is first saved, US-006). The Board saves in our app whether or not GoHighLevel is reachable. The List filter (US-011) and search (US-013) do not apply to the Board. The owner and the helper have identical rights.
+**Out of scope:** adding, renaming, removing or reordering columns (NG-14), manual card ordering, per-column totals, swimlanes or card colours (NG-15), moving several cards at once, assigning a card to a person (NG-9).
+
+---
+
+### US-017: A status change updates the request's GoHighLevel stage tag
+Priority: Should · Persona: Owner · Serves FR: FR-21, FR-22, FR-24
+
+As the owner, I want each request's GoHighLevel contact to carry a tag for its current stage, so that my email marketing in GoHighLevel can tell new, quoted, won and lost contacts apart.
+
+**Acceptance criteria**
+- **AC-017.1** [happy] Given request `NQ-7K3M9P` was copied to GoHighLevel with tags `quote-request` and `quote-new`, when the owner drags its card to Quoted, then within 2 minutes the contact carries `quote-request` and `quote-quoted` and no longer carries `quote-new`, and the request detail shows "Stage tag up to date".
+- **AC-017.2** [happy] Given the same contact, when the owner marks the request Won from the List view, then within 2 minutes the contact carries `quote-request` and `quote-won` and no other stage tag.
+- **AC-017.3** [happy] Given GoHighLevel is reachable, when a homeowner submits a request, then the new contact carries `quote-request` and `quote-new`.
+- **AC-017.4** [edge] Given a request at Won whose contact carries `quote-won`, when the owner moves it back to New, then within 2 minutes the contact carries `quote-new` and no longer carries `quote-won`.
+- **AC-017.5** [edge] Given a request already in Quoted, when the owner selects Quoted again, then no tag update is attempted and the contact's tags are unchanged.
+- **AC-017.6** [edge] Given GoHighLevel is reachable, when the owner moves a request from New to Quoted to Won within 10 seconds, then within 2 minutes the contact carries `quote-won` as its only stage tag and does not end with `quote-quoted`.
+- **AC-017.7** [edge] Given the contact copy for a new request is waiting to retry, when the owner marks the request Won before the copy succeeds, then once the copy succeeds the contact exists with `quote-request` and `quote-won` and no other stage tag.
+- **AC-017.8** [edge] Given the owner added her own tag `repeat-customer` to the contact inside GoHighLevel, when the request's status changes, then `repeat-customer` is still on the contact.
+- **AC-017.9** [error] Given GoHighLevel returns a server error, when the owner marks a request Won, then the request shows Won in the app, the detail shows "Stage tag waiting to retry", and once GoHighLevel is back the next automatic retry sets `quote-won` and the detail shows "Stage tag up to date".
+- **AC-017.10** [error] Given the GoHighLevel token is missing or rejected, when the owner marks a request Won, then the request shows Won in the app, the detail shows "Stage tag failed", and no token value appears in logs or on any screen.
+- **AC-017.11** [error] Given a stage-tag push has failed 5 retries after its first attempt, when the owner opens the request, then the detail shows "Stage tag failed" with the time of the last attempt, no further automatic retries happen for that push, and the next status change starts a new push.
+- **AC-017.12** [nfr] Given GoHighLevel takes 30 seconds to answer, when the owner changes a status by drag or from the list, then the new status shows within 3 seconds of her action.
+- **AC-017.13** [nfr] Given any failed stage-tag attempt, when its record is read, then it holds the request id, attempt number, error class and target status, and holds no token and no homeowner name, phone, email or address.
+- **AC-017.14** [edge] Given the owner changed the contact's phone number inside GoHighLevel, when the request's status changes, then the phone number in GoHighLevel is unchanged.
+
+**Notes:** Depends on US-009 (the contact must exist) and uses the retry rule of US-010 (at least every 24 hours, up to 5 retries after the first attempt, OQ-8A); it is cut before them. Tag names and the removal of the previous stage tag are OQ-13A. Every retry applies the request's current status, never an older one. The app only adds and removes its own five tags (`quote-request` and the four stage tags) and changes no other tag or field on the contact; GoHighLevel stays non-authoritative. Whether the test sub-account allows tag changes, and whether a missing tag is created automatically, is OQ-15 for the architect.
+**Out of scope:** two-way sync, reading tags back from GoHighLevel, GHL pipelines or opportunities (NG-6), a manual retry button for tags, alerts when a push fails (NG-1).
+
+---
+
 ## Suggested build order
 1. US-001 — thinnest end-to-end slice: homeowner submits and the request is stored with a reference number
 2. US-004 — sign-in and protected inbox data, needed before any owner screen
@@ -296,7 +354,10 @@ As the owner, I want to see who last changed a request and when, so that I can t
 5. US-006 — price and note
 6. US-007 — status changes
 7. US-008 — weekly count (the last E2E step)
-8. US-003 — spam protection, before the public page is released (can be built in parallel with 5–7)
-9. US-009 then US-010 — GoHighLevel copy and its state (Should; the first to cut if the run overruns)
-10. US-011, US-012 — filter and full-size photo (Should)
-11. US-013, US-014, US-015 — Could, only if nearly free
+8. US-016 — pipeline board (needs the list from US-005 and the status rules from US-007; the "marks it won" E2E step can be done from the list or by drag)
+9. US-003 — spam protection, before the public page is released (can be built in parallel with 5–8)
+10. US-009, then US-010, then US-017 — GoHighLevel copy, its state and retry, then the stage tag (Should; the first to cut if the run overruns, last built is first cut)
+11. US-011, US-012 — filter and full-size photo (Should)
+12. US-013, US-014, US-015 — Could, only if nearly free
+
+Cut order if the run overruns: US-013, US-014, US-015, US-012, US-011, US-017, US-010, US-009.
