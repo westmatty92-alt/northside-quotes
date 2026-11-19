@@ -115,7 +115,7 @@ As the owner, I want one inbox that lists every quote request with its photos, n
 - **AC-005.8** [nfr] Given 50 requests, when the owner opens the inbox on a desktop broadband connection, then the list is visible within 2 seconds.
 - **AC-005.9** [nfr] Given a 375 px wide phone screen, when the owner opens the inbox and a request, then no horizontal scrolling is needed.
 
-**Notes:** The list order is by submitted time only; changing status or price never moves a request. The owner replies to homeowners outside the app, by calling or texting the number shown. The inbox opens in the List view; the Board view is US-016 (OQ-14A).
+**Notes:** The list order is by submitted time only; changing status or price never moves a request. The owner replies to homeowners outside the app, by calling or texting the number shown. The inbox opens in the List view; the Board view is US-016 (OQ-14A, decided).
 **Out of scope:** in-app messaging or email to the homeowner (NG-1), deleting or archiving requests (NG-7).
 
 ---
@@ -315,7 +315,7 @@ As the owner, I want to see my requests as cards in New, Quoted, Won and Lost co
 - **AC-016.17** [nfr] Given a 375 px wide phone screen, when the owner opens the Board and chooses a status from a card's "Move to" menu with taps only, then the card moves to that column and the page needs no horizontal scrolling.
 - **AC-016.18** [nfr] Given 50 requests spread across the four columns, when the owner opens the Board on a desktop broadband connection, then all 50 cards are visible within 2 seconds.
 
-**Notes:** The List view stays as built in US-005 and the inbox opens in it (OQ-14A). Dropping a card or using "Move to" follows the same rules and has the same effects as changing status from the list (US-007, FR-12): any status to any other, the previous status, new status, time and user stored, the weekly count updated, the `quote_request_status_changed` event fired with `via` board, and (when US-017 is built) the GoHighLevel stage tag updated. Moving a card to Quoted changes the status only: it neither requires nor sets a price and does not fire `quote_request_quoted` (that event fires when a price is first saved, US-006). The Board saves in our app whether or not GoHighLevel is reachable. The List filter (US-011) and search (US-013) do not apply to the Board. The owner and the helper have identical rights.
+**Notes:** The List view stays as built in US-005 and the inbox opens in it (OQ-14A, decided). Dropping a card or using "Move to" follows the same rules and has the same effects as changing status from the list (US-007, FR-12): any status to any other, the previous status, new status, time and user stored, the weekly count updated, the `quote_request_status_changed` event fired, and (when US-017 is built) the GoHighLevel stage tag updated. Moving a card to Quoted changes the status only: it neither requires nor sets a price and does not fire `quote_request_quoted` (that event fires when a price is first saved, US-006). The Board saves in our app whether or not GoHighLevel is reachable. The List filter (US-011) and search (US-013) do not apply to the Board. The owner and the helper have identical rights.
 **Out of scope:** adding, renaming, removing or reordering columns (NG-14), manual card ordering, per-column totals, swimlanes or card colours (NG-15), moving several cards at once, assigning a card to a person (NG-9).
 
 ---
@@ -341,7 +341,7 @@ As the owner, I want each request's GoHighLevel contact to carry a tag for its c
 - **AC-017.13** [nfr] Given any failed stage-tag attempt, when its record is read, then it holds the request id, attempt number, error class and target status, and holds no token and no homeowner name, phone, email or address.
 - **AC-017.14** [edge] Given the owner changed the contact's phone number inside GoHighLevel, when the request's status changes, then the phone number in GoHighLevel is unchanged.
 
-**Notes:** Depends on US-009 (the contact must exist) and uses the retry rule of US-010 (at least every 24 hours, up to 5 retries after the first attempt, OQ-8A); it is cut before them. Tag names and the removal of the previous stage tag are OQ-13A. Every retry applies the request's current status, never an older one. The app only adds and removes its own five tags (`quote-request` and the four stage tags) and changes no other tag or field on the contact; GoHighLevel stays non-authoritative. Whether the test sub-account allows tag changes, and whether a missing tag is created automatically, is OQ-15 for the architect.
+**Notes:** Depends on US-009 (the contact must exist) and uses the retry rule of US-010 (at least every 24 hours, up to 5 retries after the first attempt, OQ-8A); it is cut before them. Tag names and the removal of the previous stage tag are OQ-13A (decided). Every retry applies the request's current status, never an older one. The app only adds and removes its own five tags (`quote-request` and the four stage tags) and changes no other tag or field on the contact; GoHighLevel stays non-authoritative. Whether the test sub-account allows tag changes, and whether a missing tag is created automatically, is OQ-15 for the architect.
 **Out of scope:** two-way sync, reading tags back from GoHighLevel, GHL pipelines or opportunities (NG-6), a manual retry button for tags, alerts when a push fails (NG-1).
 
 ---

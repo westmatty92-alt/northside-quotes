@@ -196,7 +196,7 @@ Not applicable — no feature output comes from a model.
 | Run size: 17 stories in a day or two | risk | orchestrator | Cut order: US-013, US-014, US-015, then US-012, US-011, then US-017, US-010, US-009 |
 
 ## Open Questions
-OQ-1 to OQ-10: decided 2026-11-19 (ledger decisions after the Gate 1 rejection): Matthew accepted option A on all ten, and the PRD is written on them. OQ-11 and OQ-12 stay parked (a note for the architect, and a check before any real client). OQ-13 and OQ-14 are new PM proposals for Matthew; OQ-15 is new for the architect. Each new item has a default the PRD already uses, so nothing is blocked while they wait.
+OQ-1 to OQ-10: decided 2026-11-19 (ledger decisions after the Gate 1 rejection): Matthew accepted option A on all ten, and the PRD is written on them. OQ-11 and OQ-12 stay parked (a note for the architect, and a check before any real client). OQ-13 and OQ-14: decided 2026-11-19 (ledger decision at Matthew's second Gate 1 ask), option A on both. OQ-15 is new for the architect and stays open; the PRD already uses its default, so nothing is blocked while it waits.
 
 | # | Question | Options (recommended first) | Owner |
 |---|---|---|---|
@@ -212,8 +212,8 @@ OQ-1 to OQ-10: decided 2026-11-19 (ledger decisions after the Gate 1 rejection):
 | OQ-10 | For a real client: how long to keep requests and photos, and the exact consent wording on the form | A keep 24 months then Baseleap purges by hand; wording as written in US-001 (rec; decided) / B keep until the owner asks for deletion / C 12 months | Matthew |
 | OQ-11 | Parked, a note for the architect: can the reference number and problem text be attached to the GHL contact without extra GHL setup (custom fields)? | A yes, include them (rec if free) / B no, contact fields only (used until the architect answers) | architect |
 | OQ-12 | Parked, a check before any real client: is it acceptable that the GHL copy of personal data may be stored outside Canada? | A confirm GHL's hosting location before any real client goes live (rec) / B accept without checking | Matthew |
-| OQ-13 | GHL stage tag names and what happens to the previous stage tag | A tags `quote-new`, `quote-quoted`, `quote-won`, `quote-lost`; the contact keeps `quote-request` and exactly one stage tag, the previous stage tag is removed (rec; used in FR-24) / B same names, but earlier stage tags are kept so the contact shows its history / C a different naming scheme (Matthew supplies it) | Matthew |
-| OQ-14 | Which view the inbox opens in | A List every time; the board is one tap away (rec; used, keeps the E2E step "sees it at the top of the inbox" unchanged) / B remember each user's last choice on that device / C Board every time | Matthew |
+| OQ-13 | GHL stage tag names and what happens to the previous stage tag | A tags `quote-new`, `quote-quoted`, `quote-won`, `quote-lost`; the contact keeps `quote-request` and exactly one stage tag, the previous stage tag is removed (rec; decided, used in FR-24) / B same names, but earlier stage tags are kept so the contact shows its history / C a different naming scheme (Matthew supplies it) | Matthew |
+| OQ-14 | Which view the inbox opens in | A List every time; the board is one tap away (rec; decided, keeps the E2E step "sees it at the top of the inbox" unchanged) / B remember each user's last choice on that device / C Board every time | Matthew |
 | OQ-15 | Can the integration add and remove tags on a contact in the test sub-account, and is a tag that does not exist yet created automatically? | A yes to both (assumed by FR-24) / B tags must be created in GHL by hand first, so Matthew or devops creates the four stage tags once / C no tag changes possible, so US-017 is cut | architect |
 
 ## Appendix
