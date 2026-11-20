@@ -1,5 +1,6 @@
 -- RLS: public.events (FR-21, metrics spec Destinations: readable only by the two signed-in staff).
 begin;
+create extension if not exists pgtap with schema extensions;  -- test-only; removed again by the rollback (S0 SEC-18)
 select no_plan();
 
 insert into auth.users (id, email, aud, role) values
@@ -12,7 +13,13 @@ insert into public.staff (user_id, display_name) values ('a0000000-0000-4000-800
 insert into public.events (name, properties) values ('spam_submission_blocked', '{"reason":"honeypot"}');
 
 select ok((select relrowsecurity from pg_class where oid = 'public.events'::regclass), 'events: RLS is enabled');
+select ok((select relforcerowsecurity from pg_class where oid = 'public.events'::regclass), 'events: RLS is forced');
 select throws_ok($$ insert into public.events (name) values ('page_viewed') $$, '23514', null, 'only events from the metrics spec are accepted');
+select throws_ok($$ insert into public.events (name, properties) values ('spam_submission_blocked', '{"reason":"honeypot","email":"x@example.com"}') $$,
+  '23514', null, 'a property outside the metrics spec (here: email) is refused (S0 SEC-9)');
+select lives_ok($$ insert into public.events (name, properties) values ('photo_upload_failed', '{"reason":"bad_type","photo_index":2}') $$,
+  'metrics-spec properties are accepted');
+delete from public.events where name = 'photo_upload_failed';
 
 set local "request.jwt.claims" to '{"sub":"a0000000-0000-4000-8000-000000000001","role":"authenticated","session_id":"b0000000-0000-4000-8000-000000000001"}';
 set local "request.jwt.claim.sub" to 'a0000000-0000-4000-8000-000000000001';

@@ -1,5 +1,6 @@
 -- RLS: public.quote_request_status_changes, the append-only audit (FR-12, AC-007.7).
 begin;
+create extension if not exists pgtap with schema extensions;  -- test-only; removed again by the rollback (S0 SEC-18)
 select no_plan();
 
 insert into auth.users (id, email, aud, role) values
@@ -19,6 +20,8 @@ values ('c0000000-0000-4000-8000-000000000001', 'new', 'quoted', 'a0000000-0000-
 
 select ok((select relrowsecurity from pg_class where oid = 'public.quote_request_status_changes'::regclass),
   'quote_request_status_changes: RLS is enabled');
+select ok((select relforcerowsecurity from pg_class where oid = 'public.quote_request_status_changes'::regclass),
+  'quote_request_status_changes: RLS is forced');
 select throws_ok($$ insert into public.quote_request_status_changes (request_id, from_status, to_status)
                     values ('c0000000-0000-4000-8000-000000000001', 'won', 'won') $$,
   '23514', null, 'a same-status row is not a change (AC-007.4)');

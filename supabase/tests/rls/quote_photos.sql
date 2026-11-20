@@ -1,5 +1,6 @@
 -- RLS: public.quote_photos (FR-7, US-002, US-005).
 begin;
+create extension if not exists pgtap with schema extensions;  -- test-only; removed again by the rollback (S0 SEC-18)
 select no_plan();
 
 insert into auth.users (id, email, aud, role) values
@@ -20,6 +21,7 @@ insert into public.quote_photos (request_id, position, storage_path, content_typ
   ('c0000000-0000-4000-8000-000000000001', 2, 'c0000000-0000-4000-8000-000000000001/photo-2', 'image/png', 5242880);
 
 select ok((select relrowsecurity from pg_class where oid = 'public.quote_photos'::regclass), 'quote_photos: RLS is enabled');
+select ok((select relforcerowsecurity from pg_class where oid = 'public.quote_photos'::regclass), 'quote_photos: RLS is forced');
 select throws_ok($$ insert into public.quote_photos (request_id, position, storage_path, content_type, size_bytes)
                     values ('c0000000-0000-4000-8000-000000000001', 3, 'c0000000-0000-4000-8000-000000000001/photo-3', 'image/jpeg', 5242881) $$,
   '23514', null, 'a photo over 5,242,880 bytes violates the size check (FR-6)');

@@ -100,15 +100,21 @@ paths:
       summary: Start a quote request (pending) and get the photo upload targets
       description: >-
         Runs the spam checks first: the form token must be signed and at least 3 seconds old, the
-        honeypot field (website) must be empty, and the network address must have fewer than 5
-        accepted submissions in 10 minutes (if the counter cannot be read the request is accepted).
-        A honeypot or time-trap refusal returns the same 400 body (code submission_refused) and
-        stores nothing. Then validates the fields and stores a pending request that staff cannot
-        see. Returns 201 for a new pending request. The same form token again (double tap, or a
-        retry after a dropped photo) returns 200 with the same request: if the fields or planned
-        photos changed, the pending request is updated and any uploaded photos are cleared so they
-        are uploaded again; if it was already submitted, the response carries its reference. With
-        no photos, call submitQuoteRequest straight away.
+        honeypot field (website) must be empty, and the network address (an IPv6 address counts
+        by its /64) must have fewer than 5 accepted submissions in 10 minutes, checked and
+        recorded atomically (if the counter cannot be used the request is accepted). A honeypot
+        or time-trap refusal returns the same 400 body (code submission_refused) and stores
+        nothing. Then validates the fields and stores a pending request that staff cannot see.
+        Returns 201 for a new pending request. The same form token again with the same answers
+        (double tap, a retry after a dropped reply, or two requests sent at the same moment)
+        returns 200 with the same single request, never a second one; if it was already
+        submitted, the response carries its reference and the page must get a fresh token
+        before another submission. The same token with changed answers updates a pending
+        request and clears any uploaded photos so they are uploaded again (200), but is refused
+        with 409 form_already_used once that request was submitted (the page refreshes its token
+        with router.refresh(), keeps everything typed, and sends again). The token comes from
+        the Request a quote page, which is rendered for every visit and never cached, so no two
+        visitors share one. With no photos, call submitQuoteRequest straight away.
       tags: [Public form]
       x-stories: [US-001, US-002, US-003]
       security:
@@ -171,6 +177,8 @@ paths:
           $ref: '#/components/responses/SubmissionRefused'
         '401':
           $ref: '#/components/responses/FormTokenInvalid'
+        '409':
+          $ref: '#/components/responses/FormAlreadyUsed'
         '422':
           $ref: '#/components/responses/ValidationError'
         '429':
@@ -241,13 +249,15 @@ paths:
       operationId: submitQuoteRequest
       summary: Complete a pending request once its photos are uploaded; issues the NQ- reference
       description: >-
-        Checks that every planned photo is in the bucket, at most 5,242,880 bytes, and really JPEG,
-        PNG or WebP by its first bytes. A bad or missing photo is removed and refused with 422 and
+        Checks that every planned photo is in the bucket, at most 5,242,880 bytes, really JPEG,
+        PNG or WebP by its first bytes, and (PNG and WebP) at most 12,000 pixels on each side by
+        its header. A bad or missing photo is removed and refused with 422 and
         an error per photo (field photos[N], N = position), and nothing becomes visible to staff.
         When all photos pass, the request, its photos, its reference and its GoHighLevel copy job
         are stored in one transaction, and the first copy attempt runs after the response. Calling
         it again for a submitted request returns the same reference with 200. The form token must
-        be the one that created the request.
+        be the one that created the request. After a 200 the page drops this token and gets a
+        fresh one before any further submission.
       tags: [Public form]
       x-stories: [US-001, US-002, US-009]
       security:
@@ -505,7 +515,10 @@ paths:
         password. On success the Supabase session cookies are set (httpOnly false so the browser
         client can read the access token; Secure; SameSite Lax) and staff_signed_in is recorded.
         A signed-in user who is not staff is signed out and gets 401. Sign-out happens in the browser
-        through supabase.auth.signOut().
+        through supabase.auth.signOut(). The pause is checked and the attempt recorded in one
+        atomic step before the password is checked, so parallel guesses count against each other.
+        If the server's signing secret is missing or too short, sign-in answers 503 and nothing
+        is checked.
       tags: [Staff auth]
       x-stories: [US-004]
       security: []
@@ -543,6 +556,8 @@ paths:
           $ref: '#/components/responses/SignInPaused'
         '500':
           $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
   /jobs/ghl-sync:
     get:
       operationId: runGhlSyncJobs
@@ -550,8 +565,12 @@ paths:
       description: >-
         Called by four daily Vercel Cron entries (00:00, 06:00, 12:00, 18:00 UTC) with
         Authorization Bearer CRON_SECRET; QA calls it the same way on staging, where Vercel runs no
-        cron. Claims up to 25 due jobs with a lease, runs them, and settles each one. Idempotent:
-        calling it twice in a row runs nothing twice. GET because Vercel Cron only sends GET.
+        cron. Claims one due job at a time, each with its own 120-second lease and lease id, runs
+        it and settles it with that lease id; stops claiming when less than 60 seconds of the
+        300-second budget is left. A result from a runner whose lease was taken over is ignored.
+        Idempotent: calling it twice in a row, or at the same time, runs nothing twice. GET
+        because Vercel Cron only sends GET. Returns 401 for a missing or wrong secret, and for
+        every call while CRON_SECRET is unset or shorter than 32 characters.
       tags: [Jobs]
       x-stories: [US-009, US-010, US-017]
       security:
@@ -578,7 +597,8 @@ paths:
       summary: Daily purge of abandoned pending submissions and expired counters (Vercel Cron)
       description: >-
         Deletes pending requests older than 24 hours and their uploaded files, rate-limit rows and
-        sign-in attempts older than 24 hours. Authorization Bearer CRON_SECRET.
+        sign-in attempts older than 24 hours. Authorization Bearer CRON_SECRET; 401 for every call
+        while CRON_SECRET is unset or shorter than 32 characters.
       tags: [Jobs]
       x-stories: [US-002, US-003, US-004]
       security:
@@ -723,7 +743,9 @@ components:
         Public scheme for the homeowner's form. A token signed by the server with APP_SIGNING_SECRET
         (HMAC-SHA256), rendered into the Request a quote page: v1.issued_at.nonce.signature. Valid
         from 3 seconds to 24 hours after issue. The nonce is the submission's idempotency key. It
-        identifies a page load, not a person. See docs/SECURITY_MODEL.md.
+        identifies a page load, not a person: the page is rendered for every visit and never
+        cached (Cache-Control private, no-store), and a fresh token is fetched after every
+        completed submission. See docs/SECURITY_MODEL.md.
     supabasePublishableKey:
       type: apiKey
       in: header
@@ -734,7 +756,10 @@ components:
     cronSecret:
       type: http
       scheme: bearer
-      description: CRON_SECRET, sent by Vercel Cron as Authorization Bearer; server-to-server only.
+      description: >-
+        CRON_SECRET (at least 32 characters), sent by Vercel Cron as Authorization Bearer;
+        server-to-server only. Compared in constant time; while the secret is unset or short,
+        nothing matches.
   parameters:
     RequestId:
       name: request_id
@@ -1246,6 +1271,7 @@ components:
             - validation_failed
             - submission_refused
             - form_expired
+            - form_already_used
             - form_token_invalid
             - rate_limited
             - unauthorized
@@ -1299,6 +1325,20 @@ components:
             title: We couldn't send your request. Please try again.
             status: 400
             code: submission_refused
+    FormAlreadyUsed:
+      description: >-
+        This form token already sent a request with different answers (for example after the Back
+        button). Nothing is stored or changed. The page refreshes its token with router.refresh(),
+        keeps everything typed, and sends again.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            type: about:blank
+            title: We couldn't send your request. Please try again.
+            status: 409
+            code: form_already_used
     FormTokenInvalid:
       description: Missing or tampered form token, or a token that did not create this request
       content:
@@ -1376,7 +1416,9 @@ components:
               - field: phone
                 message: Enter a 10-digit phone number
     PhotoProblem:
-      description: A planned photo is missing (photo_missing) or is not a real JPEG, PNG or WebP of at most 5 MB (photo_invalid); errors names each photo
+      description: >-
+        A planned photo is missing (photo_missing) or is not a real JPEG, PNG or WebP of at most
+        5 MB, or is a PNG or WebP over 12,000 pixels on a side (photo_invalid); errors names each photo
       content:
         application/problem+json:
           schema:
@@ -1422,7 +1464,9 @@ components:
             status: 429
             code: sign_in_paused
     ServiceUnavailable:
-      description: The database could not be reached; nothing was stored (AC-001.8)
+      description: >-
+        The database could not be reached, or the server's signing secret is missing or too short
+        (it never falls back to a default); nothing was stored (AC-001.8)
       content:
         application/problem+json:
           schema:
@@ -1449,7 +1493,9 @@ components:
             status: 405
             code: method_not_allowed
     InternalError:
-      description: Unexpected failure
+      description: >-
+        Unexpected failure. The body never carries database or provider text (no message, details,
+        hint or stack); field errors are always our own messages.
       content:
         application/problem+json:
           schema:

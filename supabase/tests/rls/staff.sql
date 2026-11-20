@@ -3,6 +3,7 @@
 -- no staff row (should never exist, sign-up is off); the owner's second session is 8 days old.
 -- Each identity sets BOTH claim settings (request.jwt.claims and request.jwt.claim.sub).
 begin;
+create extension if not exists pgtap with schema extensions;  -- test-only; removed again by the rollback (S0 SEC-18)
 select no_plan();
 
 insert into auth.users (id, email, aud, role) values
@@ -19,6 +20,7 @@ insert into public.staff (user_id, display_name) values
   ('a0000000-0000-4000-8000-000000000002', 'Office helper');
 
 select ok((select relrowsecurity from pg_class where oid = 'public.staff'::regclass), 'staff: RLS is enabled');
+select ok((select relforcerowsecurity from pg_class where oid = 'public.staff'::regclass), 'staff: RLS is forced');
 
 -- owner, fresh session
 set local "request.jwt.claims" to '{"sub":"a0000000-0000-4000-8000-000000000001","role":"authenticated","session_id":"b0000000-0000-4000-8000-000000000001"}';

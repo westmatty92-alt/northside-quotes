@@ -1,6 +1,7 @@
 -- Behaviour: weekly count rules (FR-13, AC-008.1, AC-008.3, AC-008.4, AC-008.5, AC-008.6).
 -- Runs app_private.weekly_counts_at as the table owner with a fixed "now".
 begin;
+create extension if not exists pgtap with schema extensions;  -- test-only; removed again by the rollback (S0 SEC-18)
 select no_plan();
 
 insert into public.quote_requests

@@ -2,7 +2,8 @@
 -- Purpose: the private quote-photos bucket (5 MB, JPEG/PNG/WebP) and its storage.objects
 --          policies: an anonymous homeowner may add up to 3 photos, only into the folder of
 --          their own pending request and only for a planned position; only staff can read
---          (through short-lived signed URLs). Nobody but the server updates or deletes.
+--          (through short-lived signed URLs), and only photos stored with a submitted request.
+--          Nobody but the server updates or deletes.
 --          FR-3, FR-6, FR-7, FR-22 · US-002, US-005, US-012.
 -- Decision: docs/decisions/0002-public-submission-and-photo-upload.md
 -- The bucket is created here, never by hand (docs/ops/account-setup.md, Part 2 step 3).
@@ -17,6 +18,8 @@ on conflict (id) do nothing;
 -- created in the last 60 minutes, planned at least that many photos, and its folder holds fewer
 -- than 3 objects. The fixed names plus the unique (bucket_id, name) index also cap a folder at 3.
 -- Security definer: anonymous callers cannot read quote_requests or storage.objects themselves.
+-- It reads quote_requests (RLS forced) as its owner postgres, which has BYPASSRLS on Supabase
+-- (asserted in supabase/tests/rls/all_tables.sql); without it, uploads are refused (fails closed).
 create or replace function app_private.photo_upload_allowed(p_name text) returns boolean
 language plpgsql
 stable
@@ -63,11 +66,19 @@ create policy nq_quote_photos_insert_own_pending on storage.objects
   for insert to anon, authenticated
   with check (bucket_id = 'quote-photos' and app_private.photo_upload_allowed(name));
 
--- Read (download and createSignedUrl): staff with a fresh session only (FR-7).
+-- Read (download and createSignedUrl): staff with a fresh session only (FR-7), and only objects
+-- recorded in public.quote_photos. Those rows exist only for submitted requests (written by
+-- complete_quote_request), and quote_photos' own RLS also requires a fresh staff session and a
+-- submitted parent. So pending, never-submitted or refused uploads are invisible to staff
+-- (invariant 5, S0 SEC-8). Served by the unique index on quote_photos.storage_path.
 drop policy if exists nq_quote_photos_select_staff on storage.objects;
 create policy nq_quote_photos_select_staff on storage.objects
   for select to authenticated
-  using (bucket_id = 'quote-photos' and (select app_private.is_staff()));
+  using (
+    bucket_id = 'quote-photos'
+    and (select app_private.is_staff())
+    and exists (select 1 from public.quote_photos p where p.storage_path = objects.name)
+  );
 
 -- No update and no delete policy: no client can overwrite or remove a photo. The server removes
 -- abandoned pending uploads and by-hand privacy deletions through the Storage API (service role).

@@ -1,6 +1,7 @@
 -- Behaviour: save_quote_request_quote and change_quote_request_status (FR-11, FR-12, FR-24,
 -- AC-006.3, AC-006.5, AC-007.4, AC-007.7, AC-016.12, AC-017.5, AC-017.6).
 begin;
+create extension if not exists pgtap with schema extensions;  -- test-only; removed again by the rollback (S0 SEC-18)
 select no_plan();
 
 insert into auth.users (id, email, aud, role) values

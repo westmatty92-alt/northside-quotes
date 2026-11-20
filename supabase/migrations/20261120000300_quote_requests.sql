@@ -33,7 +33,7 @@ revoke all on function app_private.new_reference() from public;
 
 create table if not exists public.quote_requests (
   id                   uuid primary key default gen_random_uuid(),
-  submission_key       uuid not null unique,                 -- nonce of the signed form token: a double submit or retry is the same request (AC-001.6)
+  submission_key       uuid not null unique,                 -- nonce of the signed form token: a double submit or retry is the same request (AC-001.6); concurrent creates are serialised in start_quote_request() and this unique index is the backstop (S0 SEC-2)
   state                text not null default 'pending' check (state in ('pending', 'submitted')),
   reference            text unique check (reference ~ '^NQ-[A-HJKMNP-Z2-9]{6}$'),
   name                 text not null check (char_length(name) between 2 and 100),
@@ -52,7 +52,7 @@ create table if not exists public.quote_requests (
   version              integer not null default 1 check (version >= 1),  -- optimistic concurrency for staff saves (AC-006.5, AC-016.12)
   last_staff_update_at timestamptz,
   last_staff_update_by uuid references public.staff (user_id) on delete set null,  -- set null: the request outlives a removed staff account (US-015)
-  ghl_contact_id       text check (char_length(ghl_contact_id) between 1 and 100),  -- link key to the GHL contact (integration contract)
+  ghl_contact_id       text check (ghl_contact_id ~ '^[A-Za-z0-9_-]{1,100}$'),  -- link key to the GHL contact; URL-safe characters only because it goes into /contacts/{id}/tags paths (S0 SEC-12)
   created_at           timestamptz not null default now(),
   submitted_at         timestamptz,                          -- when the request and all its photos were stored; inbox order and weekly count
   updated_at           timestamptz not null default now(),
@@ -80,14 +80,20 @@ create index if not exists quote_requests_pending_created_idx
 
 -- Search by reference, name or phone (US-013, Could) has no index on purpose: at about
 -- 2,400 rows a year a filtered scan is a few milliseconds. Add pg_trgm only if the volume grows.
+-- List, filter, search and keyset paging all go through public.list_quote_requests()
+-- (20261120000600_functions.sql) with typed parameters, never a filter string (S0 SEC-13).
 
 drop trigger if exists quote_requests_set_updated_at on public.quote_requests;
 create trigger quote_requests_set_updated_at before update on public.quote_requests
   for each row execute function app_private.set_updated_at();
 
+-- RLS enabled and forced (S0 SEC-1); explicit grants (S0 SEC-17). The service role writes through
+-- the security invoker functions in 20261120000600_functions.sql and purges stale pending rows.
 alter table public.quote_requests enable row level security;
-revoke all on table public.quote_requests from anon;
-revoke insert, update, delete, truncate, references, trigger on table public.quote_requests from authenticated;
+alter table public.quote_requests force row level security;
+revoke all on table public.quote_requests from anon, authenticated, service_role;
+grant select on table public.quote_requests to authenticated;
+grant select, insert, update, delete on table public.quote_requests to service_role;
 
 -- Staff (owner and helper, identical rights) read submitted requests only; pending ones are
 -- invisible until every photo is stored (FR-3). Writes go through the RPCs in
@@ -113,8 +119,10 @@ create table if not exists public.quote_photos (
 -- (request_id, position), which also covers the foreign key.
 
 alter table public.quote_photos enable row level security;
-revoke all on table public.quote_photos from anon;
-revoke insert, update, delete, truncate, references, trigger on table public.quote_photos from authenticated;
+alter table public.quote_photos force row level security;
+revoke all on table public.quote_photos from anon, authenticated, service_role;
+grant select on table public.quote_photos to authenticated;
+grant select, insert, update, delete on table public.quote_photos to service_role;
 
 drop policy if exists quote_photos_select_staff on public.quote_photos;
 create policy quote_photos_select_staff on public.quote_photos
@@ -139,8 +147,10 @@ create index if not exists quote_request_status_changes_request_idx
   on public.quote_request_status_changes (request_id, changed_at desc);
 
 alter table public.quote_request_status_changes enable row level security;
-revoke all on table public.quote_request_status_changes from anon;
-revoke insert, update, delete, truncate, references, trigger on table public.quote_request_status_changes from authenticated;
+alter table public.quote_request_status_changes force row level security;
+revoke all on table public.quote_request_status_changes from anon, authenticated, service_role;
+grant select on table public.quote_request_status_changes to authenticated;
+grant select on table public.quote_request_status_changes to service_role;
 
 -- Append-only audit: staff read, nobody updates or deletes; rows are written only by
 -- change_quote_request_status().

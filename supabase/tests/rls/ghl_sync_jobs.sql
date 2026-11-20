@@ -1,6 +1,7 @@
 -- RLS: public.ghl_sync_jobs (FR-15, FR-24, US-010, US-017). Staff read sync state; only the
 -- server (service role) and the RPCs write it.
 begin;
+create extension if not exists pgtap with schema extensions;  -- test-only; removed again by the rollback (S0 SEC-18)
 select no_plan();
 
 insert into auth.users (id, email, aud, role) values
@@ -18,6 +19,9 @@ values
 insert into public.ghl_sync_jobs (request_id, kind) values ('c0000000-0000-4000-8000-000000000001', 'contact_copy');
 
 select ok((select relrowsecurity from pg_class where oid = 'public.ghl_sync_jobs'::regclass), 'ghl_sync_jobs: RLS is enabled');
+select ok((select relforcerowsecurity from pg_class where oid = 'public.ghl_sync_jobs'::regclass), 'ghl_sync_jobs: RLS is forced');
+select throws_ok($$ update public.ghl_sync_jobs set lease_id = gen_random_uuid() where kind = 'contact_copy' $$,
+  '23514', null, 'a lease id without a lease time is refused (lease pair check)');
 select throws_ok($$ insert into public.ghl_sync_jobs (request_id, kind) values ('c0000000-0000-4000-8000-000000000001', 'contact_copy') $$,
   '23505', null, 'a second contact copy job for the same request is refused (FR-15)');
 select throws_ok($$ insert into public.ghl_sync_jobs (request_id, kind) values ('c0000000-0000-4000-8000-000000000001', 'stage_tag') $$,
@@ -30,7 +34,8 @@ select is((select count(*) from public.ghl_sync_jobs), 1::bigint, 'staff read sy
 select throws_ok($$ update public.ghl_sync_jobs set state = 'succeeded' $$, '42501', null, 'staff cannot mark a copy as done');
 select throws_ok($$ insert into public.ghl_sync_jobs (request_id, kind, target_status) values ('c0000000-0000-4000-8000-000000000001', 'stage_tag', 'won') $$,
   '42501', null, 'staff cannot insert jobs directly');
-select throws_ok($$ select public.finish_ghl_job(gen_random_uuid(), 'succeeded', null, null) $$, '42501', null, 'staff cannot call finish_ghl_job');
+select throws_ok($$ select public.finish_ghl_job(gen_random_uuid(), gen_random_uuid(), 'succeeded', null, null) $$, '42501', null, 'staff cannot call finish_ghl_job');
+select throws_ok($$ select * from public.claim_ghl_job() $$, '42501', null, 'staff cannot claim sync jobs');
 reset role;
 
 set local "request.jwt.claims" to '{"sub":"a0000000-0000-4000-8000-000000000003","role":"authenticated","session_id":"b0000000-0000-4000-8000-000000000003"}';

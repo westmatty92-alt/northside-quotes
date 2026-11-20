@@ -19,9 +19,11 @@ create table if not exists public.ghl_sync_jobs (
   last_attempt_at  timestamptz,
   last_error_class text check (last_error_class in ('timeout', 'auth', 'rate_limited', 'server_error', 'config_missing')),
   locked_until     timestamptz,                         -- lease held by the runner that claimed the job
+  lease_id         uuid,                                -- new for every claim; finish_ghl_job ignores a result from any other lease (S0 SEC-7)
   created_at       timestamptz not null default now(),
   updated_at       timestamptz not null default now(),
-  constraint ghl_sync_jobs_target_status_for_tags check ((kind = 'stage_tag') = (target_status is not null))
+  constraint ghl_sync_jobs_target_status_for_tags check ((kind = 'stage_tag') = (target_status is not null)),
+  constraint ghl_sync_jobs_lease_pair check ((lease_id is null) = (locked_until is null))
 );
 
 -- One contact copy per request: the copy never creates a second contact for a request (FR-15).
@@ -32,7 +34,7 @@ create unique index if not exists ghl_sync_jobs_one_copy_idx
 create unique index if not exists ghl_sync_jobs_one_active_tag_idx
   on public.ghl_sync_jobs (request_id) where kind = 'stage_tag' and state in ('pending', 'waiting');
 
--- Query: the runner claims due jobs, oldest due first (cron runs and after() drains).
+-- Query: the runner claims one due job at a time, oldest due first (cron runs and after() drains).
 create index if not exists ghl_sync_jobs_due_idx
   on public.ghl_sync_jobs (next_attempt_at) where state in ('pending', 'waiting');
 
@@ -44,9 +46,12 @@ drop trigger if exists ghl_sync_jobs_set_updated_at on public.ghl_sync_jobs;
 create trigger ghl_sync_jobs_set_updated_at before update on public.ghl_sync_jobs
   for each row execute function app_private.set_updated_at();
 
+-- RLS enabled and forced (S0 SEC-1); explicit grants (S0 SEC-17).
 alter table public.ghl_sync_jobs enable row level security;
-revoke all on table public.ghl_sync_jobs from anon;
-revoke insert, update, delete, truncate, references, trigger on table public.ghl_sync_jobs from authenticated;
+alter table public.ghl_sync_jobs force row level security;
+revoke all on table public.ghl_sync_jobs from anon, authenticated, service_role;
+grant select on table public.ghl_sync_jobs to authenticated;
+grant select, insert, update, delete on table public.ghl_sync_jobs to service_role;
 
 -- Staff read sync state for SCR-06. Jobs are written by the server runner (service role) and by
 -- the RPCs in 20261120000600_functions.sql.

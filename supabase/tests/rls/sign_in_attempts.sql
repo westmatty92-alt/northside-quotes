@@ -1,5 +1,6 @@
 -- RLS: public.sign_in_attempts (FR-9 pause after 5 failures). Server only; emails stored as HMACs.
 begin;
+create extension if not exists pgtap with schema extensions;  -- test-only; removed again by the rollback (S0 SEC-18)
 select no_plan();
 
 insert into auth.users (id, email, aud, role) values
@@ -10,6 +11,7 @@ insert into public.staff (user_id, display_name) values ('a0000000-0000-4000-800
 insert into public.sign_in_attempts (email_hash, succeeded) values (repeat('cd', 32), false);
 
 select ok((select relrowsecurity from pg_class where oid = 'public.sign_in_attempts'::regclass), 'sign_in_attempts: RLS is enabled');
+select ok((select relforcerowsecurity from pg_class where oid = 'public.sign_in_attempts'::regclass), 'sign_in_attempts: RLS is forced');
 select throws_ok($$ insert into public.sign_in_attempts (email_hash, succeeded) values ('owner@example.com', false) $$,
   '23514', null, 'a raw email is refused (HMAC only)');
 
@@ -24,6 +26,8 @@ set local "request.jwt.claim.sub" to '';
 set local role anon;
 select throws_ok($$ select count(*) from public.sign_in_attempts $$, '42501', null, 'anon cannot read sign-in attempts');
 select throws_ok($$ delete from public.sign_in_attempts $$, '42501', null, 'anon cannot clear a sign-in pause');
+select throws_ok($$ select public.take_sign_in_attempt(repeat('cd', 32)) $$, '42501', null, 'anon cannot call take_sign_in_attempt');
+select throws_ok($$ select public.mark_sign_in_succeeded(gen_random_uuid()) $$, '42501', null, 'anon cannot mark an attempt as succeeded');
 reset role;
 
 set local role service_role;
