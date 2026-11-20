@@ -2,9 +2,12 @@
 // The GHL runner against the REAL staging database functions (claim_ghl_job, finish_ghl_job, find_ghl_contact_match,
 // ghl_stage_for_request, the consent trigger) with the offline simulator standing in for GoHighLevel. No live GHL.
 //
-// Needs NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY (the ledger's verify loads .env.local). Without them
-// the suite is skipped, unless REQUIRE_DB_TESTS=1, which turns the skip into a failure.
-// Every row created here is scoped by a per-run id in its email and removed in afterAll (cascade removes jobs, events).
+// Needs NEXT_PUBLIC_SUPABASE_URL and SUPABASE_SERVICE_ROLE_KEY. They come from the process, or else from .env.local
+// (this checkout, then the main checkout) through ../staging-env.ts. THIS SUITE NEVER SKIPS: when they are still
+// missing, or the URL names production (SUPABASE_PROD_PROJECT_REF) or not staging (SUPABASE_STAGING_REF), every test
+// here fails and the message names the variables (never values). A skipped run is not evidence.
+// Every row created here is tracked by id and removed in afterAll (cascade removes jobs, events); afterAll then
+// counts what is left for those ids and fails if it is not zero.
 //
 // Proves: AC-009.1 / AC-009.2 (copy stored and linked, success event), AC-009.9 / AC-009.12 / AC-009.13 / AC-017.16
 // (unticked: no job, no call, never matched, never linked), AC-009.10 / AC-009.11 (same email, same phone: link, no
@@ -17,15 +20,17 @@ import { createGhlClient } from '@/lib/server/integrations/ghl/client';
 import { runGhlJobs } from '@/lib/server/integrations/ghl';
 import { runGhlJobsWith } from '@/lib/server/integrations/ghl/runner';
 import { startGhlSimulator, type GhlSimulator } from '../../mocks/ghl/simulator.mjs';
+import { loadStagingEnv, stagingEnvProblem } from '../staging-env';
 import { simEnv } from './helpers';
 
-const hasDb = Boolean(process.env.NEXT_PUBLIC_SUPABASE_URL && process.env.SUPABASE_SERVICE_ROLE_KEY);
-if (!hasDb && process.env.REQUIRE_DB_TESTS === '1') {
-  it('the staging database is configured (REQUIRE_DB_TESTS=1)', () => {
-    expect(hasDb).toBe(true);
-  });
-}
-const suite = hasDb ? describe : describe.skip;
+// Fill in the env from .env.local when the process lacks it, then check it. getAdminClient reads the env lazily, so
+// this runs before the first use. No skip: a problem fails the suite below.
+loadStagingEnv();
+const envProblem = stagingEnvProblem();
+
+it('the staging database is configured and is not production', () => {
+  expect(envProblem, envProblem).toBeUndefined();
+});
 
 vi.setConfig({ testTimeout: 60_000, hookTimeout: 60_000 });
 
@@ -123,14 +128,32 @@ const run = (id: string, timeoutMs?: number) =>
 const line = (c: { method: string; path: string }) => `${c.method} ${c.path.replace(/^\/contacts\/[^/]+\/tags$/, '/contacts/:id/tags')}`;
 const callLines = () => sim.calls().map(line);
 
-suite('GHL runner against the staging database and the simulator', () => {
+describe('GHL runner against the staging database and the simulator', () => {
+  // a problem fails each test on its own (a throwing beforeAll would make vitest count them as skipped)
+  beforeEach(() => {
+    if (envProblem) throw new Error(envProblem);
+  });
   beforeAll(async () => {
     // run-unique contact ids: rows of different tests in the shared staging database never share a contact id
     sim = await startGhlSimulator({ slowMs: 5_000, idPrefix: `i1x${RUN}c` });
   });
   afterAll(async () => {
     await sim?.close();
-    if (created.length > 0) await db().from('quote_requests').delete().in('id', created);
+    if (envProblem) return;
+    if (created.length > 0) {
+      const removed = await db().from('quote_requests').delete().in('id', created);
+      expect(removed.error).toBeNull();
+    }
+    // cleanup proof: nothing this run created is left (requests, and the jobs and events that cascade from them)
+    for (const [table, column] of [
+      ['quote_requests', 'id'],
+      ['ghl_sync_jobs', 'request_id'],
+      ['events', 'request_id'],
+    ] as const) {
+      const left = await db().from(table).select('*', { count: 'exact', head: true }).in(column, created);
+      expect(left.error).toBeNull();
+      expect({ table, left: left.count }).toEqual({ table, left: 0 });
+    }
   });
   beforeEach(() => sim.reset());
   afterEach(() => vi.unstubAllEnvs());
