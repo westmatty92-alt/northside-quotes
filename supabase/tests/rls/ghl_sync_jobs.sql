@@ -12,10 +12,13 @@ insert into auth.sessions (id, user_id, created_at, updated_at) values
   ('b0000000-0000-4000-8000-000000000003', 'a0000000-0000-4000-8000-000000000003', now(), now());
 insert into public.staff (user_id, display_name) values ('a0000000-0000-4000-8000-000000000001', 'Owner');
 insert into public.quote_requests
-  (id, submission_key, state, reference, name, phone, email, address, problem, urgency, submitted_at)
+  (id, submission_key, state, reference, name, phone, email, address, problem, urgency, submitted_at,
+   marketing_consent, marketing_consent_at)
 values
   ('c0000000-0000-4000-8000-000000000001', gen_random_uuid(), 'submitted', 'NQ-7K3M9P', 'Dana Whitfield', '9055550142',
-   'dana@example.com', '14 Barton St W, Hamilton ON', 'Kitchen tap drips constantly', 'soon', now());
+   'dana@example.com', '14 Barton St W, Hamilton ON', 'Kitchen tap drips constantly', 'soon', now(), true, now()),
+  ('c0000000-0000-4000-8000-000000000002', gen_random_uuid(), 'submitted', 'NQ-4XW2RT', 'Sam Patel', '9055550143',
+   'sam@example.com', '15 Barton St W, Hamilton ON', 'Offers box left unticked here', 'soon', now(), false, null);
 insert into public.ghl_sync_jobs (request_id, kind) values ('c0000000-0000-4000-8000-000000000001', 'contact_copy');
 
 select ok((select relrowsecurity from pg_class where oid = 'public.ghl_sync_jobs'::regclass), 'ghl_sync_jobs: RLS is enabled');
@@ -26,6 +29,12 @@ select throws_ok($$ insert into public.ghl_sync_jobs (request_id, kind) values (
   '23505', null, 'a second contact copy job for the same request is refused (FR-15)');
 select throws_ok($$ insert into public.ghl_sync_jobs (request_id, kind) values ('c0000000-0000-4000-8000-000000000001', 'stage_tag') $$,
   '23514', null, 'a stage-tag job needs its target status');
+select throws_ok($$ insert into public.ghl_sync_jobs (request_id, kind) values ('c0000000-0000-4000-8000-000000000002', 'contact_copy') $$,
+  '23514', null, 'ruling 1B: no copy job for a request without offers consent, even from the table owner');
+select throws_ok($$ insert into public.ghl_sync_jobs (request_id, kind, target_status) values ('c0000000-0000-4000-8000-000000000002', 'stage_tag', 'won') $$,
+  '23514', null, 'ruling 1B: no stage-tag job for a request without offers consent');
+select lives_ok($$ update public.ghl_sync_jobs set last_error_class = 'rejected' where request_id = 'c0000000-0000-4000-8000-000000000001' $$,
+  'rejected is a known error class (GHL 400, 404, 422)');
 
 set local "request.jwt.claims" to '{"sub":"a0000000-0000-4000-8000-000000000001","role":"authenticated","session_id":"b0000000-0000-4000-8000-000000000001"}';
 set local "request.jwt.claim.sub" to 'a0000000-0000-4000-8000-000000000001';

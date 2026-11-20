@@ -15,14 +15,16 @@ info:
     signed form token (formToken). Photos are uploaded straight to Supabase Storage (uploadQuotePhoto,
     implemented by Supabase, not by our app). A method that is not listed for a path returns 405
     with a problem body (code method_not_allowed). Unexpected failures return 500 with code
-    internal_error. See docs/architecture.md and docs/SECURITY_MODEL.md.
+    internal_error. There is no operation to change or reset a password (ruling 3A, FR-27): Baseleap
+    sets and resets the two staff passwords in the Supabase dashboard. See docs/architecture.md
+    and docs/SECURITY_MODEL.md.
 servers:
   - url: /api
 security:
   - bearerAuth: []
 tags:
   - name: Inbox
-    description: Staff reading and updating quote requests (list, board, detail, price, note, status)
+    description: Staff reading and updating quote requests (Requests tab, Pipeline tab, request detail, price, note, status)
   - name: Public form
     description: The homeowner's Request a quote submission (signed form token, no account)
   - name: Photo storage
@@ -43,20 +45,22 @@ paths:
       operationId: listQuoteRequests
       summary: List submitted quote requests, newest first by submitted time
       description: >-
-        Serves the inbox List view (optionally filtered by status, or searched) and each Board
-        column (status set, one call per column). Order is submitted_at desc, then id desc; status
-        and price changes never reorder. Pending submissions are never listed.
+        One operation serves both tabs. The Requests tab (/requests) calls it once per page,
+        optionally filtered by status or searched; the Pipeline tab (/pipeline) calls it once per
+        column with status set and never sends q (the Pipeline always shows every request).
+        Order is submitted_at desc, then id desc; status and price changes never reorder.
+        Pending submissions are never listed.
       tags: [Inbox]
       x-stories: [US-005, US-011, US-013, US-016]
       parameters:
         - name: status
           in: query
-          description: Only requests in this status (List filter and Board columns). Omit for All.
+          description: Only requests in this status (Requests tab filter, and each Pipeline column). Omit for All.
           schema:
             $ref: '#/components/schemas/Status'
         - name: q
           in: query
-          description: Case-insensitive search by reference, name (partial) or phone digits (US-013, Could). List view only.
+          description: Case-insensitive search by reference, name (partial) or phone digits (US-013, Could). Requests tab only.
           schema:
             type: string
             minLength: 1
@@ -114,7 +118,12 @@ paths:
         with 409 form_already_used once that request was submitted (the page refreshes its token
         with router.refresh(), keeps everything typed, and sends again). The token comes from
         the Request a quote page, which is rendered for every visit and never cached, so no two
-        visitors share one. With no photos, call submitQuoteRequest straight away.
+        visitors share one. With no photos, call submitQuoteRequest straight away. The offers
+        choice (marketing_consent) is one of the answers: only a JSON true is a yes; a missing
+        value or any other value is stored as no and is never a validation error (FR-25,
+        AC-001.17). A refusal for the honeypot, the time trap or the rate limit is logged as at
+        most one spam_submission_blocked event per address and reason per 10 minutes (with a
+        count) and at most 1,000 a day; past either cap it is refused the same way and not logged.
       tags: [Public form]
       x-stories: [US-001, US-002, US-003]
       security:
@@ -132,6 +141,7 @@ paths:
               address: 14 Barton St W, Hamilton ON
               problem: Kitchen tap drips constantly and the cabinet under it is wet
               urgency: soon
+              marketing_consent: false
               website: ''
               photos:
                 - position: 1
@@ -193,8 +203,11 @@ paths:
       summary: One submitted quote request in full, with photos and GoHighLevel state
       description: >-
         Every submitted field, price and note, status, who last changed it, short-lived signed photo
-        URLs (expires_at), and the contact copy and stage tag states. A photo whose URL could not
-        be signed has url null (show "Photo unavailable"). Pending or unknown ids return 404.
+        URLs (expires_at), the offers choice, and the contact copy and stage tag states. A request
+        whose homeowner did not tick the offers box has ghl.copy.state not_copied_no_consent and
+        ghl.stage_tag null (show "Not copied: no offers consent", no Retry, no stage tag line;
+        AC-010.6). A photo whose URL could not be signed has url null (show "Photo unavailable").
+        Pending or unknown ids return 404.
       tags: [Inbox]
       x-stories: [US-005, US-006, US-007, US-010, US-015, US-017]
       parameters:
@@ -230,6 +243,8 @@ paths:
                 last_updated:
                   by_display_name: Office helper
                   at: '2026-11-19T15:02:00Z'
+                marketing_consent: true
+                marketing_consent_at: '2026-11-19T14:10:00Z'
                 ghl:
                   copy:
                     state: copied
@@ -253,8 +268,10 @@ paths:
         PNG or WebP by its first bytes, and (PNG and WebP) at most 12,000 pixels on each side by
         its header. A bad or missing photo is removed and refused with 422 and
         an error per photo (field photos[N], N = position), and nothing becomes visible to staff.
-        When all photos pass, the request, its photos, its reference and its GoHighLevel copy job
-        are stored in one transaction, and the first copy attempt runs after the response. Calling
+        When all photos pass, the request, its photos, its reference, its consent time (when the
+        offers box was ticked) and, only when it was ticked, its GoHighLevel copy job are stored in
+        one transaction, and the first copy attempt runs after the response. An unticked request
+        gets no job and causes no GoHighLevel call (AC-009.9); the response is the same. Calling
         it again for a submitted request returns the same reference with 200. The form token must
         be the one that created the request. After a 200 the page drops this token and gets a
         fresh one before any further submission.
@@ -366,11 +383,12 @@ paths:
   /quote-requests/{request_id}/status-changes:
     post:
       operationId: changeQuoteRequestStatus
-      summary: Change a request's status (list Move to, board drag or board Move to)
+      summary: Change a request's status (Requests tab Move to, Pipeline drag or Pipeline Move to)
       description: >-
         Any status to any other. A real change stores the previous status, new status, time and
         user, records quote_request_status_changed, starts a new GoHighLevel stage-tag push after
-        the response, and returns 201. Choosing the current status changes nothing and returns
+        the response (only when the homeowner ticked the offers box; otherwise nothing is queued
+        and no GoHighLevel call is made, AC-017.16), and returns 201. Choosing the current status changes nothing and returns
         200 with changed false. version must be the version the user saw; if someone else changed
         the request first it is refused with 409 (stale_version). The status is saved whether or
         not GoHighLevel is reachable.
@@ -430,7 +448,10 @@ paths:
         Allowed only when the copy state is failed. Runs one attempt during the request (up to
         10 seconds) and returns the resulting copy state: copied, or failed with retried true and
         the UI shows "The retry did not work". A second call while an attempt runs, or when the
-        copy is not failed, returns 409 (not_retryable). Never creates a second contact.
+        copy is not failed, returns 409 (not_retryable). A request whose homeowner did not tick the
+        offers box is never copied: 409 (not_retryable), nothing is created and no GoHighLevel
+        call is made (AC-014.4). Never creates a second contact: the retry uses the same contact
+        match rule as every copy (docs/integration-contract.md).
       tags: [GoHighLevel]
       x-stories: [US-014]
       parameters:
@@ -510,15 +531,23 @@ paths:
       summary: Staff sign-in with email and password
       description: >-
         Pre-session route (no auth). Wrong password and unknown email return the same 401 body
-        (invalid_credentials). After 5 failed attempts for one email within 15 minutes, sign-in is
-        refused with 429 (sign_in_paused) for 15 minutes from the fifth failure, even with the right
-        password. On success the Supabase session cookies are set (httpOnly false so the browser
-        client can read the access token; Secure; SameSite Lax) and staff_signed_in is recorded.
-        A signed-in user who is not staff is signed out and gets 401. Sign-out happens in the browser
-        through supabase.auth.signOut(). The pause is checked and the attempt recorded in one
-        atomic step before the password is checked, so parallel guesses count against each other.
-        If the server's signing secret is missing or too short, sign-in answers 503 and nothing
-        is checked.
+        (invalid_credentials). Two limits (FR-9, ruling 4A), kept in the database so every server
+        instance sees the same counts: 5 failed attempts for one email within 15 minutes pause
+        that email for 5 minutes; 20 failed attempts from one network address (an IPv6 address
+        counts by its /64) within 15 minutes, across any emails, pause that address for 15
+        minutes. Each count restarts when its pause ends. A paused sign-in is refused with 429
+        (sign_in_paused) even with the right password; the body is the same whichever limit
+        applied and whether or not the email has an account, and no Retry-After header is sent
+        (its value would say which limit applied). An email with no account is counted and
+        paused the same way. A successful sign-in is not counted. The pause is checked and the
+        attempt recorded in one atomic step before the password is checked, so parallel guesses
+        count against each other. If the counters cannot be read, or the server's signing secret
+        is missing or too short, sign-in fails closed with 503 (sign_in_unavailable) and no
+        session starts (AC-004.13). On success the Supabase session cookies are set (httpOnly
+        false so the browser client can read the access token; Secure; SameSite Lax) and
+        staff_signed_in is recorded. A signed-in user who is not staff is signed out and gets 401.
+        Sign-out happens in the browser through supabase.auth.signOut(). There is no sign-up,
+        password change or password reset operation (NG-4, FR-27).
       tags: [Staff auth]
       x-stories: [US-004]
       security: []
@@ -557,7 +586,7 @@ paths:
         '500':
           $ref: '#/components/responses/InternalError'
         '503':
-          $ref: '#/components/responses/ServiceUnavailable'
+          $ref: '#/components/responses/SignInUnavailable'
   /jobs/ghl-sync:
     get:
       operationId: runGhlSyncJobs
@@ -596,9 +625,12 @@ paths:
       operationId: runHousekeeping
       summary: Daily purge of abandoned pending submissions and expired counters (Vercel Cron)
       description: >-
-        Deletes pending requests older than 24 hours and their uploaded files, rate-limit rows and
-        sign-in attempts older than 24 hours. Authorization Bearer CRON_SECRET; 401 for every call
-        while CRON_SECRET is unset or shorter than 32 characters.
+        Deletes pending requests older than 24 hours and their uploaded files, and every counter
+        row older than 24 hours: rate-limit rows and spam refusal windows (counted together in
+        rate_limit_rows_purged), sign-in attempts and sign-in pauses (counted together in
+        sign_in_rows_purged). Spam events themselves are kept (they hold no address).
+        Authorization Bearer CRON_SECRET; 401 for every call while CRON_SECRET is unset or shorter
+        than 32 characters.
       tags: [Jobs]
       x-stories: [US-002, US-003, US-004]
       security:
@@ -778,7 +810,7 @@ components:
     Limit:
       name: limit
       in: query
-      description: Page size; the inbox and each board column ask for 50 (FR-10, FR-23)
+      description: Page size; the Requests tab and each Pipeline column ask for 50 (FR-10, FR-23)
       schema:
         type: integer
         minimum: 1
@@ -868,12 +900,16 @@ components:
       properties:
         state:
           type: string
-          enum: [copied, waiting, failed]
-          description: copied = Copied to GoHighLevel; waiting = Waiting to retry (also before the first attempt finishes); failed = Copy to GoHighLevel failed
+          enum: [copied, waiting, failed, not_copied_no_consent]
+          description: >-
+            copied = Copied to GoHighLevel (a new contact, or linked to the homeowner's existing
+            contact by the match rule); waiting = Waiting to retry (also before the first attempt
+            finishes); failed = Copy to GoHighLevel failed; not_copied_no_consent = Not copied: no
+            offers consent (the homeowner did not tick the offers box; never copied, no Retry)
         at:
           type: [string, 'null']
           format: date-time
-          description: Time copied, or time of the last attempt when failed; null before any attempt
+          description: Time copied, or time of the last attempt when failed; null before any attempt and always null for not_copied_no_consent
     SyncStageTagState:
       type: object
       additionalProperties: false
@@ -894,7 +930,10 @@ components:
         copy:
           $ref: '#/components/schemas/SyncCopyState'
         stage_tag:
-          $ref: '#/components/schemas/SyncStageTagState'
+          oneOf:
+            - $ref: '#/components/schemas/SyncStageTagState'
+            - type: 'null'
+          description: null exactly when copy.state is not_copied_no_consent (no stage tag line, AC-010.6, AC-017.16)
     LastUpdated:
       type: object
       additionalProperties: false
@@ -910,7 +949,8 @@ components:
       type: object
       additionalProperties: false
       required: [id, reference, name, phone, email, address, problem, urgency, status, status_changed_at,
-                 submitted_at, price_cents, currency, note, photo_count, photos, last_updated, ghl, version]
+                 submitted_at, price_cents, currency, note, photo_count, photos, last_updated,
+                 marketing_consent, marketing_consent_at, ghl, version]
       properties:
         id:
           type: string
@@ -971,6 +1011,13 @@ components:
             - $ref: '#/components/schemas/LastUpdated'
             - type: 'null'
           description: null shows "Not updated yet" (US-015)
+        marketing_consent:
+          type: boolean
+          description: Whether the homeowner ticked the offers box (FR-25). Read-only; never changed after submission (NG-16).
+        marketing_consent_at:
+          type: [string, 'null']
+          format: date-time
+          description: Time of consent (the time the request was stored); null when marketing_consent is false
         ghl:
           $ref: '#/components/schemas/GhlState'
         version:
@@ -1010,6 +1057,7 @@ components:
           type: string
           format: email
           maxLength: 254
+          description: The server trims surrounding spaces before validating and storing it, so the contact match rule compares like with like.
         address:
           type: string
           minLength: 5
@@ -1020,6 +1068,15 @@ components:
           maxLength: 2000
         urgency:
           $ref: '#/components/schemas/Urgency'
+        marketing_consent:
+          description: >-
+            The optional offers box ("Email me offers and news from Northside. This is optional."),
+            never ticked when the page loads. Only the JSON value true means yes. A missing value,
+            false, null or anything else ("true" as text, "yes", "maybe", 1) is stored as no and is
+            never a validation error (FR-25, AC-001.17), so this property deliberately has no type.
+            Only a yes lets the request reach GoHighLevel (FR-15).
+          default: false
+          examples: [false, true]
         website:
           type: string
           maxLength: 500
@@ -1278,6 +1335,7 @@ components:
             - session_expired
             - invalid_credentials
             - sign_in_paused
+            - sign_in_unavailable
             - not_found
             - stale_version
             - not_retryable
@@ -1389,7 +1447,8 @@ components:
       description: >-
         Someone else changed the request first (stale_version: show "This request was changed by
         someone else. Reload to see the latest.") or the copy is not in a state that can be retried
-        (not_retryable)
+        (not_retryable: not failed, an attempt is running, or the homeowner did not tick the offers
+        box)
       content:
         application/problem+json:
           schema:
@@ -1448,21 +1507,34 @@ components:
             status: 429
             code: rate_limited
     SignInPaused:
-      description: 5 failed sign-ins for this email within 15 minutes; paused for 15 minutes
-      headers:
-        Retry-After:
-          description: Seconds until sign-in is allowed again
-          schema:
-            type: integer
+      description: >-
+        This email (5 failures within 15 minutes: 5-minute pause) or this network address (20
+        failures within 15 minutes: 15-minute pause) is paused. One body for both limits, for
+        real and unknown emails alike; no Retry-After header, so the response never says which
+        limit applied.
       content:
         application/problem+json:
           schema:
             $ref: '#/components/schemas/Problem'
           example:
             type: about:blank
-            title: Sign-in is paused for 15 minutes.
+            title: Too many sign-in attempts. Try again in a few minutes.
             status: 429
             code: sign_in_paused
+    SignInUnavailable:
+      description: >-
+        Sign-in fails closed (AC-004.13): the attempt counters could not be read or written, or
+        the server's signing secret is missing or too short. Supabase Auth is not called and no
+        session starts.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            type: about:blank
+            title: Sign-in is unavailable. Try again in a few minutes.
+            status: 503
+            code: sign_in_unavailable
     ServiceUnavailable:
       description: >-
         The database could not be reached, or the server's signing secret is missing or too short

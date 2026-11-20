@@ -1,9 +1,9 @@
 # 0002 — Public submission in two calls, photos uploaded straight to private Storage
 
 **Status:** proposed
-**Date:** 2026-11-19
-**Driven by:** FR-2, FR-3, FR-6, FR-7, FR-8 · US-001, US-002, US-003 · locked spam and photo rules (OQ-1A, OQ-2A)
-**Implemented in:** `supabase/migrations/20261120000300_quote_requests.sql` · `supabase/migrations/20261120000600_functions.sql` · `supabase/migrations/20261120000700_storage.sql` · `docs/openapi.yaml#/paths/~1quote-requests` · `#/paths/~1quote-requests~1{request_id}~1submission` · `#/paths/~1storage~1v1~1object~1quote-photos~1{request_id}~1{photo_name}`
+**Date:** 2026-11-19 (revised 2026-11-20 for PRD v1.2: the offers choice, ruling 1B; the spam event cap, S0 SEC-14)
+**Driven by:** FR-2, FR-3, FR-6, FR-7, FR-8, FR-25 · US-001, US-002, US-003 · locked spam and photo rules (OQ-1A, OQ-2A) · ledger ruling 1B of 2026-11-20
+**Implemented in:** `supabase/migrations/20261120000300_quote_requests.sql` · `supabase/migrations/20261120000500_events_and_limits.sql` (`spam_refusal_windows`) · `supabase/migrations/20261120000600_functions.sql` (`start_quote_request`, `record_spam_refusal`, `complete_quote_request`) · `supabase/migrations/20261120000700_storage.sql` · `docs/openapi.yaml#/paths/~1quote-requests` · `#/paths/~1quote-requests~1{request_id}~1submission` · `#/paths/~1storage~1v1~1object~1quote-photos~1{request_id}~1{photo_name}`
 
 ## Context
 A homeowner sends six fields and up to three photos of up to 5 MB each. Vercel functions refuse request bodies over 4.5 MB, so 15 MB of photos cannot pass through a route handler. FR-3 also says the request and all its photos are stored together or not at all, a double submit makes one request, and the reference number is only issued once everything is stored. The spam checks (honeypot, 3-second minimum, 5 accepted submissions per 10 minutes per network address) must run on the server, and anonymous visitors must not be able to write to tables directly with the public Supabase key.
@@ -14,6 +14,8 @@ A homeowner sends six fields and up to three photos of up to 5 MB each. Vercel f
 3. **Upload.** The browser uploads each photo straight to the private `quote-photos` bucket with the public Supabase key, at `{request_id}/photo-{1..3}`. A `storage.objects` insert policy allows this only into the folder of a pending request created in the last 60 minutes, only for a planned position, and never a fourth object. The bucket itself enforces 5,242,880 bytes and the JPEG/PNG/WebP content types. Nobody but the server can overwrite or delete.
 4. **Submit (complete).** `POST /api/quote-requests/{request_id}/submission` (same form token, which must match the request's `submission_key`) lists the folder with the service role, checks the count and each file's first bytes (JPEG, PNG or WebP signature) and size, deletes and refuses any bad file (422, per photo), then calls `complete_quote_request()`. That function, in one transaction, inserts the photo rows, issues the `NQ-` reference, flips the row to `submitted`, queues the GHL contact copy and records `quote_request_submitted`. Only then does the homeowner see SCR-02.
 5. Pending rows older than 24 hours and their files are purged by the daily housekeeping job.
+6. **The offers choice is an answer like the others (FR-25).** `marketing_consent` in the create body is coerced by the route (only JSON `true` is yes; anything else is no, never a 422, AC-001.17), compared by `start_quote_request()` with the other fields (so ticking the box after a first try updates a pending request, and changing it on a submitted token is `form_already_used`), and stamped with its time by `complete_quote_request()` when the request is stored. It decides only whether a GHL job is queued (decision 0004).
+7. **Capped refusal log (FR-8, S0 SEC-14).** Every honeypot, time-trap or rate-limit refusal calls `record_spam_refusal(ip_hash, reason)`: under a lock per address and reason, the first refusal in a 10-minute window writes one `spam_submission_blocked` event (`count` 1) and a `spam_refusal_windows` row; later refusals in the window raise the count on both. A new event is written only while fewer than 1,000 exist for the Hamilton day (checked under one global lock, so the cap is exact); past it nothing is written. The address key stays in `spam_refusal_windows` (24 hours), never in `events`.
 
 ## Alternatives considered
 ### One multipart request with the photos
@@ -26,13 +28,19 @@ A homeowner sends six fields and up to three photos of up to 5 MB each. Vercel f
 - **Cons:** the upload rule would live only in application code; the brief requires the database to enforce "own folder, at most 3".
 - **Why not:** the policy is a database-level backstop that RLS tests can prove; the route still controls who gets a request id.
 
+### Sample spam refusals instead of capping them (log 1 in N)
+- **Pros:** no window table; one insert per logged refusal.
+- **Cons:** a sample cannot satisfy AC-003.7 (exactly one event with `count` 30 for one address and reason) and still grows without bound in a flood from many addresses.
+- **Why not:** FR-8 fixes the window and the daily ceiling; a window row per key is the smallest store that implements both.
+
 ### Anonymous insert straight into `quote_requests` under RLS
 - **Pros:** no service role in the public path.
 - **Cons:** anyone with the public key could skip the honeypot, time trap and rate limit by calling PostgREST directly.
 - **Why not:** FR-8 would be unenforceable. Anonymous users get no table privileges at all.
 
 ## Consequences
-- **Easier:** nothing partial is ever visible; retries after a dropped photo reuse the same pending request (AC-002.6); the reference is never shown for an unsaved request.
+- **Easier:** nothing partial is ever visible; retries after a dropped photo reuse the same pending request (AC-002.6); the reference is never shown for an unsaved request; a bot flood adds at most about 1,000 event rows and 1,000 window rows a day.
+- **Harder (SEC-14):** `events` is no longer strictly append-only: `record_spam_refusal` updates the `count` property of the open spam event (column grant on `properties` only). The blocked-share guardrail reads low on a day that hits the ceiling (accepted in FR-8).
 - **Harder:** three round trips for a submission with photos; the frontend must upload with a client that sends the public key (not a staff session). The policy also accepts authenticated uploads so a signed-in staff member testing the form is not blocked.
 - **Cost:** none. Abandoned pending uploads use Storage until the daily purge (at most 15 MB per pending request, at most 5 pending requests per network address per 10 minutes).
 - **Risks:** a request id leaked within its 60-minute window lets a third party add photos to that pending request, up to the planned count, and only of the allowed types. The submit step re-checks every file's bytes. A distributed attacker could fill the 1 GB Free storage with abandoned uploads; the daily purge limits the window (accepted risk, `docs/SECURITY_MODEL.md`).

@@ -1,5 +1,5 @@
 -- RLS across every table in public, plus the role attributes the design relies on (S0 SEC-1,
--- SEC-17). This file covers tables added later too, not only today's eight.
+-- SEC-17). This file covers tables added later too, not only today's ten.
 --
 -- If the BYPASSRLS assertions fail on any database: STOP and raise a contract question. Never
 -- drop "force row level security" to make them pass. The staff RPCs, is_staff(), current_staff()
@@ -44,9 +44,9 @@ select is((select count(*)
 select is((select count(*)
              from pg_class c join pg_namespace n on n.oid = c.relnamespace
             where n.nspname = 'public' and c.relkind = 'r'
-              and c.relname in ('rate_limit_hits', 'sign_in_attempts')
+              and c.relname in ('rate_limit_hits', 'sign_in_attempts', 'sign_in_pauses', 'spam_refusal_windows')
               and has_table_privilege('authenticated', c.oid, 'SELECT')),
-  0::bigint, 'authenticated cannot even select the two counters');
+  0::bigint, 'authenticated cannot even select the counter tables (they hold address and email keys)');
 
 select is((select count(*)
              from pg_proc p join pg_namespace n on n.oid = p.pronamespace
@@ -58,9 +58,25 @@ select is((select count(*)
              from pg_proc p join pg_namespace n on n.oid = p.pronamespace
             where n.nspname = 'public'
               and p.proname in ('start_quote_request', 'take_submission_slot', 'take_sign_in_attempt',
-                                'mark_sign_in_succeeded', 'complete_quote_request', 'claim_ghl_job', 'finish_ghl_job')
+                                'mark_sign_in_succeeded', 'complete_quote_request', 'claim_ghl_job', 'finish_ghl_job',
+                                'record_spam_refusal', 'find_ghl_contact_match', 'ghl_stage_for_request')
               and p.prosecdef),
   0::bigint, 'the service-role functions are security invoker (they do not depend on the owner bypassing RLS)');
+
+select is((select count(*)
+             from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+            where n.nspname = 'public'
+              and p.proname in ('start_quote_request', 'take_submission_slot', 'take_sign_in_attempt',
+                                'mark_sign_in_succeeded', 'complete_quote_request', 'claim_ghl_job', 'finish_ghl_job',
+                                'record_spam_refusal', 'find_ghl_contact_match', 'ghl_stage_for_request')
+              and has_function_privilege('authenticated', p.oid, 'EXECUTE')),
+  0::bigint, 'staff cannot call any service-role function');
+
+select is((select count(*)
+             from pg_proc p join pg_namespace n on n.oid = p.pronamespace
+            where n.nspname = 'public'
+              and (p.proname ~ '(password|reset|recover)')),
+  0::bigint, 'ruling 3A: no password change or reset function exists in public (FR-27, AC-004.10)');
 
 select * from finish();
 rollback;

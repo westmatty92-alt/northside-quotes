@@ -3,6 +3,9 @@
 --          request, with attempt counts, backoff and a lease. The request detail (SCR-06) reads
 --          its copy and stage-tag state from here. FR-14, FR-15, FR-19, FR-24 · US-009, US-010,
 --          US-014, US-017. Job rows hold no token and no personal data (AC-010.5, AC-017.13).
+--          PRD v1.2 (ruling 1B, FR-25): a job exists only for a request whose homeowner ticked
+--          the offers box; a trigger refuses any other insert, so no code path can queue one.
+--          error class `rejected` (GHL 400, 404, 422) fails at once (docs/integration-contract.md).
 -- Decision: docs/decisions/0004-ghl-sync-and-retry-schedule.md
 
 begin;
@@ -17,7 +20,7 @@ create table if not exists public.ghl_sync_jobs (
   max_attempts     smallint not null default 6 check (max_attempts >= 1),  -- first attempt + 5 retries (OQ-8A); a manual retry allows one more
   next_attempt_at  timestamptz not null default now(),
   last_attempt_at  timestamptz,
-  last_error_class text check (last_error_class in ('timeout', 'auth', 'rate_limited', 'server_error', 'config_missing')),
+  last_error_class text check (last_error_class in ('timeout', 'auth', 'rate_limited', 'server_error', 'config_missing', 'rejected')),
   locked_until     timestamptz,                         -- lease held by the runner that claimed the job
   lease_id         uuid,                                -- new for every claim; finish_ghl_job ignores a result from any other lease (S0 SEC-7)
   created_at       timestamptz not null default now(),
@@ -46,6 +49,28 @@ drop trigger if exists ghl_sync_jobs_set_updated_at on public.ghl_sync_jobs;
 create trigger ghl_sync_jobs_set_updated_at before update on public.ghl_sync_jobs
   for each row execute function app_private.set_updated_at();
 
+-- Ruling 1B (FR-15, FR-24, AC-009.9, AC-017.16): no GHL job, of either kind, for a request whose
+-- homeowner did not tick the offers box. complete_quote_request and change_quote_request_status
+-- already skip those requests; this trigger makes it impossible for any other path (a bug, a
+-- by-hand insert by the service role) to queue one.
+create or replace function app_private.ghl_sync_jobs_require_consent() returns trigger
+language plpgsql
+set search_path = ''
+as $$
+begin
+  if not exists (select 1 from public.quote_requests q
+                  where q.id = new.request_id and q.marketing_consent) then
+    raise exception 'no offers consent: nothing is sent to GoHighLevel for this request' using errcode = '23514';
+  end if;
+  return new;
+end
+$$;
+revoke all on function app_private.ghl_sync_jobs_require_consent() from public;
+
+drop trigger if exists ghl_sync_jobs_require_consent on public.ghl_sync_jobs;
+create trigger ghl_sync_jobs_require_consent before insert on public.ghl_sync_jobs
+  for each row execute function app_private.ghl_sync_jobs_require_consent();
+
 -- RLS enabled and forced (S0 SEC-1); explicit grants (S0 SEC-17).
 alter table public.ghl_sync_jobs enable row level security;
 alter table public.ghl_sync_jobs force row level security;
@@ -65,4 +90,5 @@ commit;
 -- rollback
 -- begin;
 -- drop table if exists public.ghl_sync_jobs;   -- DESTRUCTIVE: sync history (requests are untouched)
+-- drop function if exists app_private.ghl_sync_jobs_require_consent();
 -- commit;

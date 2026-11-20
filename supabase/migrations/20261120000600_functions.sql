@@ -1,14 +1,17 @@
 -- 20261120000600_functions.sql
 -- Purpose: the only write paths for quote requests, each one transaction:
---   start_quote_request         service role  create or replay a pending request for one form token, with the rate limit (FR-3, FR-8, S0 SEC-2, SEC-3)
+--   start_quote_request         service role  create or replay a pending request for one form token, with the rate limit and the offers choice (FR-3, FR-8, FR-25, S0 SEC-2, SEC-3)
 --   take_submission_slot        service role  lock, count and record one accepted submission per address (FR-8, S0 SEC-3)
---   take_sign_in_attempt / mark_sign_in_succeeded  service role  per-email sign-in pause, atomic (FR-9, S0 SEC-3)
---   complete_quote_request      service role  pending -> submitted, NQ- reference, photo rows, copy job, event (FR-2, FR-3)
+--   record_spam_refusal         service role  one spam_submission_blocked event per address and reason per 10 minutes with a count, 1,000 a day (FR-8, S0 SEC-14)
+--   take_sign_in_attempt / mark_sign_in_succeeded  service role  sign-in limits per email and per address, atomic (FR-9, ruling 4A, S0 SEC-3)
+--   complete_quote_request      service role  pending -> submitted, NQ- reference, photo rows, consent time, copy job only with consent, event (FR-2, FR-3, FR-15, FR-25)
 --   save_quote_request_quote    staff         price + note with version check, first-quote event (FR-11, US-006)
---   change_quote_request_status staff         status + audit row + new stage-tag job + event (FR-12, FR-24, US-007, US-016)
---   request_ghl_copy_retry      staff         re-arm a failed contact copy for one manual attempt (FR-19, US-014)
+--   change_quote_request_status staff         status + audit row + new stage-tag job only with consent + event (FR-12, FR-24, US-007, US-016)
+--   request_ghl_copy_retry      staff         re-arm a failed contact copy for one manual attempt; never without consent (FR-19, US-014, AC-014.4)
 --   claim_ghl_job / finish_ghl_job service role  lease ONE job, settle it only with that lease (FR-15, FR-24, US-010, S0 SEC-7)
---   list_quote_requests         staff         inbox list, status filter, search and keyset paging with typed parameters (US-005, US-011, US-013, S0 SEC-13)
+--   find_ghl_contact_match      service role  the contact match rule: same email or same phone, already linked (FR-15, ruling 2A)
+--   ghl_stage_for_request       service role  the stage tag a contact must carry: last change wins among its requests (FR-24, ruling 2A)
+--   list_quote_requests         staff         Requests tab list, status filter, search, Pipeline columns, keyset paging with typed parameters (US-005, US-011, US-013, US-016, S0 SEC-13)
 --   weekly_counts               staff         this week's three numbers, Monday to Sunday America/Toronto (FR-13, US-008)
 --
 -- Security definer or invoker (S0 SEC-1, forced RLS):
@@ -63,7 +66,10 @@ grant execute on function public.take_submission_slot(text, integer, interval) t
 -- ---------------------------------------------------------------------------------------------
 -- start_quote_request: POST /api/quote-requests after the token, honeypot and zod checks.
 -- One call per create; every call for one form token is serialised by an advisory lock, so two
--- concurrent creates with the same token resolve to ONE request (S0 SEC-2). Outcomes:
+-- concurrent creates with the same token resolve to ONE request (S0 SEC-2). The offers choice
+-- (FR-25) is compared like every other field: the route passes true only for a JSON true and
+-- false for anything else (missing, "yes", "maybe", 1, null); null here is stored as false too.
+-- Outcomes:
 --   created       new pending request (201); took a rate-limit slot
 --   replayed      same token, same fields: the existing request, pending or submitted (200)
 --   updated       same token, changed fields, still pending: updated; the route clears the
@@ -81,7 +87,8 @@ create or replace function public.start_quote_request(
   p_problem        text,
   p_urgency        text,
   p_photo_count    integer,
-  p_ip_hash        text)
+  p_ip_hash        text,
+  p_marketing_consent boolean default false)
 returns jsonb
 language plpgsql
 volatile
@@ -89,9 +96,10 @@ security invoker
 set search_path = ''
 as $$
 declare
-  v_req   public.quote_requests%rowtype;
-  v_slot  boolean;
-  v_retry integer;
+  v_req     public.quote_requests%rowtype;
+  v_slot    boolean;
+  v_retry   integer;
+  v_consent boolean := coalesce(p_marketing_consent, false);  -- AC-001.17: anything but a clear yes is no
 begin
   if p_submission_key is null then
     raise exception 'form token nonce required' using errcode = 'PT422';
@@ -103,8 +111,9 @@ begin
 
   if found then
     if (v_req.name, v_req.phone, v_req.email, v_req.address, v_req.problem, v_req.urgency,
-        v_req.photo_count::integer)
-       is not distinct from (p_name, p_phone, p_email, p_address, p_problem, p_urgency, p_photo_count) then
+        v_req.photo_count::integer, v_req.marketing_consent)
+       is not distinct from (p_name, p_phone, p_email, p_address, p_problem, p_urgency, p_photo_count,
+                             v_consent) then
       return jsonb_build_object('outcome', 'replayed', 'request_id', v_req.id, 'state', v_req.state,
                                 'reference', v_req.reference, 'photo_count', v_req.photo_count,
                                 'created_at', v_req.created_at);
@@ -116,7 +125,8 @@ begin
 
     update public.quote_requests
        set name = p_name, phone = p_phone, email = p_email, address = p_address,
-           problem = p_problem, urgency = p_urgency, photo_count = p_photo_count
+           problem = p_problem, urgency = p_urgency, photo_count = p_photo_count,
+           marketing_consent = v_consent
      where id = v_req.id
     returning * into v_req;
     return jsonb_build_object('outcome', 'updated', 'request_id', v_req.id, 'state', v_req.state,
@@ -142,8 +152,10 @@ begin
     end if;
   end if;
 
-  insert into public.quote_requests (submission_key, name, phone, email, address, problem, urgency, photo_count)
-  values (p_submission_key, p_name, p_phone, p_email, p_address, p_problem, p_urgency, p_photo_count)
+  insert into public.quote_requests (submission_key, name, phone, email, address, problem, urgency, photo_count,
+                                     marketing_consent)
+  values (p_submission_key, p_name, p_phone, p_email, p_address, p_problem, p_urgency, p_photo_count,
+          v_consent)
   returning * into v_req;
 
   return jsonb_build_object('outcome', 'created', 'request_id', v_req.id, 'state', v_req.state,
@@ -151,17 +163,21 @@ begin
                             'created_at', v_req.created_at);
 end
 $$;
-revoke all on function public.start_quote_request(uuid, text, text, text, text, text, text, integer, text) from public, anon, authenticated;
-grant execute on function public.start_quote_request(uuid, text, text, text, text, text, text, integer, text) to service_role;
+revoke all on function public.start_quote_request(uuid, text, text, text, text, text, text, integer, text, boolean) from public, anon, authenticated;
+grant execute on function public.start_quote_request(uuid, text, text, text, text, text, text, integer, text, boolean) to service_role;
 
 -- ---------------------------------------------------------------------------------------------
--- take_sign_in_attempt: POST /api/auth/sign-in calls this BEFORE Supabase Auth. Under a per-email
--- lock it either refuses (5 failures in the last 15 minutes: paused until 15 minutes after the
--- fifth most recent failure, refused attempts not counted) or records the attempt as a failure up
--- front and returns its id. Parallel guesses therefore count against each other (S0 SEC-3).
--- The route calls mark_sign_in_succeeded() only when the user is signed in AND is staff.
--- Returns {allowed, attempt_id, retry_after_seconds}.
-create or replace function public.take_sign_in_attempt(p_email_hash text)
+-- record_spam_refusal: the route calls this after refusing a submission for the honeypot, the
+-- 3-second minimum or the rate limit (FR-8, S0 SEC-14, AC-003.7, AC-003.8). At most ONE
+-- spam_submission_blocked event per address and reason per 10-minute window: the first refusal
+-- writes the event with count 1 and opens the window; later refusals in the window only raise
+-- that event's count. A new event is written only while fewer than 1,000 exist for the current
+-- Hamilton (America/Toronto) day; past that cap nothing is written at all. The refusal itself is
+-- answered the same way in every case; this function only decides what is logged. The caller
+-- hashes 'ip|v1|<address>' (IPv6 /64), or 'ip|v1|unknown' when no address is known. If this call
+-- fails, the route still refuses exactly the same way and logs nothing (fails open for logging).
+-- Returns {logged: boolean, event_id, count}.
+create or replace function public.record_spam_refusal(p_ip_hash text, p_reason text)
 returns jsonb
 language plpgsql
 volatile
@@ -169,34 +185,165 @@ security invoker
 set search_path = ''
 as $$
 declare
-  v_fifth timestamptz;
-  v_id    uuid;
+  v_window public.spam_refusal_windows%rowtype;
+  v_event  uuid;
+  v_today  timestamptz := date_trunc('day', now() at time zone 'America/Toronto') at time zone 'America/Toronto';
 begin
-  perform pg_advisory_xact_lock(hashtextextended('sign_in:' || p_email_hash, 0));
-
-  select a.created_at into v_fifth
-    from public.sign_in_attempts a
-   where a.email_hash = p_email_hash
-     and not a.succeeded
-     and a.created_at > now() - interval '15 minutes'
-   order by a.created_at desc
-   offset 4
-   limit 1;
-
-  if v_fifth is not null then
-    return jsonb_build_object(
-      'allowed', false, 'attempt_id', null,
-      'retry_after_seconds',
-      greatest(1, ceil(extract(epoch from (v_fifth + interval '15 minutes' - now())))::integer));
+  if p_ip_hash is null or p_reason is null or p_reason not in ('honeypot', 'too_fast', 'rate_limited') then
+    raise exception 'address hash and a known reason required' using errcode = 'PT422';
   end if;
 
-  insert into public.sign_in_attempts (email_hash, succeeded) values (p_email_hash, false)
+  -- one key at a time: two refusals from one address and reason never open two windows
+  perform pg_advisory_xact_lock(hashtextextended('spam_refusal:' || p_ip_hash || ':' || p_reason, 0));
+
+  select * into v_window from public.spam_refusal_windows w
+   where w.ip_hash = p_ip_hash and w.reason = p_reason and w.window_start > now() - interval '10 minutes'
+   order by w.window_start desc
+   limit 1
+   for update;
+
+  if found then
+    update public.spam_refusal_windows set refusals = refusals + 1 where id = v_window.id
+    returning * into v_window;
+    update public.events
+       set properties = jsonb_set(properties, '{count}', to_jsonb(v_window.refusals))
+     where id = v_window.event_id;
+    return jsonb_build_object('logged', true, 'event_id', v_window.event_id, 'count', v_window.refusals);
+  end if;
+
+  -- a new event: the daily total is checked and written under one global lock, so the 1,000 cap
+  -- is exact even when many addresses are refused at the same moment
+  perform pg_advisory_xact_lock(hashtextextended('spam_refusal_day', 0));
+  if (select count(*) from public.events e
+       where e.name = 'spam_submission_blocked' and e.created_at >= v_today) >= 1000 then
+    return jsonb_build_object('logged', false, 'event_id', null, 'count', 0);
+  end if;
+
+  insert into public.events (name, properties)
+  values ('spam_submission_blocked', jsonb_build_object('reason', p_reason, 'count', 1))
+  returning id into v_event;
+  insert into public.spam_refusal_windows (ip_hash, reason, event_id) values (p_ip_hash, p_reason, v_event);
+  return jsonb_build_object('logged', true, 'event_id', v_event, 'count', 1);
+end
+$$;
+revoke all on function public.record_spam_refusal(text, text) from public, anon, authenticated;
+grant execute on function public.record_spam_refusal(text, text) to service_role;
+
+-- ---------------------------------------------------------------------------------------------
+-- app_private.sign_in_pause_until: when one email ('email') or one network address ('ip') may
+-- sign in again (FR-9, ruling 4A). Called only by take_sign_in_attempt, under that key's lock.
+--   * The count restarts when a pause ends: only failures at or after the latest paused_until
+--     of the key are counted.
+--   * The limit is reached when p_limit failures fall within p_window ending at the newest
+--     counted failure. Every failure is recorded by take_sign_in_attempt after this check ran,
+--     so only the newest failure can have reached the limit unnoticed; the pause then runs from
+--     that failure for p_pause and is recorded, even if it already ran out (so the count
+--     restarts at its end, as the PRD says).
+-- Returns the end of the latest pause (may be in the past) or null if the key was never paused.
+create or replace function app_private.sign_in_pause_until(
+  p_scope text, p_key text, p_limit integer, p_window interval, p_pause interval)
+returns timestamptz
+language plpgsql
+volatile
+security invoker
+set search_path = ''
+as $$
+declare
+  v_last_end timestamptz;
+  v_since    timestamptz;
+  v_newest   timestamptz;
+  v_n        integer;
+begin
+  select max(p.paused_until) into v_last_end
+    from public.sign_in_pauses p
+   where p.scope = p_scope and p.key_hash = p_key;
+  if v_last_end > now() then
+    return v_last_end;                       -- paused right now
+  end if;
+  v_since := coalesce(v_last_end, '-infinity'::timestamptz);
+
+  if p_scope = 'email' then
+    select max(a.created_at) into v_newest from public.sign_in_attempts a
+     where a.email_hash = p_key and not a.succeeded and a.created_at >= v_since;
+  else
+    select max(a.created_at) into v_newest from public.sign_in_attempts a
+     where a.ip_hash = p_key and not a.succeeded and a.created_at >= v_since;
+  end if;
+  if v_newest is null then
+    return v_last_end;
+  end if;
+
+  if p_scope = 'email' then
+    select count(*) into v_n from public.sign_in_attempts a
+     where a.email_hash = p_key and not a.succeeded and a.created_at >= v_since
+       and a.created_at > v_newest - p_window;
+  else
+    select count(*) into v_n from public.sign_in_attempts a
+     where a.ip_hash = p_key and not a.succeeded and a.created_at >= v_since
+       and a.created_at > v_newest - p_window;
+  end if;
+  if v_n < p_limit then
+    return v_last_end;
+  end if;
+
+  insert into public.sign_in_pauses (scope, key_hash, paused_until) values (p_scope, p_key, v_newest + p_pause);
+  return v_newest + p_pause;
+end
+$$;
+revoke all on function app_private.sign_in_pause_until(text, text, integer, interval, interval) from public;
+grant execute on function app_private.sign_in_pause_until(text, text, integer, interval, interval) to service_role;
+
+-- take_sign_in_attempt: POST /api/auth/sign-in calls this BEFORE Supabase Auth (FR-9, ruling 4A,
+-- S0 SEC-3). Two limits, both kept in the database so every server instance sees the same counts:
+--   per email   5 failures within 15 minutes → that email is paused for 5 minutes
+--   per address 20 failures within 15 minutes, across any emails → that address is paused for
+--               15 minutes (an IPv6 address counts by its /64; no address → the 'unknown' key)
+-- Each count restarts when its pause ends. Under a lock on the email, then on the address (every
+-- call takes them in this order, so two calls never deadlock), it either refuses (refused
+-- attempts are not counted) or records the attempt as a failure up front and returns its id, so
+-- parallel guesses count against each other. An email with no account is just another hash and
+-- is counted and paused the same way (AC-004.12). The route calls mark_sign_in_succeeded() only
+-- when the user is signed in AND is staff; a success is not a failure. Any error here (counters
+-- unreadable) must make the route refuse sign-in with 503 sign_in_unavailable (AC-004.13): this
+-- function never swallows an error. retry_after_seconds is for tests and the server only: the
+-- route must not send it, because 5 vs 15 minutes would say which limit applied.
+-- Returns {allowed, attempt_id, retry_after_seconds}.
+create or replace function public.take_sign_in_attempt(p_email_hash text, p_ip_hash text)
+returns jsonb
+language plpgsql
+volatile
+security invoker
+set search_path = ''
+as $$
+declare
+  v_until timestamptz;
+  v_id    uuid;
+begin
+  if p_email_hash is null or p_ip_hash is null then
+    raise exception 'email and address hashes required' using errcode = 'PT422';
+  end if;
+
+  perform pg_advisory_xact_lock(hashtextextended('sign_in_email:' || p_email_hash, 0));
+  perform pg_advisory_xact_lock(hashtextextended('sign_in_ip:' || p_ip_hash, 0));
+
+  -- greatest() ignores nulls: the later of the two pause ends decides
+  v_until := greatest(
+    app_private.sign_in_pause_until('email', p_email_hash, 5, interval '15 minutes', interval '5 minutes'),
+    app_private.sign_in_pause_until('ip', p_ip_hash, 20, interval '15 minutes', interval '15 minutes'));
+
+  if v_until is not null and v_until > now() then
+    return jsonb_build_object(
+      'allowed', false, 'attempt_id', null,
+      'retry_after_seconds', greatest(1, ceil(extract(epoch from (v_until - now())))::integer));
+  end if;
+
+  insert into public.sign_in_attempts (email_hash, ip_hash, succeeded) values (p_email_hash, p_ip_hash, false)
   returning id into v_id;
   return jsonb_build_object('allowed', true, 'attempt_id', v_id, 'retry_after_seconds', 0);
 end
 $$;
-revoke all on function public.take_sign_in_attempt(text) from public, anon, authenticated;
-grant execute on function public.take_sign_in_attempt(text) to service_role;
+revoke all on function public.take_sign_in_attempt(text, text) from public, anon, authenticated;
+grant execute on function public.take_sign_in_attempt(text, text) to service_role;
 
 create or replace function public.mark_sign_in_succeeded(p_attempt_id uuid)
 returns boolean
@@ -217,6 +364,9 @@ grant execute on function public.mark_sign_in_succeeded(uuid) to service_role;
 -- complete_quote_request: called by POST /api/quote-requests/{id}/submission after the server
 -- has checked every uploaded photo. p_photos = [{position, storage_path, content_type, size_bytes}].
 -- Calling it again for a submitted request returns the same reference (double submit, AC-001.6).
+-- Ruling 1B (FR-15, FR-25): a ticked request gets its consent time (= the time it is stored) and
+-- ONE contact_copy job; an unticked request gets no job at all, so nothing ever reaches GHL for
+-- it (AC-009.9). The request is stored and confirmed the same way in both cases.
 create or replace function public.complete_quote_request(p_request_id uuid, p_photos jsonb default '[]'::jsonb)
 returns jsonb
 language plpgsql
@@ -256,7 +406,8 @@ begin
     v_ref := app_private.new_reference();
     begin
       update public.quote_requests
-         set state = 'submitted', reference = v_ref, submitted_at = now()
+         set state = 'submitted', reference = v_ref, submitted_at = now(),
+             marketing_consent_at = case when marketing_consent then now() end
        where id = p_request_id;
       exit;
     exception when unique_violation then
@@ -267,12 +418,15 @@ begin
     end;
   end loop;
 
-  insert into public.ghl_sync_jobs (request_id, kind) values (p_request_id, 'contact_copy');
+  if v_req.marketing_consent then
+    insert into public.ghl_sync_jobs (request_id, kind) values (p_request_id, 'contact_copy');
+  end if;
 
   insert into public.events (name, request_id, properties)
   values ('quote_request_submitted', p_request_id,
           jsonb_build_object('request_id', p_request_id, 'urgency', v_req.urgency,
-                             'photo_count', v_req.photo_count));
+                             'photo_count', v_req.photo_count,
+                             'marketing_consent', v_req.marketing_consent));
 
   return jsonb_build_object('request_id', p_request_id, 'reference', v_ref, 'submitted_at', now(),
                             'photo_count', v_req.photo_count, 'replayed', false);
@@ -343,9 +497,10 @@ revoke all on function public.save_quote_request_quote(uuid, bigint, text, integ
 grant execute on function public.save_quote_request_quote(uuid, bigint, text, integer) to authenticated, service_role;
 
 -- ---------------------------------------------------------------------------------------------
--- change_quote_request_status: POST /api/quote-requests/{id}/status-changes (list and board).
--- Same status again changes nothing (AC-007.4, AC-016.6). A real change supersedes any active
--- stage-tag push and starts a new one (FR-24).
+-- change_quote_request_status: POST /api/quote-requests/{id}/status-changes (Requests tab and
+-- Pipeline tab). Same status again changes nothing (AC-007.4, AC-016.6). A real change of a
+-- ticked request supersedes any active stage-tag push and starts a new one (FR-24); a real
+-- change of an unticked request queues nothing and makes no GHL call (ruling 1B, AC-017.16).
 create or replace function public.change_quote_request_status(
   p_request_id uuid, p_to_status text, p_expected_version integer)
 returns jsonb
@@ -393,13 +548,15 @@ begin
   insert into public.quote_request_status_changes (request_id, from_status, to_status, changed_by)
   values (p_request_id, v_from, p_to_status, v_uid);
 
-  -- Superseding also drops the lease, so a runner still working on the old push cannot settle it.
-  update public.ghl_sync_jobs
-     set state = 'superseded', locked_until = null, lease_id = null
-   where request_id = p_request_id and kind = 'stage_tag' and state in ('pending', 'waiting');
+  if v_req.marketing_consent then
+    -- Superseding also drops the lease, so a runner still working on the old push cannot settle it.
+    update public.ghl_sync_jobs
+       set state = 'superseded', locked_until = null, lease_id = null
+     where request_id = p_request_id and kind = 'stage_tag' and state in ('pending', 'waiting');
 
-  insert into public.ghl_sync_jobs (request_id, kind, target_status)
-  values (p_request_id, 'stage_tag', p_to_status);
+    insert into public.ghl_sync_jobs (request_id, kind, target_status)
+    values (p_request_id, 'stage_tag', p_to_status);
+  end if;
 
   insert into public.events (name, request_id, user_id, properties)
   values ('quote_request_status_changed', p_request_id, v_uid,
@@ -417,7 +574,8 @@ grant execute on function public.change_quote_request_status(uuid, text, integer
 -- request_ghl_copy_retry: POST /api/quote-requests/{id}/ghl-copy-retries (US-014, Could).
 -- Re-arms a failed contact copy for exactly one more attempt and returns the job id; the route
 -- then claims that job with claim_ghl_job(p_job_id => ...) and runs it. A second click while it
--- runs gets PT409 (AC-014.3).
+-- runs gets PT409 (AC-014.3). A request without offers consent has no job and never gets one:
+-- PT409 (not_retryable), nothing is created and no GHL call is made (AC-014.4).
 create or replace function public.request_ghl_copy_retry(p_request_id uuid)
 returns uuid
 language plpgsql
@@ -425,13 +583,19 @@ security definer
 set search_path = ''
 as $$
 declare
-  v_job uuid;
+  v_job     uuid;
+  v_consent boolean;
 begin
   if not app_private.is_staff() then
     raise exception 'staff session required' using errcode = 'PT401';
   end if;
-  if not exists (select 1 from public.quote_requests where id = p_request_id and state = 'submitted') then
+  select marketing_consent into v_consent
+    from public.quote_requests where id = p_request_id and state = 'submitted';
+  if not found then
     raise exception 'quote request not found' using errcode = 'PT404';
+  end if;
+  if not v_consent then
+    raise exception 'no offers consent: this request is never copied' using errcode = 'PT409';
   end if;
 
   update public.ghl_sync_jobs
@@ -484,9 +648,13 @@ grant execute on function public.claim_ghl_job(uuid, uuid, integer) to service_r
 
 -- ---------------------------------------------------------------------------------------------
 -- finish_ghl_job: settle one claimed job, only with the lease id its claim returned.
---   succeeded  GHL confirmed; stores the contact id for a copy
---   retry      timeout, 5xx, 429 or another non-auth error: wait and retry (5 min, 1 h, 3 h, 6 h, 12 h)
---   failed     missing or rejected token: fail now, no retries (AC-009.3, AC-017.10)
+--   succeeded  GHL confirmed; stores the contact id and the link time for a copy (created OR linked
+--              to an existing contact by the match rule, ruling 2A)
+--   retry      timeout, 5xx, 429 or an unusable reply: wait and retry (5 min, 1 h, 3 h, 6 h, 12 h)
+--   failed     fail now, no retries
+-- The error classes auth (401/403), config_missing (no token) and rejected (GHL 400, 404, 422:
+-- it refused the data or the contact no longer exists) ALWAYS fail at once, whatever outcome the
+-- runner passes (AC-009.3, AC-017.10, docs/integration-contract.md "When the platform is down").
 --   wait       stage tag whose contact copy has not succeeded yet: no attempt counted
 --   abandon    stage tag whose contact copy failed: stage tag failed, no attempt counted (FR-24)
 -- Returned unchanged (and nothing recorded) when the job was superseded or settled meanwhile, or
@@ -503,11 +671,15 @@ declare
   v_job     public.ghl_sync_jobs%rowtype;
   v_attempt integer;
   v_prefix  text;
+  v_outcome text := p_outcome;
   v_delays  constant interval[] := array[interval '5 minutes', interval '1 hour', interval '3 hours',
                                          interval '6 hours', interval '12 hours'];
 begin
   if p_outcome is null or p_outcome not in ('succeeded', 'retry', 'failed', 'wait', 'abandon') then
     raise exception 'unknown outcome' using errcode = 'PT422';
+  end if;
+  if p_outcome = 'retry' and p_error_class in ('auth', 'config_missing', 'rejected') then
+    v_outcome := 'failed';   -- these never get better by waiting
   end if;
 
   select * into v_job from public.ghl_sync_jobs where id = p_job_id for update;
@@ -551,8 +723,10 @@ begin
 
     if v_job.kind = 'contact_copy' then
       if p_contact_id is not null then
-        -- the check constraint refuses anything but [A-Za-z0-9_-]{1,100} (S0 SEC-12)
-        update public.quote_requests set ghl_contact_id = p_contact_id where id = v_job.request_id;
+        -- the check constraint refuses anything but [A-Za-z0-9_-]{1,100} (S0 SEC-12); the link time
+        -- is this copy's place in "last change wins" on a shared contact (FR-24)
+        update public.quote_requests set ghl_contact_id = p_contact_id, ghl_linked_at = now()
+         where id = v_job.request_id;
       end if;
       -- The new contact already carries the current stage tag, so a stage tag that was abandoned
       -- because the copy had failed no longer applies.
@@ -571,7 +745,7 @@ begin
 
   -- retry or failed: one attempt that did not work
   if p_error_class is null
-     or p_error_class not in ('timeout', 'auth', 'rate_limited', 'server_error', 'config_missing') then
+     or p_error_class not in ('timeout', 'auth', 'rate_limited', 'server_error', 'config_missing', 'rejected') then
     raise exception 'unknown error class' using errcode = 'PT422';
   end if;
 
@@ -582,15 +756,15 @@ begin
                                                'attempt_number', v_attempt,
                                                'error_class', p_error_class)));
 
-  if p_outcome = 'failed' or v_attempt >= v_job.max_attempts then
+  if v_outcome = 'failed' or v_attempt >= v_job.max_attempts then
     update public.ghl_sync_jobs
        set state = 'failed', attempt_count = v_attempt, last_attempt_at = now(),
            last_error_class = p_error_class, locked_until = null, lease_id = null
      where id = p_job_id
     returning * into v_job;
 
-    -- automatic retries ran out (not a token failure, not a manual retry)
-    if p_outcome = 'retry' and v_job.max_attempts = 6 then
+    -- automatic retries ran out (not a token failure, not rejected, not a manual retry)
+    if v_outcome = 'retry' and v_job.max_attempts = 6 then
       insert into public.events (name, request_id, properties)
       values (v_prefix || '_gave_up', v_job.request_id,
               jsonb_strip_nulls(jsonb_build_object('request_id', v_job.request_id,
@@ -612,7 +786,64 @@ revoke all on function public.finish_ghl_job(uuid, uuid, text, text, text) from 
 grant execute on function public.finish_ghl_job(uuid, uuid, text, text, text) to service_role;
 
 -- ---------------------------------------------------------------------------------------------
--- list_quote_requests: GET /api/quote-requests (List view, status filter, search, Board columns).
+-- find_ghl_contact_match: step 1 of the contact copy (FR-15, ruling 2A, AC-009.10, AC-009.11).
+-- The match rule: two requests belong to the same homeowner when they have the same email
+-- (compared trimmed and lower-cased) OR the same 10-digit phone. Returns the GHL contact id of
+-- the most recently linked OTHER consented request that matches, or null. The runner links to it
+-- (adds our tags, never changes the contact's fields, OQ-19A) instead of searching GHL; with
+-- null it falls back to GHL's duplicate search, then to a create. Unticked requests are never
+-- linked (column check), so they are never a match (AC-009.12, AC-009.13).
+create or replace function public.find_ghl_contact_match(p_request_id uuid)
+returns text
+language sql
+stable
+security invoker
+set search_path = ''
+as $$
+  select m.ghl_contact_id
+    from public.quote_requests r
+    join public.quote_requests m
+      on m.id <> r.id
+     and m.ghl_contact_id is not null
+     and m.marketing_consent
+     and (lower(btrim(m.email)) = lower(btrim(r.email)) or m.phone = r.phone)
+   where r.id = p_request_id and r.marketing_consent
+   order by m.ghl_linked_at desc, m.id desc
+   limit 1;
+$$;
+revoke all on function public.find_ghl_contact_match(uuid) from public, anon, authenticated;
+grant execute on function public.find_ghl_contact_match(uuid) to service_role;
+
+-- ---------------------------------------------------------------------------------------------
+-- ghl_stage_for_request: the status whose stage tag the request's contact must carry now
+-- (FR-24, ruling 2A, AC-017.15, AC-017.17). Among the consented requests linked to the same GHL
+-- contact, the one with the most recent change wins, where a request's last change is the later
+-- of its link time (its copy) and its last status change. A request not linked yet answers with
+-- its own status. Every stage-tag attempt and every copy that links an existing contact applies
+-- this value, so a late retry can never put back an older stage. Null for an unticked request.
+create or replace function public.ghl_stage_for_request(p_request_id uuid)
+returns text
+language sql
+stable
+security invoker
+set search_path = ''
+as $$
+  select coalesce(
+    (select s.status
+       from public.quote_requests r
+       join public.quote_requests s
+         on s.ghl_contact_id = r.ghl_contact_id and s.marketing_consent
+      where r.id = p_request_id and r.ghl_contact_id is not null
+      order by greatest(s.ghl_linked_at, coalesce(s.status_changed_at, s.ghl_linked_at)) desc, s.id desc
+      limit 1),
+    (select r.status from public.quote_requests r where r.id = p_request_id and r.marketing_consent));
+$$;
+revoke all on function public.ghl_stage_for_request(uuid) from public, anon, authenticated;
+grant execute on function public.ghl_stage_for_request(uuid) to service_role;
+
+-- ---------------------------------------------------------------------------------------------
+-- list_quote_requests: GET /api/quote-requests (the Requests tab with its status filter and search,
+-- and each Pipeline tab column: one operation serves both tabs).
 -- Typed parameters only, so no PostgREST filter string is ever built from q or the cursor (S0
 -- SEC-13). Security invoker: RLS decides what the caller sees (fresh staff session, submitted
 -- rows only). Order: submitted_at desc, id desc. Keyset: pass both p_after_* values from the last
@@ -703,6 +934,8 @@ commit;
 -- drop function if exists public.weekly_counts();
 -- drop function if exists app_private.weekly_counts_at(timestamptz);
 -- drop function if exists public.list_quote_requests(text, text, timestamptz, uuid, integer);
+-- drop function if exists public.ghl_stage_for_request(uuid);
+-- drop function if exists public.find_ghl_contact_match(uuid);
 -- drop function if exists public.finish_ghl_job(uuid, uuid, text, text, text);
 -- drop function if exists public.claim_ghl_job(uuid, uuid, integer);
 -- drop function if exists public.request_ghl_copy_retry(uuid);
@@ -710,8 +943,10 @@ commit;
 -- drop function if exists public.save_quote_request_quote(uuid, bigint, text, integer);
 -- drop function if exists public.complete_quote_request(uuid, jsonb);
 -- drop function if exists public.mark_sign_in_succeeded(uuid);
--- drop function if exists public.take_sign_in_attempt(text);
--- drop function if exists public.start_quote_request(uuid, text, text, text, text, text, text, integer, text);
+-- drop function if exists public.take_sign_in_attempt(text, text);
+-- drop function if exists app_private.sign_in_pause_until(text, text, integer, interval, interval);
+-- drop function if exists public.record_spam_refusal(text, text);
+-- drop function if exists public.start_quote_request(uuid, text, text, text, text, text, text, integer, text, boolean);
 -- drop function if exists public.take_submission_slot(text, integer, interval);
 -- revoke execute on function app_private.new_reference() from service_role;
 -- commit;

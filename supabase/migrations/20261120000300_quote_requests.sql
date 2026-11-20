@@ -1,10 +1,13 @@
 -- 20261120000300_quote_requests.sql
 -- Purpose: quote requests (pending until every photo is stored, then submitted with an NQ-
 --          reference), their photos, and the append-only status history.
---          FR-1, FR-2, FR-3, FR-6, FR-10, FR-11, FR-12, FR-13, FR-20 · US-001, US-002, US-005,
---          US-006, US-007, US-008, US-015, US-016.
+--          FR-1, FR-2, FR-3, FR-6, FR-10, FR-11, FR-12, FR-13, FR-15, FR-20, FR-25 · US-001, US-002,
+--          US-005, US-006, US-007, US-008, US-009, US-015, US-016, US-017.
+--          PRD v1.2 (ledger rulings 2026-11-20): offers consent and its time (1B, FR-25), one GHL
+--          contact per homeowner with the match rule "same email or same phone" (2A, FR-15).
 -- Decision: docs/decisions/0002-public-submission-and-photo-upload.md,
---           docs/decisions/0003-staff-auth-sessions-and-writes.md
+--           docs/decisions/0003-staff-auth-sessions-and-writes.md,
+--           docs/decisions/0004-ghl-sync-and-retry-schedule.md
 
 begin;
 
@@ -53,19 +56,30 @@ create table if not exists public.quote_requests (
   last_staff_update_at timestamptz,
   last_staff_update_by uuid references public.staff (user_id) on delete set null,  -- set null: the request outlives a removed staff account (US-015)
   ghl_contact_id       text check (ghl_contact_id ~ '^[A-Za-z0-9_-]{1,100}$'),  -- link key to the GHL contact; URL-safe characters only because it goes into /contacts/{id}/tags paths (S0 SEC-12)
+  ghl_linked_at        timestamptz,                          -- when the contact copy created or linked the contact; with status_changed_at it decides "last change wins" on a shared contact (FR-24, ruling 2A)
+  marketing_consent    boolean not null default false,       -- the offers box (FR-25, ruling 1B): true only for a clear yes; missing or any other value is stored as false. Never changed after submission (NG-16, trigger below)
+  marketing_consent_at timestamptz,                          -- time of consent = the time the request was stored (set by complete_quote_request); null when no consent
   created_at           timestamptz not null default now(),
   submitted_at         timestamptz,                          -- when the request and all its photos were stored; inbox order and weekly count
   updated_at           timestamptz not null default now(),
   constraint quote_requests_submitted_has_reference
-    check (state = 'pending' or (reference is not null and submitted_at is not null))
+    check (state = 'pending' or (reference is not null and submitted_at is not null)),
+  constraint quote_requests_consent_time
+    check (marketing_consent_at is null or marketing_consent),                        -- no consent time without consent
+  constraint quote_requests_submitted_consent_time
+    check (state = 'pending' or marketing_consent = (marketing_consent_at is not null)),  -- a stored request with consent has its time
+  constraint quote_requests_link_needs_consent
+    check (ghl_contact_id is null or marketing_consent),                             -- an unticked request is never linked to a GHL contact (FR-15)
+  constraint quote_requests_link_time
+    check ((ghl_contact_id is null) = (ghl_linked_at is null))
 );
 
--- Query: SCR-04 inbox list, newest first by submitted time, 50 per page with a keyset cursor
+-- Query: SCR-04 Requests tab, newest first by submitted time, 50 per page with a keyset cursor
 -- (US-005, FR-10); also the "Requests this week" range of the weekly count (US-008, FR-13).
 create index if not exists quote_requests_inbox_idx
   on public.quote_requests (submitted_at desc, id desc) where state = 'submitted';
 
--- Query: SCR-04 status filter and the four SCR-05 board columns, newest first per status
+-- Query: SCR-04 status filter and the four SCR-05 Pipeline columns, newest first per status
 -- (US-011, US-016, FR-16, FR-23).
 create index if not exists quote_requests_status_inbox_idx
   on public.quote_requests (status, submitted_at desc, id desc) where state = 'submitted';
@@ -78,6 +92,20 @@ create index if not exists quote_requests_status_changed_idx
 create index if not exists quote_requests_pending_created_idx
   on public.quote_requests (created_at) where state = 'pending';
 
+-- Query: the contact match rule (ruling 2A, FR-15) in public.find_ghl_contact_match(): another
+-- consented request of the same homeowner (same email, compared trimmed and lower-cased, or same
+-- 10-digit phone) that is already linked to a GHL contact. Two partial indexes, one per half of
+-- the "or", so each half is an index lookup.
+create index if not exists quote_requests_contact_email_idx
+  on public.quote_requests (lower(btrim(email)), ghl_linked_at desc) where ghl_contact_id is not null;
+create index if not exists quote_requests_contact_phone_idx
+  on public.quote_requests (phone, ghl_linked_at desc) where ghl_contact_id is not null;
+
+-- Query: the requests that share one GHL contact, for "last change wins" in
+-- public.ghl_stage_for_request() (FR-24, ruling 2A).
+create index if not exists quote_requests_ghl_contact_idx
+  on public.quote_requests (ghl_contact_id) where ghl_contact_id is not null;
+
 -- Search by reference, name or phone (US-013, Could) has no index on purpose: at about
 -- 2,400 rows a year a filtered scan is a few milliseconds. Add pg_trgm only if the volume grows.
 -- List, filter, search and keyset paging all go through public.list_quote_requests()
@@ -86,6 +114,27 @@ create index if not exists quote_requests_pending_created_idx
 drop trigger if exists quote_requests_set_updated_at on public.quote_requests;
 create trigger quote_requests_set_updated_at before update on public.quote_requests
   for each row execute function app_private.set_updated_at();
+
+-- NG-16: once a request is stored, its offers choice and consent time never change (no role, not
+-- even the service role, can edit them; a by-hand privacy deletion removes the whole row).
+create or replace function app_private.quote_requests_consent_immutable() returns trigger
+language plpgsql
+set search_path = ''
+as $$
+begin
+  if old.state = 'submitted'
+     and (new.marketing_consent is distinct from old.marketing_consent
+          or new.marketing_consent_at is distinct from old.marketing_consent_at) then
+    raise exception 'the offers choice of a stored request cannot be changed' using errcode = '23514';
+  end if;
+  return new;
+end
+$$;
+revoke all on function app_private.quote_requests_consent_immutable() from public;
+
+drop trigger if exists quote_requests_consent_immutable on public.quote_requests;
+create trigger quote_requests_consent_immutable before update on public.quote_requests
+  for each row execute function app_private.quote_requests_consent_immutable();
 
 -- RLS enabled and forced (S0 SEC-1); explicit grants (S0 SEC-17). The service role writes through
 -- the security invoker functions in 20261120000600_functions.sql and purges stale pending rows.
@@ -165,6 +214,7 @@ commit;
 -- begin;
 -- drop table if exists public.quote_request_status_changes;   -- DESTRUCTIVE: status history
 -- drop table if exists public.quote_photos;                   -- DESTRUCTIVE: photo rows (files stay in Storage until purged through the Storage API)
--- drop table if exists public.quote_requests;                 -- DESTRUCTIVE: every quote request
+-- drop table if exists public.quote_requests;                 -- DESTRUCTIVE: every quote request (with its consent record)
+-- drop function if exists app_private.quote_requests_consent_immutable();
 -- drop function if exists app_private.new_reference();
 -- commit;
