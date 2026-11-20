@@ -1,0 +1,456 @@
+-- 20261120000600_functions.sql
+-- Purpose: the only write paths for quote requests, each one transaction:
+--   complete_quote_request     service role  pending -> submitted, NQ- reference, photo rows, copy job, event (FR-2, FR-3)
+--   save_quote_request_quote   staff         price + note with version check, first-quote event (FR-11, US-006)
+--   change_quote_request_status staff        status + audit row + new stage-tag job + event (FR-12, FR-24, US-007, US-016)
+--   request_ghl_copy_retry     staff         re-arm a failed contact copy for one manual attempt (FR-19, US-014)
+--   claim_ghl_jobs / finish_ghl_job service role  lease and settle GHL sync attempts (FR-15, FR-24, US-010)
+--   weekly_counts              staff         this week's three numbers, Monday to Sunday America/Toronto (FR-13, US-008)
+-- Errors use PostgREST custom SQLSTATEs so route handlers can map them:
+--   PT401 no fresh staff session · PT404 not found · PT409 changed by someone else / not retryable · PT422 invalid input
+-- Decision: docs/decisions/0002-public-submission-and-photo-upload.md,
+--           docs/decisions/0003-staff-auth-sessions-and-writes.md,
+--           docs/decisions/0004-ghl-sync-and-retry-schedule.md
+
+begin;
+
+-- ---------------------------------------------------------------------------------------------
+-- complete_quote_request: called by POST /api/quote-requests/{id}/submission after the server
+-- has checked every uploaded photo. p_photos = [{position, storage_path, content_type, size_bytes}].
+-- Calling it again for a submitted request returns the same reference (double submit, AC-001.6).
+create or replace function public.complete_quote_request(p_request_id uuid, p_photos jsonb default '[]'::jsonb)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_req    public.quote_requests%rowtype;
+  v_ref    text;
+  v_tries  integer := 0;
+  v_photos jsonb := coalesce(p_photos, '[]'::jsonb);
+begin
+  select * into v_req from public.quote_requests where id = p_request_id for update;
+  if not found then
+    raise exception 'quote request not found' using errcode = 'PT404';
+  end if;
+
+  if v_req.state = 'submitted' then
+    return jsonb_build_object('request_id', v_req.id, 'reference', v_req.reference,
+                              'submitted_at', v_req.submitted_at, 'photo_count', v_req.photo_count,
+                              'replayed', true);
+  end if;
+
+  if jsonb_typeof(v_photos) <> 'array' or jsonb_array_length(v_photos) <> v_req.photo_count then
+    raise exception 'photos do not match the planned photo count' using errcode = 'PT422';
+  end if;
+
+  insert into public.quote_photos (request_id, position, storage_path, content_type, size_bytes)
+  select p_request_id,
+         (p ->> 'position')::smallint,
+         p ->> 'storage_path',
+         p ->> 'content_type',
+         (p ->> 'size_bytes')::integer
+  from jsonb_array_elements(v_photos) as p;
+
+  loop
+    v_ref := app_private.new_reference();
+    begin
+      update public.quote_requests
+         set state = 'submitted', reference = v_ref, submitted_at = now()
+       where id = p_request_id;
+      exit;
+    exception when unique_violation then
+      v_tries := v_tries + 1;
+      if v_tries >= 5 then
+        raise;
+      end if;
+    end;
+  end loop;
+
+  insert into public.ghl_sync_jobs (request_id, kind) values (p_request_id, 'contact_copy');
+
+  insert into public.events (name, request_id, properties)
+  values ('quote_request_submitted', p_request_id,
+          jsonb_build_object('request_id', p_request_id, 'urgency', v_req.urgency,
+                             'photo_count', v_req.photo_count));
+
+  return jsonb_build_object('request_id', p_request_id, 'reference', v_ref, 'submitted_at', now(),
+                            'photo_count', v_req.photo_count, 'replayed', false);
+end
+$$;
+revoke all on function public.complete_quote_request(uuid, jsonb) from public, anon, authenticated;
+grant execute on function public.complete_quote_request(uuid, jsonb) to service_role;
+
+-- ---------------------------------------------------------------------------------------------
+-- save_quote_request_quote: PUT /api/quote-requests/{id}/quote. A blank price or note clears it.
+create or replace function public.save_quote_request_quote(
+  p_request_id uuid, p_price_cents bigint, p_note text, p_expected_version integer)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_req   public.quote_requests%rowtype;
+  v_uid   uuid := auth.uid();
+  v_note  text := nullif(p_note, '');
+  v_first boolean;
+begin
+  if not app_private.is_staff() then
+    raise exception 'staff session required' using errcode = 'PT401';
+  end if;
+  if p_price_cents is not null and (p_price_cents < 1 or p_price_cents > 9999999) then
+    raise exception 'price must be from 0.01 to 99,999.99' using errcode = 'PT422';
+  end if;
+  if v_note is not null and char_length(v_note) > 1000 then
+    raise exception 'note must be at most 1,000 characters' using errcode = 'PT422';
+  end if;
+
+  select * into v_req from public.quote_requests
+   where id = p_request_id and state = 'submitted' for update;
+  if not found then
+    raise exception 'quote request not found' using errcode = 'PT404';
+  end if;
+  if p_expected_version is null or v_req.version <> p_expected_version then
+    raise exception 'changed by someone else' using errcode = 'PT409';
+  end if;
+
+  v_first := v_req.first_quoted_at is null and p_price_cents is not null;
+
+  update public.quote_requests
+     set price_cents = p_price_cents,
+         note = v_note,
+         version = version + 1,
+         first_quoted_at = case when v_first then now() else first_quoted_at end,
+         last_staff_update_at = now(),
+         last_staff_update_by = v_uid
+   where id = p_request_id
+  returning * into v_req;
+
+  if v_first then
+    insert into public.events (name, request_id, user_id, properties)
+    values ('quote_request_quoted', p_request_id, v_uid,
+            jsonb_build_object('request_id', p_request_id,
+                               'minutes_since_submit',
+                               floor(extract(epoch from (now() - v_req.submitted_at)) / 60)::integer));
+  end if;
+
+  return jsonb_build_object('price_cents', v_req.price_cents, 'note', v_req.note,
+                            'version', v_req.version, 'first_quote', v_first);
+end
+$$;
+revoke all on function public.save_quote_request_quote(uuid, bigint, text, integer) from public, anon;
+grant execute on function public.save_quote_request_quote(uuid, bigint, text, integer) to authenticated, service_role;
+
+-- ---------------------------------------------------------------------------------------------
+-- change_quote_request_status: POST /api/quote-requests/{id}/status-changes (list and board).
+-- Same status again changes nothing (AC-007.4, AC-016.6). A real change supersedes any active
+-- stage-tag push and starts a new one (FR-24).
+create or replace function public.change_quote_request_status(
+  p_request_id uuid, p_to_status text, p_expected_version integer)
+returns jsonb
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_req  public.quote_requests%rowtype;
+  v_from text;
+  v_uid  uuid := auth.uid();
+begin
+  if not app_private.is_staff() then
+    raise exception 'staff session required' using errcode = 'PT401';
+  end if;
+  if p_to_status is null or p_to_status not in ('new', 'quoted', 'won', 'lost') then
+    raise exception 'unknown status' using errcode = 'PT422';
+  end if;
+
+  select * into v_req from public.quote_requests
+   where id = p_request_id and state = 'submitted' for update;
+  if not found then
+    raise exception 'quote request not found' using errcode = 'PT404';
+  end if;
+  if p_expected_version is null or v_req.version <> p_expected_version then
+    raise exception 'changed by someone else' using errcode = 'PT409';
+  end if;
+
+  if v_req.status = p_to_status then
+    return jsonb_build_object('changed', false, 'status', v_req.status,
+                              'status_changed_at', v_req.status_changed_at, 'version', v_req.version);
+  end if;
+
+  v_from := v_req.status;
+
+  update public.quote_requests
+     set status = p_to_status,
+         status_changed_at = now(),
+         version = version + 1,
+         last_staff_update_at = now(),
+         last_staff_update_by = v_uid
+   where id = p_request_id
+  returning * into v_req;
+
+  insert into public.quote_request_status_changes (request_id, from_status, to_status, changed_by)
+  values (p_request_id, v_from, p_to_status, v_uid);
+
+  update public.ghl_sync_jobs
+     set state = 'superseded', locked_until = null
+   where request_id = p_request_id and kind = 'stage_tag' and state in ('pending', 'waiting');
+
+  insert into public.ghl_sync_jobs (request_id, kind, target_status)
+  values (p_request_id, 'stage_tag', p_to_status);
+
+  insert into public.events (name, request_id, user_id, properties)
+  values ('quote_request_status_changed', p_request_id, v_uid,
+          jsonb_build_object('request_id', p_request_id, 'from_status', v_from,
+                             'to_status', p_to_status, 'user_id', v_uid));
+
+  return jsonb_build_object('changed', true, 'status', v_req.status,
+                            'status_changed_at', v_req.status_changed_at, 'version', v_req.version);
+end
+$$;
+revoke all on function public.change_quote_request_status(uuid, text, integer) from public, anon;
+grant execute on function public.change_quote_request_status(uuid, text, integer) to authenticated, service_role;
+
+-- ---------------------------------------------------------------------------------------------
+-- request_ghl_copy_retry: POST /api/quote-requests/{id}/ghl-copy-retries (US-014, Could).
+-- Re-arms a failed contact copy for exactly one more attempt and returns the job id; the route
+-- then runs that attempt. A second click while it runs gets PT409 (AC-014.3).
+create or replace function public.request_ghl_copy_retry(p_request_id uuid)
+returns uuid
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_job uuid;
+begin
+  if not app_private.is_staff() then
+    raise exception 'staff session required' using errcode = 'PT401';
+  end if;
+  if not exists (select 1 from public.quote_requests where id = p_request_id and state = 'submitted') then
+    raise exception 'quote request not found' using errcode = 'PT404';
+  end if;
+
+  update public.ghl_sync_jobs
+     set state = 'waiting', next_attempt_at = now(), max_attempts = attempt_count + 1, locked_until = null
+   where request_id = p_request_id and kind = 'contact_copy' and state = 'failed'
+  returning id into v_job;
+
+  if v_job is null then
+    raise exception 'the copy is not in a failed state' using errcode = 'PT409';
+  end if;
+  return v_job;
+end
+$$;
+revoke all on function public.request_ghl_copy_retry(uuid) from public, anon;
+grant execute on function public.request_ghl_copy_retry(uuid) to authenticated, service_role;
+
+-- ---------------------------------------------------------------------------------------------
+-- claim_ghl_jobs: lease up to p_limit due jobs (optionally for one request) so cron runs,
+-- after() drains and manual retries never run the same job at the same time.
+create or replace function public.claim_ghl_jobs(
+  p_limit integer default 10, p_request_id uuid default null, p_lease_seconds integer default 120)
+returns setof public.ghl_sync_jobs
+language sql
+volatile
+security definer
+set search_path = ''
+as $$
+  update public.ghl_sync_jobs j
+     set locked_until = now() + make_interval(secs => p_lease_seconds)
+   where j.id in (
+     select c.id
+       from public.ghl_sync_jobs c
+      where c.state in ('pending', 'waiting')
+        and c.next_attempt_at <= now()
+        and (p_request_id is null or c.request_id = p_request_id)
+        and (c.locked_until is null or c.locked_until < now())
+      order by c.next_attempt_at
+      limit greatest(1, least(p_limit, 50))
+      for update skip locked
+   )
+  returning j.*;
+$$;
+revoke all on function public.claim_ghl_jobs(integer, uuid, integer) from public, anon, authenticated;
+grant execute on function public.claim_ghl_jobs(integer, uuid, integer) to service_role;
+
+-- ---------------------------------------------------------------------------------------------
+-- finish_ghl_job: settle one claimed job.
+--   succeeded  GHL confirmed; stores the contact id for a copy
+--   retry      timeout, 5xx, 429 or another non-auth error: wait and retry (5 min, 1 h, 3 h, 6 h, 12 h)
+--   failed     missing or rejected token: fail now, no retries (AC-009.3, AC-017.10)
+--   wait       stage tag whose contact copy has not succeeded yet: no attempt counted
+--   abandon    stage tag whose contact copy failed: stage tag failed, no attempt counted (FR-24)
+-- A job superseded or settled meanwhile is returned unchanged.
+create or replace function public.finish_ghl_job(
+  p_job_id uuid, p_outcome text, p_error_class text default null, p_contact_id text default null)
+returns public.ghl_sync_jobs
+language plpgsql
+security definer
+set search_path = ''
+as $$
+declare
+  v_job     public.ghl_sync_jobs%rowtype;
+  v_attempt integer;
+  v_prefix  text;
+  v_delays  constant interval[] := array[interval '5 minutes', interval '1 hour', interval '3 hours',
+                                         interval '6 hours', interval '12 hours'];
+begin
+  if p_outcome is null or p_outcome not in ('succeeded', 'retry', 'failed', 'wait', 'abandon') then
+    raise exception 'unknown outcome' using errcode = 'PT422';
+  end if;
+
+  select * into v_job from public.ghl_sync_jobs where id = p_job_id for update;
+  if not found then
+    raise exception 'job not found' using errcode = 'PT404';
+  end if;
+  if v_job.state not in ('pending', 'waiting') then
+    return v_job;
+  end if;
+
+  v_prefix := case v_job.kind when 'contact_copy' then 'ghl_sync' else 'ghl_tag_sync' end;
+
+  if p_outcome = 'wait' then
+    update public.ghl_sync_jobs
+       set state = 'waiting', next_attempt_at = now() + interval '5 minutes', locked_until = null
+     where id = p_job_id
+    returning * into v_job;
+    return v_job;
+  end if;
+
+  if p_outcome = 'abandon' then
+    update public.ghl_sync_jobs
+       set state = 'failed', locked_until = null
+     where id = p_job_id
+    returning * into v_job;
+    return v_job;
+  end if;
+
+  v_attempt := v_job.attempt_count + 1;
+
+  if p_outcome = 'succeeded' then
+    update public.ghl_sync_jobs
+       set state = 'succeeded', attempt_count = v_attempt, last_attempt_at = now(),
+           last_error_class = null, locked_until = null
+     where id = p_job_id
+    returning * into v_job;
+
+    if v_job.kind = 'contact_copy' then
+      if p_contact_id is not null then
+        update public.quote_requests set ghl_contact_id = p_contact_id where id = v_job.request_id;
+      end if;
+      -- The new contact already carries the current stage tag, so a stage tag that was abandoned
+      -- because the copy had failed no longer applies.
+      update public.ghl_sync_jobs
+         set state = 'superseded'
+       where request_id = v_job.request_id and kind = 'stage_tag' and state = 'failed' and attempt_count = 0;
+    end if;
+
+    insert into public.events (name, request_id, properties)
+    values (v_prefix || '_succeeded', v_job.request_id,
+            jsonb_strip_nulls(jsonb_build_object('request_id', v_job.request_id,
+                                                 'to_status', v_job.target_status,
+                                                 'attempt_number', v_attempt)));
+    return v_job;
+  end if;
+
+  -- retry or failed: one attempt that did not work
+  if p_error_class is null
+     or p_error_class not in ('timeout', 'auth', 'rate_limited', 'server_error', 'config_missing') then
+    raise exception 'unknown error class' using errcode = 'PT422';
+  end if;
+
+  insert into public.events (name, request_id, properties)
+  values (v_prefix || '_attempt_failed', v_job.request_id,
+          jsonb_strip_nulls(jsonb_build_object('request_id', v_job.request_id,
+                                               'to_status', v_job.target_status,
+                                               'attempt_number', v_attempt,
+                                               'error_class', p_error_class)));
+
+  if p_outcome = 'failed' or v_attempt >= v_job.max_attempts then
+    update public.ghl_sync_jobs
+       set state = 'failed', attempt_count = v_attempt, last_attempt_at = now(),
+           last_error_class = p_error_class, locked_until = null
+     where id = p_job_id
+    returning * into v_job;
+
+    -- automatic retries ran out (not a token failure, not a manual retry)
+    if p_outcome = 'retry' and v_job.max_attempts = 6 then
+      insert into public.events (name, request_id, properties)
+      values (v_prefix || '_gave_up', v_job.request_id,
+              jsonb_strip_nulls(jsonb_build_object('request_id', v_job.request_id,
+                                                   'to_status', v_job.target_status)));
+    end if;
+  else
+    update public.ghl_sync_jobs
+       set state = 'waiting', attempt_count = v_attempt, last_attempt_at = now(),
+           last_error_class = p_error_class, locked_until = null,
+           next_attempt_at = now() + v_delays[least(v_attempt, 5)]
+     where id = p_job_id
+    returning * into v_job;
+  end if;
+
+  return v_job;
+end
+$$;
+revoke all on function public.finish_ghl_job(uuid, text, text, text) from public, anon, authenticated;
+grant execute on function public.finish_ghl_job(uuid, text, text, text) to service_role;
+
+-- ---------------------------------------------------------------------------------------------
+-- Weekly count (FR-13): Monday 00:00:00 to the next Monday 00:00:00 America/Toronto, which stays
+-- correct across daylight saving changes (AC-008.6). Won and Lost count requests whose current
+-- status is Won (Lost) and whose last status change, the change to that status, is in the week.
+-- Security invoker: RLS decides what the caller can count.
+create or replace function app_private.weekly_counts_at(p_now timestamptz)
+returns table (week_start timestamptz, week_end timestamptz, requests bigint, won bigint, lost bigint)
+language sql
+stable
+set search_path = ''
+as $$
+  with bounds as (
+    select (date_trunc('week', p_now at time zone 'America/Toronto') at time zone 'America/Toronto') as ws,
+           ((date_trunc('week', p_now at time zone 'America/Toronto') + interval '7 days')
+              at time zone 'America/Toronto') as we
+  )
+  select b.ws,
+         b.we,
+         (select count(*) from public.quote_requests q
+           where q.state = 'submitted' and q.submitted_at >= b.ws and q.submitted_at < b.we),
+         (select count(*) from public.quote_requests q
+           where q.state = 'submitted' and q.status = 'won'
+             and q.status_changed_at >= b.ws and q.status_changed_at < b.we),
+         (select count(*) from public.quote_requests q
+           where q.state = 'submitted' and q.status = 'lost'
+             and q.status_changed_at >= b.ws and q.status_changed_at < b.we)
+  from bounds b;
+$$;
+revoke all on function app_private.weekly_counts_at(timestamptz) from public;
+grant execute on function app_private.weekly_counts_at(timestamptz) to authenticated, service_role;
+
+-- GET /api/weekly-counts/current. Only the current week is offered (NG-10).
+create or replace function public.weekly_counts()
+returns table (week_start timestamptz, week_end timestamptz, requests bigint, won bigint, lost bigint)
+language sql
+stable
+set search_path = ''
+as $$
+  select * from app_private.weekly_counts_at(now());
+$$;
+revoke all on function public.weekly_counts() from public, anon;
+grant execute on function public.weekly_counts() to authenticated, service_role;
+
+commit;
+
+-- rollback
+-- begin;
+-- drop function if exists public.weekly_counts();
+-- drop function if exists app_private.weekly_counts_at(timestamptz);
+-- drop function if exists public.finish_ghl_job(uuid, text, text, text);
+-- drop function if exists public.claim_ghl_jobs(integer, uuid, integer);
+-- drop function if exists public.request_ghl_copy_retry(uuid);
+-- drop function if exists public.change_quote_request_status(uuid, text, integer);
+-- drop function if exists public.save_quote_request_quote(uuid, bigint, text, integer);
+-- drop function if exists public.complete_quote_request(uuid, jsonb);
+-- commit;

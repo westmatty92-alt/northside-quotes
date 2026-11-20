@@ -1,0 +1,1461 @@
+openapi: 3.1.0
+info:
+  title: Northside quote requests API
+  version: 1.0.0
+  license:
+    name: Proprietary
+    identifier: LicenseRef-Proprietary
+  description: >-
+    Contract for Northside quote requests. Single source of truth for bl-frontend, bl-backend and
+    bl-integration. Locked at Gate 2; changes after that are additive only.
+    Conventions: JSON fields are snake_case; ids are uuids; times are UTC ISO 8601 (the UI shows
+    America/Toronto); money is integer cents in CAD; errors are application/problem+json (RFC 9457)
+    with a machine code; lists are cursor-paginated. Staff operations take the Supabase access
+    token of a staff session as a bearer token (never the cookie). The public submission uses the
+    signed form token (formToken). Photos are uploaded straight to Supabase Storage (uploadQuotePhoto,
+    implemented by Supabase, not by our app). A method that is not listed for a path returns 405
+    with a problem body (code method_not_allowed). Unexpected failures return 500 with code
+    internal_error. See docs/architecture.md and docs/SECURITY_MODEL.md.
+servers:
+  - url: /api
+security:
+  - bearerAuth: []
+tags:
+  - name: Inbox
+    description: Staff reading and updating quote requests (list, board, detail, price, note, status)
+  - name: Public form
+    description: The homeowner's Request a quote submission (signed form token, no account)
+  - name: Photo storage
+    description: Direct upload to the private Supabase Storage bucket (implemented by Supabase; excluded from the Orval client)
+  - name: Weekly count
+    description: This week's requests, won and lost (Monday to Sunday, Hamilton time)
+  - name: Staff auth
+    description: Staff sign-in and the signed-in staff member
+  - name: GoHighLevel
+    description: Contact copy retry for staff
+  - name: Jobs
+    description: Scheduled work called by Vercel Cron with CRON_SECRET
+  - name: System
+    description: Health check
+paths:
+  /quote-requests:
+    get:
+      operationId: listQuoteRequests
+      summary: List submitted quote requests, newest first by submitted time
+      description: >-
+        Serves the inbox List view (optionally filtered by status, or searched) and each Board
+        column (status set, one call per column). Order is submitted_at desc, then id desc; status
+        and price changes never reorder. Pending submissions are never listed.
+      tags: [Inbox]
+      x-stories: [US-005, US-011, US-013, US-016]
+      parameters:
+        - name: status
+          in: query
+          description: Only requests in this status (List filter and Board columns). Omit for All.
+          schema:
+            $ref: '#/components/schemas/Status'
+        - name: q
+          in: query
+          description: Case-insensitive search by reference, name (partial) or phone digits (US-013, Could). List view only.
+          schema:
+            type: string
+            minLength: 1
+            maxLength: 100
+        - $ref: '#/components/parameters/Cursor'
+        - $ref: '#/components/parameters/Limit'
+      responses:
+        '200':
+          description: A page of quote requests
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QuoteRequestPage'
+              example:
+                data:
+                  - id: 6f1c2a9e-6c1d-4f0e-9a43-2a1f0c3b9d10
+                    reference: NQ-7K3M9P
+                    name: Dana Whitfield
+                    urgency: soon
+                    status: new
+                    submitted_at: '2026-11-19T14:10:00Z'
+                    version: 1
+                  - id: 0b7e4d2c-1a3f-4c8e-9d6b-5e2f1a0c7b94
+                    reference: NQ-4XW2RT
+                    name: Sam Patel
+                    urgency: emergency
+                    status: quoted
+                    submitted_at: '2026-11-19T14:05:00Z'
+                    version: 3
+                next_cursor: null
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+    post:
+      operationId: createQuoteRequest
+      summary: Start a quote request (pending) and get the photo upload targets
+      description: >-
+        Runs the spam checks first: the form token must be signed and at least 3 seconds old, the
+        honeypot field (website) must be empty, and the network address must have fewer than 5
+        accepted submissions in 10 minutes (if the counter cannot be read the request is accepted).
+        A honeypot or time-trap refusal returns the same 400 body (code submission_refused) and
+        stores nothing. Then validates the fields and stores a pending request that staff cannot
+        see. Returns 201 for a new pending request. The same form token again (double tap, or a
+        retry after a dropped photo) returns 200 with the same request: if the fields or planned
+        photos changed, the pending request is updated and any uploaded photos are cleared so they
+        are uploaded again; if it was already submitted, the response carries its reference. With
+        no photos, call submitQuoteRequest straight away.
+      tags: [Public form]
+      x-stories: [US-001, US-002, US-003]
+      security:
+        - formToken: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QuoteRequestCreate'
+            example:
+              name: Dana Whitfield
+              phone: 905-555-0142
+              email: dana@example.com
+              address: 14 Barton St W, Hamilton ON
+              problem: Kitchen tap drips constantly and the cabinet under it is wet
+              urgency: soon
+              website: ''
+              photos:
+                - position: 1
+                  content_type: image/jpeg
+                  size_bytes: 2097152
+                - position: 2
+                  content_type: image/png
+                  size_bytes: 1048576
+      responses:
+        '201':
+          description: Pending request created; upload the planned photos, then submit
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QuoteRequestStarted'
+              example:
+                request_id: 6f1c2a9e-6c1d-4f0e-9a43-2a1f0c3b9d10
+                submission_state: pending
+                reference: null
+                photo_uploads:
+                  - position: 1
+                    bucket: quote-photos
+                    path: 6f1c2a9e-6c1d-4f0e-9a43-2a1f0c3b9d10/photo-1
+                    content_type: image/jpeg
+                  - position: 2
+                    bucket: quote-photos
+                    path: 6f1c2a9e-6c1d-4f0e-9a43-2a1f0c3b9d10/photo-2
+                    content_type: image/png
+                upload_expires_at: '2026-11-19T15:10:00Z'
+        '200':
+          description: Same form token seen before; the existing request (pending, or submitted with its reference)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QuoteRequestStarted'
+              example:
+                request_id: 6f1c2a9e-6c1d-4f0e-9a43-2a1f0c3b9d10
+                submission_state: submitted
+                reference: NQ-7K3M9P
+                photo_uploads: []
+                upload_expires_at: null
+        '400':
+          $ref: '#/components/responses/SubmissionRefused'
+        '401':
+          $ref: '#/components/responses/FormTokenInvalid'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '429':
+          $ref: '#/components/responses/TooManyRequests'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /quote-requests/{request_id}:
+    get:
+      operationId: getQuoteRequest
+      summary: One submitted quote request in full, with photos and GoHighLevel state
+      description: >-
+        Every submitted field, price and note, status, who last changed it, short-lived signed photo
+        URLs (expires_at), and the contact copy and stage tag states. A photo whose URL could not
+        be signed has url null (show "Photo unavailable"). Pending or unknown ids return 404.
+      tags: [Inbox]
+      x-stories: [US-005, US-006, US-007, US-010, US-015, US-017]
+      parameters:
+        - $ref: '#/components/parameters/RequestId'
+      responses:
+        '200':
+          description: The request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QuoteRequestDetail'
+              example:
+                id: 6f1c2a9e-6c1d-4f0e-9a43-2a1f0c3b9d10
+                reference: NQ-7K3M9P
+                name: Dana Whitfield
+                phone: '9055550142'
+                email: dana@example.com
+                address: 14 Barton St W, Hamilton ON
+                problem: Kitchen tap drips constantly and the cabinet under it is wet
+                urgency: soon
+                status: quoted
+                status_changed_at: '2026-11-19T15:02:00Z'
+                submitted_at: '2026-11-19T14:10:00Z'
+                price_cents: 45000
+                currency: CAD
+                note: Replace cartridge, 2 hours, can come Thursday
+                photo_count: 1
+                photos:
+                  - position: 1
+                    content_type: image/jpeg
+                    url: https://project-ref.supabase.co/storage/v1/object/sign/quote-photos/6f1c2a9e-6c1d-4f0e-9a43-2a1f0c3b9d10/photo-1?token=signed
+                    expires_at: '2026-11-19T15:20:00Z'
+                last_updated:
+                  by_display_name: Office helper
+                  at: '2026-11-19T15:02:00Z'
+                ghl:
+                  copy:
+                    state: copied
+                    at: '2026-11-19T14:10:04Z'
+                  stage_tag:
+                    state: waiting
+                    at: '2026-11-19T15:02:03Z'
+                version: 3
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /quote-requests/{request_id}/submission:
+    post:
+      operationId: submitQuoteRequest
+      summary: Complete a pending request once its photos are uploaded; issues the NQ- reference
+      description: >-
+        Checks that every planned photo is in the bucket, at most 5,242,880 bytes, and really JPEG,
+        PNG or WebP by its first bytes. A bad or missing photo is removed and refused with 422 and
+        an error per photo (field photos[N], N = position), and nothing becomes visible to staff.
+        When all photos pass, the request, its photos, its reference and its GoHighLevel copy job
+        are stored in one transaction, and the first copy attempt runs after the response. Calling
+        it again for a submitted request returns the same reference with 200. The form token must
+        be the one that created the request.
+      tags: [Public form]
+      x-stories: [US-001, US-002, US-009]
+      security:
+        - formToken: []
+      parameters:
+        - $ref: '#/components/parameters/RequestId'
+      responses:
+        '200':
+          description: Stored; show SCR-02 with this reference
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QuoteRequestSubmitted'
+              example:
+                request_id: 6f1c2a9e-6c1d-4f0e-9a43-2a1f0c3b9d10
+                reference: NQ-7K3M9P
+                submitted_at: '2026-11-19T14:10:00Z'
+                photo_count: 2
+        '400':
+          $ref: '#/components/responses/SubmissionRefused'
+        '401':
+          $ref: '#/components/responses/FormTokenInvalid'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '422':
+          $ref: '#/components/responses/PhotoProblem'
+        '500':
+          $ref: '#/components/responses/InternalError'
+        '503':
+          $ref: '#/components/responses/ServiceUnavailable'
+  /quote-requests/{request_id}/photos:
+    get:
+      operationId: listQuoteRequestPhotos
+      summary: Fresh short-lived signed URLs for a request's photos
+      description: >-
+        Signed URLs last 900 seconds. The photo viewer calls this when it opens and whenever a URL
+        is within 60 seconds of expiry or fails to load, so photos keep opening for as long as the
+        staff session lasts (AC-012.3).
+      tags: [Inbox]
+      x-stories: [US-005, US-012]
+      parameters:
+        - $ref: '#/components/parameters/RequestId'
+      responses:
+        '200':
+          description: The request's photos, in position order
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/PhotoList'
+              example:
+                data:
+                  - position: 1
+                    content_type: image/jpeg
+                    url: https://project-ref.supabase.co/storage/v1/object/sign/quote-photos/6f1c2a9e-6c1d-4f0e-9a43-2a1f0c3b9d10/photo-1?token=signed
+                    expires_at: '2026-11-19T15:20:00Z'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /quote-requests/{request_id}/quote:
+    put:
+      operationId: saveQuote
+      summary: Save the price and note (either may be blank)
+      description: >-
+        Replaces the price and note. price_cents null clears the price; note null or empty clears
+        the note. The client converts the typed amount to cents and refuses more than 2 decimals
+        before sending. version must be the version the user saw; if someone else saved first the
+        save is refused with 409 (stale_version) and nothing is overwritten. The first price ever
+        saved records quote_request_quoted. Saving a price never changes the status. Returns the
+        updated request.
+      tags: [Inbox]
+      x-stories: [US-006]
+      parameters:
+        - $ref: '#/components/parameters/RequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/QuoteSave'
+            example:
+              price_cents: 45000
+              note: Replace cartridge, 2 hours, can come Thursday
+              version: 1
+      responses:
+        '200':
+          description: Saved; the updated request
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/QuoteRequestDetail'
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /quote-requests/{request_id}/status-changes:
+    post:
+      operationId: changeQuoteRequestStatus
+      summary: Change a request's status (list Move to, board drag or board Move to)
+      description: >-
+        Any status to any other. A real change stores the previous status, new status, time and
+        user, records quote_request_status_changed, starts a new GoHighLevel stage-tag push after
+        the response, and returns 201. Choosing the current status changes nothing and returns
+        200 with changed false. version must be the version the user saw; if someone else changed
+        the request first it is refused with 409 (stale_version). The status is saved whether or
+        not GoHighLevel is reachable.
+      tags: [Inbox]
+      x-stories: [US-007, US-016, US-017]
+      parameters:
+        - $ref: '#/components/parameters/RequestId'
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/StatusChangeCreate'
+            example:
+              to_status: won
+              version: 1
+      responses:
+        '201':
+          description: Status changed
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StatusChangeResult'
+              example:
+                changed: true
+                status: won
+                status_changed_at: '2026-11-19T15:30:00Z'
+                version: 2
+        '200':
+          description: Already in that status; nothing stored
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StatusChangeResult'
+              example:
+                changed: false
+                status: won
+                status_changed_at: '2026-11-19T15:30:00Z'
+                version: 2
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /quote-requests/{request_id}/ghl-copy-retries:
+    post:
+      operationId: retryGhlCopy
+      summary: Retry a failed GoHighLevel contact copy now (US-014, Could)
+      description: >-
+        Allowed only when the copy state is failed. Runs one attempt during the request (up to
+        10 seconds) and returns the resulting copy state: copied, or failed with retried true and
+        the UI shows "The retry did not work". A second call while an attempt runs, or when the
+        copy is not failed, returns 409 (not_retryable). Never creates a second contact.
+      tags: [GoHighLevel]
+      x-stories: [US-014]
+      parameters:
+        - $ref: '#/components/parameters/RequestId'
+      responses:
+        '200':
+          description: The attempt ran; the copy state after it
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/GhlCopyRetryResult'
+              example:
+                copy:
+                  state: copied
+                  at: '2026-11-19T16:00:02Z'
+                retried: true
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '404':
+          $ref: '#/components/responses/NotFound'
+        '409':
+          $ref: '#/components/responses/Conflict'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /weekly-counts/current:
+    get:
+      operationId: getCurrentWeeklyCount
+      summary: This week's three numbers (Monday 00:00 to Sunday 23:59:59 Hamilton time)
+      description: >-
+        requests counts requests submitted this week; won and lost count requests whose current
+        status is Won (Lost) and whose change to it happened this week. week_end is exclusive (the
+        next Monday 00:00 Hamilton time). Only the current week is available (NG-10).
+      tags: [Weekly count]
+      x-stories: [US-008]
+      responses:
+        '200':
+          description: The counts
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/WeeklyCount'
+              example:
+                week_start: '2026-11-16T05:00:00Z'
+                week_end: '2026-11-23T05:00:00Z'
+                time_zone: America/Toronto
+                requests: 4
+                won: 1
+                lost: 1
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /staff/me:
+    get:
+      operationId: getCurrentStaff
+      summary: The signed-in staff member (top bar "Signed in as")
+      description: Returns 401 session_expired when the session is older than 7 days or the user is not staff.
+      tags: [Staff auth]
+      x-stories: [US-004]
+      responses:
+        '200':
+          description: The staff member
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StaffMember'
+              example:
+                user_id: 3d6f0a52-8b1e-4c7a-9f20-6e5d4c3b2a19
+                display_name: Owner
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /auth/sign-in:
+    post:
+      operationId: signIn
+      summary: Staff sign-in with email and password
+      description: >-
+        Pre-session route (no auth). Wrong password and unknown email return the same 401 body
+        (invalid_credentials). After 5 failed attempts for one email within 15 minutes, sign-in is
+        refused with 429 (sign_in_paused) for 15 minutes from the fifth failure, even with the right
+        password. On success the Supabase session cookies are set (httpOnly false so the browser
+        client can read the access token; Secure; SameSite Lax) and staff_signed_in is recorded.
+        A signed-in user who is not staff is signed out and gets 401. Sign-out happens in the browser
+        through supabase.auth.signOut().
+      tags: [Staff auth]
+      x-stories: [US-004]
+      security: []
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: '#/components/schemas/SignIn'
+            example:
+              email: owner@example.com
+              password: correct-horse-battery-staple-2026
+      responses:
+        '200':
+          description: Signed in
+          headers:
+            Set-Cookie:
+              description: Supabase session cookies (sb-*-auth-token), set by @supabase/ssr
+              schema:
+                type: string
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StaffMember'
+              example:
+                user_id: 3d6f0a52-8b1e-4c7a-9f20-6e5d4c3b2a19
+                display_name: Owner
+        '400':
+          $ref: '#/components/responses/BadRequest'
+        '401':
+          $ref: '#/components/responses/InvalidCredentials'
+        '422':
+          $ref: '#/components/responses/ValidationError'
+        '429':
+          $ref: '#/components/responses/SignInPaused'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /jobs/ghl-sync:
+    get:
+      operationId: runGhlSyncJobs
+      summary: Run due GoHighLevel copy and stage-tag attempts (Vercel Cron)
+      description: >-
+        Called by four daily Vercel Cron entries (00:00, 06:00, 12:00, 18:00 UTC) with
+        Authorization Bearer CRON_SECRET; QA calls it the same way on staging, where Vercel runs no
+        cron. Claims up to 25 due jobs with a lease, runs them, and settles each one. Idempotent:
+        calling it twice in a row runs nothing twice. GET because Vercel Cron only sends GET.
+      tags: [Jobs]
+      x-stories: [US-009, US-010, US-017]
+      security:
+        - cronSecret: []
+      responses:
+        '200':
+          description: What the run did
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/JobRunResult'
+              example:
+                claimed: 2
+                succeeded: 1
+                waiting: 1
+                failed: 0
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /jobs/housekeeping:
+    get:
+      operationId: runHousekeeping
+      summary: Daily purge of abandoned pending submissions and expired counters (Vercel Cron)
+      description: >-
+        Deletes pending requests older than 24 hours and their uploaded files, rate-limit rows and
+        sign-in attempts older than 24 hours. Authorization Bearer CRON_SECRET.
+      tags: [Jobs]
+      x-stories: [US-002, US-003, US-004]
+      security:
+        - cronSecret: []
+      responses:
+        '200':
+          description: What was purged
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/HousekeepingResult'
+              example:
+                pending_requests_purged: 1
+                photos_purged: 2
+                rate_limit_rows_purged: 14
+                sign_in_rows_purged: 3
+        '401':
+          $ref: '#/components/responses/Unauthorized'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /health:
+    get:
+      operationId: getHealth
+      summary: Health check for devops and QA
+      description: No dependency checks; returns the deployed version (the commit SHA on Vercel).
+      tags: [System]
+      x-stories: [US-001]
+      security: []
+      responses:
+        '200':
+          description: The app is up
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/Health'
+              example:
+                status: ok
+                version: 3f9c2e1
+        '405':
+          $ref: '#/components/responses/MethodNotAllowed'
+        '500':
+          $ref: '#/components/responses/InternalError'
+  /storage/v1/object/quote-photos/{request_id}/{photo_name}:
+    post:
+      operationId: uploadQuotePhoto
+      summary: Upload one photo straight to the private bucket (Supabase Storage)
+      description: >-
+        Implemented by Supabase Storage, not by our app; documented here so both lanes agree. The
+        frontend calls it through supabase-js (storage.from('quote-photos').upload(path, file,
+        { contentType, upsert false })) with the publishable key and no staff session, using a path
+        from createQuoteRequest. The storage.objects policy allows it only into the folder of a
+        pending request created in the last 60 minutes, only for a planned position, at most 3
+        photos; the bucket refuses files over 5,242,880 bytes and types other than JPEG, PNG and
+        WebP. An existing object (a retry after a lost reply) returns 409; treat it as uploaded.
+        Excluded from the Orval client (tag Photo storage).
+      tags: [Photo storage]
+      x-stories: [US-002]
+      x-implemented-by: supabase-storage
+      servers:
+        - url: https://{project_ref}.supabase.co
+          variables:
+            project_ref:
+              default: project-ref
+              description: The Supabase project ref (NEXT_PUBLIC_SUPABASE_URL)
+      security:
+        - supabasePublishableKey: []
+      parameters:
+        - $ref: '#/components/parameters/RequestId'
+        - name: photo_name
+          in: path
+          required: true
+          description: photo-1, photo-2 or photo-3, matching a planned position
+          schema:
+            type: string
+            enum: [photo-1, photo-2, photo-3]
+      requestBody:
+        required: true
+        content:
+          image/jpeg:
+            schema:
+              type: string
+              contentMediaType: image/jpeg
+          image/png:
+            schema:
+              type: string
+              contentMediaType: image/png
+          image/webp:
+            schema:
+              type: string
+              contentMediaType: image/webp
+      responses:
+        '200':
+          description: Stored
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StorageUploadResult'
+              example:
+                Key: quote-photos/6f1c2a9e-6c1d-4f0e-9a43-2a1f0c3b9d10/photo-1
+        '400':
+          description: Refused by the bucket (too large or wrong type) or by the policy
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StorageError'
+              example:
+                statusCode: '403'
+                error: Unauthorized
+                message: new row violates row-level security policy
+        '409':
+          description: The object already exists (a retry after a lost reply)
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StorageError'
+              example:
+                statusCode: '409'
+                error: Duplicate
+                message: The resource already exists
+        '413':
+          description: Larger than 5,242,880 bytes
+          content:
+            application/json:
+              schema:
+                $ref: '#/components/schemas/StorageError'
+              example:
+                statusCode: '413'
+                error: Payload too large
+                message: The object exceeded the maximum allowed size
+components:
+  securitySchemes:
+    bearerAuth:
+      type: http
+      scheme: bearer
+      bearerFormat: JWT
+      description: Supabase access token of a staff session (owner or helper) younger than 7 days.
+    formToken:
+      type: apiKey
+      in: header
+      name: X-Form-Token
+      description: >-
+        Public scheme for the homeowner's form. A token signed by the server with APP_SIGNING_SECRET
+        (HMAC-SHA256), rendered into the Request a quote page: v1.issued_at.nonce.signature. Valid
+        from 3 seconds to 24 hours after issue. The nonce is the submission's idempotency key. It
+        identifies a page load, not a person. See docs/SECURITY_MODEL.md.
+    supabasePublishableKey:
+      type: apiKey
+      in: header
+      name: apikey
+      description: >-
+        Public scheme for the direct Storage upload: the Supabase publishable (anon) key from
+        NEXT_PUBLIC_SUPABASE_ANON_KEY. It grants only what RLS allows the anon role.
+    cronSecret:
+      type: http
+      scheme: bearer
+      description: CRON_SECRET, sent by Vercel Cron as Authorization Bearer; server-to-server only.
+  parameters:
+    RequestId:
+      name: request_id
+      in: path
+      required: true
+      schema:
+        type: string
+        format: uuid
+    Cursor:
+      name: cursor
+      in: query
+      description: Opaque cursor from the previous page's next_cursor
+      schema:
+        type: string
+        maxLength: 200
+    Limit:
+      name: limit
+      in: query
+      description: Page size; the inbox and each board column ask for 50 (FR-10, FR-23)
+      schema:
+        type: integer
+        minimum: 1
+        maximum: 100
+        default: 50
+  schemas:
+    Status:
+      type: string
+      enum: [new, quoted, won, lost]
+    Urgency:
+      type: string
+      enum: [emergency, soon, flexible]
+    Reference:
+      type: string
+      pattern: '^NQ-[A-HJKMNP-Z2-9]{6}$'
+      examples: [NQ-7K3M9P]
+    QuoteRequestSummary:
+      type: object
+      additionalProperties: false
+      required: [id, reference, name, urgency, status, submitted_at, version]
+      properties:
+        id:
+          type: string
+          format: uuid
+        reference:
+          $ref: '#/components/schemas/Reference'
+        name:
+          type: string
+          minLength: 2
+          maxLength: 100
+        urgency:
+          $ref: '#/components/schemas/Urgency'
+        status:
+          $ref: '#/components/schemas/Status'
+        submitted_at:
+          type: string
+          format: date-time
+        version:
+          type: integer
+          minimum: 1
+          description: Send it back with a status change from a list row or board card
+    QuoteRequestPage:
+      type: object
+      additionalProperties: false
+      required: [data, next_cursor]
+      properties:
+        data:
+          type: array
+          maxItems: 100
+          items:
+            $ref: '#/components/schemas/QuoteRequestSummary'
+        next_cursor:
+          type: [string, 'null']
+    Photo:
+      type: object
+      additionalProperties: false
+      required: [position, content_type, url, expires_at]
+      properties:
+        position:
+          type: integer
+          minimum: 1
+          maximum: 3
+        content_type:
+          type: string
+          enum: [image/jpeg, image/png, image/webp]
+        url:
+          type: [string, 'null']
+          format: uri
+          description: Signed URL valid for 900 seconds; null when Storage could not sign it (show Photo unavailable)
+        expires_at:
+          type: [string, 'null']
+          format: date-time
+    PhotoList:
+      type: object
+      additionalProperties: false
+      required: [data]
+      properties:
+        data:
+          type: array
+          maxItems: 3
+          items:
+            $ref: '#/components/schemas/Photo'
+    SyncCopyState:
+      type: object
+      additionalProperties: false
+      required: [state, at]
+      properties:
+        state:
+          type: string
+          enum: [copied, waiting, failed]
+          description: copied = Copied to GoHighLevel; waiting = Waiting to retry (also before the first attempt finishes); failed = Copy to GoHighLevel failed
+        at:
+          type: [string, 'null']
+          format: date-time
+          description: Time copied, or time of the last attempt when failed; null before any attempt
+    SyncStageTagState:
+      type: object
+      additionalProperties: false
+      required: [state, at]
+      properties:
+        state:
+          type: string
+          enum: [up_to_date, waiting, failed]
+          description: up_to_date = Stage tag up to date; waiting = Stage tag waiting to retry (also while the contact copy is waiting); failed = Stage tag failed
+        at:
+          type: [string, 'null']
+          format: date-time
+    GhlState:
+      type: object
+      additionalProperties: false
+      required: [copy, stage_tag]
+      properties:
+        copy:
+          $ref: '#/components/schemas/SyncCopyState'
+        stage_tag:
+          $ref: '#/components/schemas/SyncStageTagState'
+    LastUpdated:
+      type: object
+      additionalProperties: false
+      required: [by_display_name, at]
+      properties:
+        by_display_name:
+          type: [string, 'null']
+          description: Owner or Office helper; null if that staff account was removed
+        at:
+          type: string
+          format: date-time
+    QuoteRequestDetail:
+      type: object
+      additionalProperties: false
+      required: [id, reference, name, phone, email, address, problem, urgency, status, status_changed_at,
+                 submitted_at, price_cents, currency, note, photo_count, photos, last_updated, ghl, version]
+      properties:
+        id:
+          type: string
+          format: uuid
+        reference:
+          $ref: '#/components/schemas/Reference'
+        name:
+          type: string
+          minLength: 2
+          maxLength: 100
+        phone:
+          type: string
+          pattern: '^[0-9]{10}$'
+          description: 10 digits; the UI formats it and links tel:+1 followed by the digits
+        email:
+          type: string
+          format: email
+          maxLength: 254
+        address:
+          type: string
+          minLength: 5
+          maxLength: 200
+        problem:
+          type: string
+          minLength: 10
+          maxLength: 2000
+        urgency:
+          $ref: '#/components/schemas/Urgency'
+        status:
+          $ref: '#/components/schemas/Status'
+        status_changed_at:
+          type: [string, 'null']
+          format: date-time
+        submitted_at:
+          type: string
+          format: date-time
+        price_cents:
+          type: [integer, 'null']
+          minimum: 1
+          maximum: 9999999
+        currency:
+          type: string
+          enum: [CAD]
+        note:
+          type: [string, 'null']
+          maxLength: 1000
+        photo_count:
+          type: integer
+          minimum: 0
+          maximum: 3
+        photos:
+          type: array
+          maxItems: 3
+          items:
+            $ref: '#/components/schemas/Photo'
+        last_updated:
+          oneOf:
+            - $ref: '#/components/schemas/LastUpdated'
+            - type: 'null'
+          description: null shows "Not updated yet" (US-015)
+        ghl:
+          $ref: '#/components/schemas/GhlState'
+        version:
+          type: integer
+          minimum: 1
+    PhotoPlan:
+      type: object
+      additionalProperties: false
+      required: [position, content_type, size_bytes]
+      properties:
+        position:
+          type: integer
+          minimum: 1
+          maximum: 3
+        content_type:
+          type: string
+          enum: [image/jpeg, image/png, image/webp]
+        size_bytes:
+          type: integer
+          minimum: 1
+          maximum: 5242880
+    QuoteRequestCreate:
+      type: object
+      additionalProperties: false
+      required: [name, phone, email, address, problem, urgency]
+      properties:
+        name:
+          type: string
+          minLength: 2
+          maxLength: 100
+        phone:
+          type: string
+          minLength: 1
+          maxLength: 30
+          description: As typed. The server removes spaces, dashes, dots, brackets and a leading +1 and requires exactly 10 digits (422 on phone otherwise).
+        email:
+          type: string
+          format: email
+          maxLength: 254
+        address:
+          type: string
+          minLength: 5
+          maxLength: 200
+        problem:
+          type: string
+          minLength: 10
+          maxLength: 2000
+        urgency:
+          $ref: '#/components/schemas/Urgency'
+        website:
+          type: string
+          maxLength: 500
+          description: Honeypot. Hidden from people; anything but empty is refused with the generic 400 (never a 422).
+        photos:
+          type: array
+          maxItems: 3
+          default: []
+          items:
+            $ref: '#/components/schemas/PhotoPlan'
+          description: Planned photos with distinct positions 1..n in order. Over 3, over 5,242,880 bytes or another type is 422 on photos[N].
+    PhotoUpload:
+      type: object
+      additionalProperties: false
+      required: [position, bucket, path, content_type]
+      properties:
+        position:
+          type: integer
+          minimum: 1
+          maximum: 3
+        bucket:
+          type: string
+          enum: [quote-photos]
+        path:
+          type: string
+          pattern: '^[0-9a-f-]{36}/photo-[1-3]$'
+        content_type:
+          type: string
+          enum: [image/jpeg, image/png, image/webp]
+    QuoteRequestStarted:
+      type: object
+      additionalProperties: false
+      required: [request_id, submission_state, reference, photo_uploads, upload_expires_at]
+      properties:
+        request_id:
+          type: string
+          format: uuid
+        submission_state:
+          type: string
+          enum: [pending, submitted]
+        reference:
+          oneOf:
+            - $ref: '#/components/schemas/Reference'
+            - type: 'null'
+          description: Only set when the same form token was already submitted
+        photo_uploads:
+          type: array
+          maxItems: 3
+          items:
+            $ref: '#/components/schemas/PhotoUpload'
+        upload_expires_at:
+          type: [string, 'null']
+          format: date-time
+          description: Uploads are accepted until this time (60 minutes after the request was started)
+    QuoteRequestSubmitted:
+      type: object
+      additionalProperties: false
+      required: [request_id, reference, submitted_at, photo_count]
+      properties:
+        request_id:
+          type: string
+          format: uuid
+        reference:
+          $ref: '#/components/schemas/Reference'
+        submitted_at:
+          type: string
+          format: date-time
+        photo_count:
+          type: integer
+          minimum: 0
+          maximum: 3
+    QuoteSave:
+      type: object
+      additionalProperties: false
+      required: [price_cents, note, version]
+      properties:
+        price_cents:
+          type: [integer, 'null']
+          minimum: 1
+          maximum: 9999999
+          description: CAD cents, 1 (0.01) to 9999999 (99,999.99); null clears the price
+        note:
+          type: [string, 'null']
+          maxLength: 1000
+        version:
+          type: integer
+          minimum: 1
+    StatusChangeCreate:
+      type: object
+      additionalProperties: false
+      required: [to_status, version]
+      properties:
+        to_status:
+          $ref: '#/components/schemas/Status'
+        version:
+          type: integer
+          minimum: 1
+    StatusChangeResult:
+      type: object
+      additionalProperties: false
+      required: [changed, status, status_changed_at, version]
+      properties:
+        changed:
+          type: boolean
+        status:
+          $ref: '#/components/schemas/Status'
+        status_changed_at:
+          type: [string, 'null']
+          format: date-time
+        version:
+          type: integer
+          minimum: 1
+    GhlCopyRetryResult:
+      type: object
+      additionalProperties: false
+      required: [copy, retried]
+      properties:
+        copy:
+          $ref: '#/components/schemas/SyncCopyState'
+        retried:
+          type: boolean
+    WeeklyCount:
+      type: object
+      additionalProperties: false
+      required: [week_start, week_end, time_zone, requests, won, lost]
+      properties:
+        week_start:
+          type: string
+          format: date-time
+        week_end:
+          type: string
+          format: date-time
+          description: Exclusive end (the next Monday 00:00 Hamilton time)
+        time_zone:
+          type: string
+          enum: [America/Toronto]
+        requests:
+          type: integer
+          minimum: 0
+        won:
+          type: integer
+          minimum: 0
+        lost:
+          type: integer
+          minimum: 0
+    StaffMember:
+      type: object
+      additionalProperties: false
+      required: [user_id, display_name]
+      properties:
+        user_id:
+          type: string
+          format: uuid
+        display_name:
+          type: string
+          minLength: 1
+          maxLength: 50
+    SignIn:
+      type: object
+      additionalProperties: false
+      required: [email, password]
+      properties:
+        email:
+          type: string
+          format: email
+          maxLength: 254
+        password:
+          type: string
+          minLength: 1
+          maxLength: 200
+          writeOnly: true
+    JobRunResult:
+      type: object
+      additionalProperties: false
+      required: [claimed, succeeded, waiting, failed]
+      properties:
+        claimed:
+          type: integer
+          minimum: 0
+        succeeded:
+          type: integer
+          minimum: 0
+        waiting:
+          type: integer
+          minimum: 0
+        failed:
+          type: integer
+          minimum: 0
+    HousekeepingResult:
+      type: object
+      additionalProperties: false
+      required: [pending_requests_purged, photos_purged, rate_limit_rows_purged, sign_in_rows_purged]
+      properties:
+        pending_requests_purged:
+          type: integer
+          minimum: 0
+        photos_purged:
+          type: integer
+          minimum: 0
+        rate_limit_rows_purged:
+          type: integer
+          minimum: 0
+        sign_in_rows_purged:
+          type: integer
+          minimum: 0
+    Health:
+      type: object
+      additionalProperties: false
+      required: [status, version]
+      properties:
+        status:
+          type: string
+          enum: [ok]
+        version:
+          type: string
+    StorageUploadResult:
+      type: object
+      required: [Key]
+      properties:
+        Key:
+          type: string
+    StorageError:
+      type: object
+      required: [statusCode, error, message]
+      properties:
+        statusCode:
+          type: string
+        error:
+          type: string
+        message:
+          type: string
+    Problem:
+      type: object
+      required: [type, title, status, code]
+      properties:
+        type:
+          type: string
+          format: uri-reference
+        title:
+          type: string
+        status:
+          type: integer
+          minimum: 400
+          maximum: 599
+        code:
+          type: string
+          enum:
+            - bad_request
+            - validation_failed
+            - submission_refused
+            - form_expired
+            - form_token_invalid
+            - rate_limited
+            - unauthorized
+            - session_expired
+            - invalid_credentials
+            - sign_in_paused
+            - not_found
+            - stale_version
+            - not_retryable
+            - photo_missing
+            - photo_invalid
+            - method_not_allowed
+            - service_unavailable
+            - internal_error
+        detail:
+          type: string
+        errors:
+          type: array
+          items:
+            type: object
+            required: [field, message]
+            properties:
+              field:
+                type: string
+                description: Field name, or photos[N] for a photo (N = position)
+              message:
+                type: string
+  responses:
+    BadRequest:
+      description: Malformed request (not JSON, wrong types)
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            type: about:blank
+            title: Bad request
+            status: 400
+            code: bad_request
+    SubmissionRefused:
+      description: >-
+        Refused by the honeypot or the 3-second minimum (identical body for both, so the response
+        never says which check failed), or the form token expired (code form_expired; the page
+        refreshes its token with router.refresh() and keeps everything typed). Nothing is stored.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            type: about:blank
+            title: We couldn't send your request. Please try again.
+            status: 400
+            code: submission_refused
+    FormTokenInvalid:
+      description: Missing or tampered form token, or a token that did not create this request
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            type: about:blank
+            title: We couldn't send your request. Please try again.
+            status: 401
+            code: form_token_invalid
+    Unauthorized:
+      description: >-
+        No bearer token, an invalid one, or a session that is older than 7 days or not a staff
+        member (code session_expired). The frontend sends the user to SCR-03.
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            type: about:blank
+            title: Your session ended.
+            status: 401
+            code: session_expired
+    InvalidCredentials:
+      description: Wrong password or unknown email (same body for both)
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            type: about:blank
+            title: Email or password is incorrect
+            status: 401
+            code: invalid_credentials
+    NotFound:
+      description: Not found, pending, or not visible to the caller (existence is not revealed)
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            type: about:blank
+            title: Not found
+            status: 404
+            code: not_found
+    Conflict:
+      description: >-
+        Someone else changed the request first (stale_version: show "This request was changed by
+        someone else. Reload to see the latest.") or the copy is not in a state that can be retried
+        (not_retryable)
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            type: about:blank
+            title: This request was changed by someone else. Reload to see the latest.
+            status: 409
+            code: stale_version
+    ValidationError:
+      description: Failed validation; errors lists each field with its message (shown next to the field)
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            type: about:blank
+            title: Some answers need fixing
+            status: 422
+            code: validation_failed
+            errors:
+              - field: problem
+                message: Describe the problem in 10 to 2,000 characters
+              - field: phone
+                message: Enter a 10-digit phone number
+    PhotoProblem:
+      description: A planned photo is missing (photo_missing) or is not a real JPEG, PNG or WebP of at most 5 MB (photo_invalid); errors names each photo
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            type: about:blank
+            title: A photo could not be used
+            status: 422
+            code: photo_invalid
+            errors:
+              - field: photos[2]
+                message: Photos must be JPEG, PNG or WebP
+    TooManyRequests:
+      description: The 6th accepted submission from one network address within 10 minutes
+      headers:
+        Retry-After:
+          description: Seconds until another submission is accepted
+          schema:
+            type: integer
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            type: about:blank
+            title: Too many requests. Please try again in a few minutes.
+            status: 429
+            code: rate_limited
+    SignInPaused:
+      description: 5 failed sign-ins for this email within 15 minutes; paused for 15 minutes
+      headers:
+        Retry-After:
+          description: Seconds until sign-in is allowed again
+          schema:
+            type: integer
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            type: about:blank
+            title: Sign-in is paused for 15 minutes.
+            status: 429
+            code: sign_in_paused
+    ServiceUnavailable:
+      description: The database could not be reached; nothing was stored (AC-001.8)
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            type: about:blank
+            title: We couldn't send your request. Please try again.
+            status: 503
+            code: service_unavailable
+    MethodNotAllowed:
+      description: The method is not defined for this path
+      headers:
+        Allow:
+          description: Methods the path supports
+          schema:
+            type: string
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            type: about:blank
+            title: Method not allowed
+            status: 405
+            code: method_not_allowed
+    InternalError:
+      description: Unexpected failure
+      content:
+        application/problem+json:
+          schema:
+            $ref: '#/components/schemas/Problem'
+          example:
+            type: about:blank
+            title: Something went wrong
+            status: 500
+            code: internal_error
