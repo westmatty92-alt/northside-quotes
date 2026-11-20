@@ -293,6 +293,10 @@ Run after the migrations, before anything else, on the staging database:
 3. `npm run db:test` passes every file, including `supabase/tests/functions/*.sql` (the definer RPCs under forced RLS).
 4. The other live checks in `docs/threat-model.md` "Live checks for A2".
 
+All four run as `npm run db:test` then `npm run db:check` (read-only). **Result on staging, 2026-11-20:** BYPASSRLS true for both roles, RLS enabled and forced on all 10 tables, 16/16 pgTAP files, 346 assertions, 15/15 catalog checks, pgTAP absent afterwards.
+- **Platform-installed function (found on the first apply).** A project created with Supabase's "automatically enable RLS on new tables" option has the event trigger `ensure_rls` and its function `public.rls_auto_enable()` (owner postgres, SECURITY DEFINER, returns `event_trigger`), which the default privileges make executable by anon. Migration `20261120000800_platform_function_grants.sql` revokes EXECUTE from public, anon, authenticated and service_role when the function exists (the event trigger keeps firing). The production project may or may not have the option on; the guarded migration covers both. `db:check` lists every event trigger for the record.
+- **Staff accounts.** Baseleap creates the auth user in the dashboard, then runs `npm run db:staff-add -- <email> [display name]` (idempotent; `owner` → "Owner", `helper` → "Office helper" by default). Staging: `owner@northside.test` and `helper@northside.test` are staff. Count-based pgTAP assertions on `public.staff` compare with the table's real total, so real staff rows don't break `db:test`.
+
 ## Environment variables (names only — values are set by Matthew)
 | Name | Used by | Server-only? |
 |---|---|---|

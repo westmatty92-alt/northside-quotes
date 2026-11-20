@@ -6,6 +6,8 @@
 //   node supabase/scripts/db.mjs types     migrate, then write src/types/database.ts      (first half of npm run gen:types)
 //   node supabase/scripts/db.mjs check     read-only staging checks (docs/architecture.md "Checks for A2 on staging",
 //                                           docs/threat-model.md "Live checks for A2")      (npm run db:check)
+//   node supabase/scripts/db.mjs staff-add <email> [name]
+//                                           make an existing auth user staff, idempotently  (npm run db:staff-add -- <email>)
 //
 // Target: SUPABASE_STAGING_DB_URL (the staging project's session-pooler URI, copied from the dashboard's Connect
 // dialog). The npm scripts load it with `node --env-file-if-exists=.env.local`. This is what the ledger and CI run.
@@ -29,6 +31,7 @@
 // Needs: the Supabase CLI devDependency and Docker (test db runs pg_prove in a container); psql on PATH (check).
 
 import fs from 'node:fs';
+import os from 'node:os';
 import path from 'node:path';
 import { spawnSync } from 'node:child_process';
 import { fileURLToPath } from 'node:url';
@@ -106,11 +109,33 @@ function localTarget() {
   return { name: 'local stack', url: `postgresql://postgres:postgres@127.0.0.1:${port}/postgres`, args: [] };
 }
 
+// The CLI (v3) loads .env.<env>.local, .env.local, .env.<env> and .env from its project directory, and stops on
+// any line its own parser rejects (first staging run, 2026-11-20: "failed to parse environment file: .env.local").
+// It needs none of them: the target comes in as --remote=<url>. So it runs in a throwaway workdir holding only
+// supabase/config.toml, migrations and tests, and gets an environment without the app's secrets.
+// That also keeps SUPABASE_* app variables from being read as CLI settings.
+const APP_ENV = /^(SUPABASE_|NEXT_PUBLIC_|QA_|VERCEL_|STAGING_|APP_|GHL_|RESEND_|CRON_|BASELEAP_)/;
+let workdir = '';
+function cliWorkdir() {
+  if (workdir) return workdir;
+  workdir = fs.mkdtempSync(path.join(os.tmpdir(), 'northside-db-'));
+  const src = path.join(root, 'supabase');
+  const dst = path.join(workdir, 'supabase');
+  fs.mkdirSync(dst, { recursive: true });
+  fs.copyFileSync(path.join(src, 'config.toml'), path.join(dst, 'config.toml'));
+  for (const dir of ['migrations', 'tests']) {
+    if (fs.existsSync(path.join(src, dir))) fs.cpSync(path.join(src, dir), path.join(dst, dir), { recursive: true });
+  }
+  process.on('exit', () => fs.rmSync(workdir, { recursive: true, force: true }));
+  return workdir;
+}
+
 function cli(target, args, { timeout = 15 * 60 * 1000 } = {}) {
   if (!fs.existsSync(supabaseBin)) fail('the Supabase CLI devDependency is missing: run npm ci.');
+  const env = Object.fromEntries(Object.entries(process.env).filter(([k]) => !APP_ENV.test(k)));
   const r = spawnSync(supabaseBin, [...args, ...target.args, '--agent', 'no'], {
-    cwd: root, encoding: 'utf8', timeout, maxBuffer: 64 * 1024 * 1024,
-    env: { ...process.env, SUPABASE_TELEMETRY_DISABLED: '1', DO_NOT_TRACK: '1' },
+    cwd: cliWorkdir(), encoding: 'utf8', timeout, maxBuffer: 64 * 1024 * 1024,
+    env: { ...env, SUPABASE_TELEMETRY_DISABLED: '1', DO_NOT_TRACK: '1' },
   });
   if (r.error) fail(`supabase ${args.join(' ')} could not run: ${r.error.message}`);
   return { status: r.status, stdout: redact(r.stdout), stderr: redact(r.stderr) };
@@ -205,8 +230,11 @@ const CHECKS = [
     "select has_table_privilege('service_role', 'public.sign_in_pauses', 'UPDATE')",
     (rows) => rows.length === 1 && rows[0][0] === 'f'],
   ['no public function is executable by anon',
-    "select p.proname from pg_proc p join pg_namespace n on n.oid = p.pronamespace where n.nspname = 'public' and has_function_privilege('anon', p.oid, 'execute') order by 1",
+    "select p.proname, 'owner=' || pg_get_userbyid(p.proowner), 'returns=' || p.prorettype::regtype, 'definer=' || p.prosecdef, 'acl=' || coalesce(array_to_string(p.proacl, ' '), 'default') from pg_proc p join pg_namespace n on n.oid = p.pronamespace where n.nspname = 'public' and has_function_privilege('anon', p.oid, 'execute') order by 1",
     (rows) => rows.length === 0],
+  ['event triggers in the database (informational: platform-installed ones are listed for the record)',
+    "select evtname, evtevent, evtfoid::regproc, 'owner=' || pg_get_userbyid(evtowner), 'enabled=' || evtenabled::text from pg_event_trigger order by 1",
+    () => true],
   ['app_private trigger and pause functions are not callable by clients',
     "select p.proname, has_function_privilege('anon', p.oid, 'execute'), has_function_privilege('authenticated', p.oid, 'execute'), has_function_privilege('service_role', p.oid, 'execute') from pg_proc p join pg_namespace n on n.oid = p.pronamespace where n.nspname = 'app_private' and p.proname in ('sign_in_pause_until', 'ghl_sync_jobs_require_consent', 'quote_requests_consent_immutable') order by 1",
     (rows) => rows.length === 3 && rows.every((r) => r[1] === 'f' && r[2] === 'f')
@@ -245,7 +273,49 @@ function check(target) {
   if (failed) process.exit(1);
 }
 
-const [cmd, ...flags] = process.argv.slice(2);
+// staff-add <email> [display name]: make an EXISTING Supabase Auth user a staff member (runbook: Baseleap creates
+// the two accounts; there is no in-app user management, NG-4). Idempotent: an existing staff row is left as it is.
+// Runs as the URL's user (postgres, BYPASSRLS), one transaction. Values travel as psql variables (:'email'), never
+// spliced into SQL. Prints the email and the outcome only.
+const EMAIL = /^[^\s@'"\\]+@[^\s@'"\\]+\.[^\s@'"\\]+$/;
+const DEFAULT_NAMES = { owner: 'Owner', helper: 'Office helper' };
+function staffAdd(target, email, name) {
+  if (!email || !EMAIL.test(email)) fail('usage: node supabase/scripts/db.mjs staff-add <email> [display name] [--local]');
+  const local = email.split('@')[0].toLowerCase();
+  const displayName = (name ?? DEFAULT_NAMES[local] ?? local).trim();
+  if (displayName.length < 1 || displayName.length > 50) fail('display name must be 1 to 50 characters (public.staff check).');
+  const sql = `
+begin;
+with target as (
+  select u.id from auth.users u where lower(u.email) = lower(:'email')
+), ins as (
+  insert into public.staff (user_id, display_name)
+  select id, :'display_name' from target
+  on conflict (user_id) do nothing
+  returning user_id
+)
+select (select count(*) from target), (select count(*) from ins);
+commit;
+select count(*) from public.staff s join auth.users u on u.id = s.user_id where lower(u.email) = lower(:'email');
+`;
+  const r = spawnSync('psql', [target.url, '-X', '-q', '-At', '-F', '|', '-v', 'ON_ERROR_STOP=1',
+    '-v', `email=${email}`, '-v', `display_name=${displayName}`], { input: sql, encoding: 'utf8' });
+  if (r.error) fail(`psql not runnable: ${r.error.message}`);
+  if (r.status !== 0) fail(`staff-add failed: ${r.stderr.trim()}`);
+  const [counts, after] = r.stdout.split('\n').filter((l) => /^\d/.test(l));
+  const [users, inserted] = (counts ?? '').split('|').map(Number);
+  if (users !== 1) fail(`staff-add ${email}: ${users === 0 ? 'no Supabase Auth user has this email (create it in the dashboard first)' : 'more than one auth user matches'}.`);
+  if (Number(after) !== 1) fail(`staff-add ${email}: the staff row is missing after the insert.`);
+  console.log(`db: ${email} is staff on the ${target.name} (${inserted === 1 ? 'added now' : 'already staff, unchanged'})`);
+}
+
+const [cmd, ...rest] = process.argv.slice(2);
+const isLocal = rest.includes('--local');
+const params = rest.filter((a) => a !== '--local');
 const commands = { migrate, test, types, check };
-if (!commands[cmd] || flags.some((f) => f !== '--local')) fail('usage: node supabase/scripts/db.mjs <migrate|test|types|check> [--local]');
-commands[cmd](flags.includes('--local') ? localTarget() : stagingTarget());
+if (cmd === 'staff-add') {
+  staffAdd(isLocal ? localTarget() : stagingTarget(), params[0], params.slice(1).join(' ') || undefined);
+} else {
+  if (!commands[cmd] || params.length) fail('usage: node supabase/scripts/db.mjs <migrate|test|types|check|staff-add <email> [name]> [--local]');
+  commands[cmd](isLocal ? localTarget() : stagingTarget());
+}

@@ -18,6 +18,7 @@
     "db:migrate": "node --env-file-if-exists=.env.local supabase/scripts/db.mjs migrate",
     "db:test": "node --env-file-if-exists=.env.local supabase/scripts/db.mjs test",
     "db:check": "node --env-file-if-exists=.env.local supabase/scripts/db.mjs check",
+    "db:staff-add": "node --env-file-if-exists=.env.local supabase/scripts/db.mjs staff-add",
     "db:test:local": "node supabase/scripts/db.mjs test --local",
     "db:check:local": "node supabase/scripts/db.mjs check --local",
     "gen:types:local": "node supabase/scripts/db.mjs types --local && orval"
