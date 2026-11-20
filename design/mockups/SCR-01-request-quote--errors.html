@@ -1,0 +1,96 @@
+<!doctype html>
+<!-- SCR-01 · Request a quote · Stories: US-001, US-002 · State: validation errors after Send (AC-001.2, .3, .4, AC-002.3, .4) -->
+<html lang="en-CA">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SCR-01 · Request a quote · errors</title>
+  <link rel="stylesheet" href="./tokens.css">
+  <link rel="stylesheet" href="./app.css">
+</head>
+<body class="bg-raised">
+  <a class="skip" href="#main">Skip to the form</a>
+  <header class="pub-head"><div class="pub-head-inner"><span class="brand">Northside Plumbing</span></div></header>
+
+  <main id="main" class="public">
+    <div class="sheet">
+      <div class="stack">
+        <h1>Request a quote</h1>
+        <div class="banner banner-error is-focus" role="alert" tabindex="-1" aria-labelledby="sum-h">
+          <span class="ic ic-alert" aria-hidden="true"></span>
+          <div class="banner-body">
+            <p class="banner-title" id="sum-h">Your request has not been sent. Fix these 5 things:</p>
+            <ul>
+              <li><a href="#phone">Phone number: enter a 10-digit number</a></li>
+              <li><a href="#email">Email: enter a valid address</a></li>
+              <li><a href="#problem">What's the problem: use 10 to 2,000 characters</a></li>
+              <li><a href="#urgent">How urgent is it: choose one</a></li>
+              <li><a href="#photos">Photos: 2 photos were refused</a></li>
+            </ul>
+          </div>
+        </div>
+        <p class="meta">All six questions are required. Photos are optional. Everything you typed is still here.</p>
+      </div>
+
+      <form class="sheet" novalidate>
+        <fieldset class="stack">
+          <legend><h2>Your details</h2></legend>
+          <div class="field">
+            <label for="name">Your name</label>
+            <input class="input" id="name" name="name" type="text" autocomplete="name" value="Dana Whitfield">
+          </div>
+          <div class="field">
+            <label for="phone">Phone number</label>
+            <input class="input is-error" id="phone" name="phone" type="tel" inputmode="tel" autocomplete="tel" value="12345" aria-invalid="true" aria-describedby="phone-err">
+            <p class="msg-error" id="phone-err"><span class="ic ic-alert" aria-hidden="true"></span><span>Enter a 10-digit phone number, like 905-555-0142.</span></p>
+          </div>
+          <div class="field">
+            <label for="email">Email</label>
+            <input class="input is-error" id="email" name="email" type="email" autocomplete="email" value="dana@" aria-invalid="true" aria-describedby="email-err">
+            <p class="msg-error" id="email-err"><span class="ic ic-alert" aria-hidden="true"></span><span>Enter an email address like name@example.com.</span></p>
+          </div>
+        </fieldset>
+
+        <fieldset class="stack">
+          <legend><h2>The problem</h2></legend>
+          <div class="field">
+            <label for="address">Address of the job</label>
+            <input class="input" id="address" name="address" type="text" autocomplete="street-address" value="14 Barton St W, Hamilton ON">
+          </div>
+          <div class="field">
+            <label for="problem">What's the problem?</label>
+            <textarea class="input input-area is-error" id="problem" name="problem" rows="4" aria-invalid="true" aria-describedby="problem-err">Tap leaks</textarea>
+            <p class="msg-error" id="problem-err"><span class="ic ic-alert" aria-hidden="true"></span><span>Describe the problem in 10 to 2,000 characters. You have written 9.</span></p>
+          </div>
+          <fieldset class="field" id="urgent" aria-describedby="urgent-err">
+            <legend class="label">How urgent is it?</legend>
+            <div class="choices">
+              <label class="choice is-error"><span class="radio"></span><span><span class="choice-label">Emergency</span><span class="choice-desc">Active leak or no water, need someone today</span></span></label>
+              <label class="choice is-error"><span class="radio"></span><span><span class="choice-label">Soon</span><span class="choice-desc">Within the next few days</span></span></label>
+              <label class="choice is-error"><span class="radio"></span><span><span class="choice-label">Flexible</span><span class="choice-desc">Within the next two weeks, no rush</span></span></label>
+            </div>
+            <p class="msg-error" id="urgent-err"><span class="ic ic-alert" aria-hidden="true"></span><span>Choose how urgent it is.</span></p>
+          </fieldset>
+        </fieldset>
+
+        <fieldset class="stack" id="photos">
+          <legend><h2>Photos <span class="req">(optional)</span></h2></legend>
+          <p class="hint">Up to 3 photos. JPEG, PNG or WebP, 5 MB or smaller each. Only Northside staff can see them.</p>
+          <ul class="photo-list" aria-label="Attached photos">
+            <li class="photo"><span class="pv"><span class="ic ic-image" aria-hidden="true"></span></span><div><p class="pn">under-sink-1.jpg</p><p class="hint">2.1 MB</p></div><button class="btn btn-secondary" type="button" aria-label="Remove photo under-sink-1.jpg">Remove</button></li>
+            <li class="photo is-error"><span class="pv"><span class="ic ic-image" aria-hidden="true"></span></span><div><p class="pn">plumber-quote.pdf</p><p class="hint">0.4 MB</p></div><button class="btn btn-secondary" type="button" aria-label="Remove photo plumber-quote.pdf">Remove</button><p class="msg-error photo-error"><span class="ic ic-alert" aria-hidden="true"></span><span>Photos must be JPEG, PNG or WebP</span></p></li>
+            <li class="photo is-error"><span class="pv"><span class="ic ic-image" aria-hidden="true"></span></span><div><p class="pn">IMG_4410.jpg</p><p class="hint">6.3 MB</p></div><button class="btn btn-secondary" type="button" aria-label="Remove photo IMG_4410.jpg">Remove</button><p class="msg-error photo-error"><span class="ic ic-alert" aria-hidden="true"></span><span>Each photo must be 5 MB or smaller</span></p></li>
+          </ul>
+          <div><button class="btn btn-secondary" type="button"><span class="ic ic-camera" aria-hidden="true"></span>Add a photo</button></div>
+        </fieldset>
+
+        <div class="stack">
+          <p>Northside will use these details only to reply to your quote request.</p>
+          <button class="btn btn-primary btn-block" type="submit">Send request</button>
+        </div>
+      </form>
+    </div>
+  </main>
+  <footer class="pub-foot"><span class="meta">Northside Plumbing, Hamilton</span><a href="#main">Staff sign-in</a></footer>
+</body>
+</html>

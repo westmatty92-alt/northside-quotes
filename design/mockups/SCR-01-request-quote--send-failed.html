@@ -1,0 +1,88 @@
+<!doctype html>
+<!-- SCR-01 · Request a quote · Stories: US-001, US-002, US-003 · State: send failed, values kept (AC-001.8, AC-002.2, AC-002.6, AC-003.3, AC-003.4) -->
+<html lang="en-CA">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SCR-01 · Request a quote · send failed</title>
+  <link rel="stylesheet" href="./tokens.css">
+  <link rel="stylesheet" href="./app.css">
+</head>
+<body class="bg-raised">
+  <a class="skip" href="#main">Skip to the form</a>
+  <header class="pub-head"><div class="pub-head-inner"><span class="brand">Northside Plumbing</span></div></header>
+
+  <main id="main" class="public">
+    <div class="sheet">
+      <div class="stack">
+        <h1>Request a quote</h1>
+        <div class="banner banner-error is-focus" role="alert" tabindex="-1">
+          <span class="ic ic-alert" aria-hidden="true"></span>
+          <div class="banner-body">
+            <p class="banner-title">We couldn't send your request. Please try again.</p>
+            <p>Nothing was sent and no reference number was issued. Everything you typed and your photos are still here.</p>
+          </div>
+        </div>
+      </div>
+
+      <form class="sheet" novalidate>
+        <fieldset class="stack">
+          <legend><h2>Your details</h2></legend>
+          <div class="field">
+            <label for="name">Your name</label>
+            <input class="input" id="name" name="name" type="text" autocomplete="name" value="Dana Whitfield">
+          </div>
+          <div class="field">
+            <label for="phone">Phone number</label>
+            <input class="input" id="phone" name="phone" type="tel" inputmode="tel" autocomplete="tel" value="905-555-0142">
+          </div>
+          <div class="field">
+            <label for="email">Email</label>
+            <input class="input" id="email" name="email" type="email" autocomplete="email" value="dana@example.com">
+          </div>
+        </fieldset>
+
+        <fieldset class="stack">
+          <legend><h2>The problem</h2></legend>
+          <div class="field">
+            <label for="address">Address of the job</label>
+            <input class="input" id="address" name="address" type="text" autocomplete="street-address" value="14 Barton St W, Hamilton ON">
+          </div>
+          <div class="field">
+            <label for="problem">What's the problem?</label>
+            <textarea class="input input-area" id="problem" name="problem" rows="4">Kitchen tap drips constantly and the cabinet under it is wet</textarea>
+          </div>
+          <fieldset class="field">
+            <legend class="label">How urgent is it?</legend>
+            <div class="choices">
+              <label class="choice"><span class="radio"></span><span><span class="choice-label">Emergency</span><span class="choice-desc">Active leak or no water, need someone today</span></span></label>
+              <label class="choice is-selected"><span class="radio"></span><span><span class="choice-label">Soon</span><span class="choice-desc">Within the next few days</span></span></label>
+              <label class="choice"><span class="radio"></span><span><span class="choice-label">Flexible</span><span class="choice-desc">Within the next two weeks, no rush</span></span></label>
+            </div>
+          </fieldset>
+        </fieldset>
+
+        <fieldset class="stack">
+          <legend><h2>Photos <span class="req">(optional)</span></h2></legend>
+          <p class="hint">Up to 3 photos. JPEG, PNG or WebP, 5 MB or smaller each. Only Northside staff can see them.</p>
+          <ul class="photo-list" aria-label="Attached photos">
+            <li class="photo"><span class="pv"><span class="ic ic-image" aria-hidden="true"></span></span><div><p class="pn">under-sink-1.jpg</p><p class="hint">2.1 MB, uploaded</p></div><button class="btn btn-secondary" type="button" aria-label="Remove photo under-sink-1.jpg">Remove</button></li>
+            <li class="photo is-error"><span class="pv"><span class="ic ic-image" aria-hidden="true"></span></span><div><p class="pn">cabinet-floor.jpg</p><p class="hint">1.8 MB</p></div><button class="btn btn-secondary" type="button" aria-label="Remove photo cabinet-floor.jpg">Remove</button><p class="msg-error photo-error"><span class="ic ic-alert" aria-hidden="true"></span><span>This photo didn't upload. Check your connection, then tap Send request to try again.</span></p></li>
+            <li class="photo"><span class="pv"><span class="ic ic-image" aria-hidden="true"></span></span><div><p class="pn">pipe-close-up.jpg</p><p class="hint">2.4 MB</p></div><button class="btn btn-secondary" type="button" aria-label="Remove photo pipe-close-up.jpg">Remove</button></li>
+          </ul>
+          <div class="stack">
+            <button class="btn btn-disabled" type="button" aria-disabled="true"><span class="ic ic-camera" aria-hidden="true"></span>Add a photo</button>
+            <p class="msg-error"><span class="ic ic-alert" aria-hidden="true"></span><span>You can add up to 3 photos</span></p>
+          </div>
+        </fieldset>
+
+        <div class="stack">
+          <p>Northside will use these details only to reply to your quote request.</p>
+          <button class="btn btn-primary btn-block" type="submit">Send request</button>
+        </div>
+      </form>
+    </div>
+  </main>
+  <footer class="pub-foot"><span class="meta">Northside Plumbing, Hamilton</span><a href="#main">Staff sign-in</a></footer>
+</body>
+</html>

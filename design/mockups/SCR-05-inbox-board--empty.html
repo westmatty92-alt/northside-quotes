@@ -1,0 +1,95 @@
+<!doctype html>
+<!-- SCR-05 · Inbox, Board view · Stories: US-016, US-008 · State: empty and limits (AC-016.11 empty Lost column, AC-016.10 Show more per column, AC-005.4 no requests at all, AC-008.7 count 0, 0, 0) -->
+<html lang="en-CA">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SCR-05 · Inbox, Board view · empty</title>
+  <link rel="stylesheet" href="./tokens.css">
+  <link rel="stylesheet" href="./app.css">
+</head>
+<body>
+  <a class="skip" href="#main">Skip to the board</a>
+  <header class="nav on-dark">
+    <div class="nav-inner">
+      <a class="brand" href="#main">Northside Plumbing</a>
+      <nav class="nav-links" aria-label="Main">
+        <a class="nav-link" href="#main" aria-current="page">Inbox</a>
+        <span class="nav-user">Signed in as Owner</span>
+        <button class="btn-nav" type="button"><span class="ic ic-sm ic-out" aria-hidden="true"></span>Sign out</button>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main" class="page page-wide">
+    <div class="page-head"><h1>Inbox</h1></div>
+
+    <section class="stack" aria-labelledby="s1-h">
+      <h2 id="s1-h" class="sheet-label">1. NO REQUESTS AT ALL (AC-005.4, AC-008.7, FIRST USE)</h2>
+      <div class="week-tiles is-compact">
+        <div class="tile"><span class="tile-num">0</span><span class="tile-lbl">Requests this week</span></div>
+        <div class="tile"><span class="tile-num">0</span><span class="tile-lbl"><span class="ic ic-check" aria-hidden="true"></span>Won</span></div>
+        <div class="tile"><span class="tile-num">0</span><span class="tile-lbl"><span class="ic ic-x-circle" aria-hidden="true"></span>Lost</span></div>
+      </div>
+      <div class="board">
+        <section class="col" aria-labelledby="s1-new"><h3 class="col-head" id="s1-new"><span class="ic ic-inbox" aria-hidden="true"></span>New</h3><div class="col-empty"><span class="ic ic-sm ic-inbox" aria-hidden="true"></span>No new requests</div></section>
+        <section class="col" aria-labelledby="s1-quoted"><h3 class="col-head" id="s1-quoted"><span class="ic ic-doc" aria-hidden="true"></span>Quoted</h3><div class="col-empty"><span class="ic ic-sm ic-doc" aria-hidden="true"></span>No quoted requests</div></section>
+        <section class="col" aria-labelledby="s1-won"><h3 class="col-head" id="s1-won"><span class="ic ic-check" aria-hidden="true"></span>Won</h3><div class="col-empty"><span class="ic ic-sm ic-check" aria-hidden="true"></span>No won requests</div></section>
+        <section class="col" aria-labelledby="s1-lost"><h3 class="col-head" id="s1-lost"><span class="ic ic-x-circle" aria-hidden="true"></span>Lost</h3><div class="col-empty"><span class="ic ic-sm ic-x-circle" aria-hidden="true"></span>No lost requests</div></section>
+      </div>
+      <p class="annot">Each empty column keeps its place and is a valid place to drop or move a card into (AC-016.11). The board never offers a way to add, rename, delete or reorder a column (AC-016.9).</p>
+    </section>
+
+    <section class="stack" aria-labelledby="s2-h">
+      <h2 id="s2-h" class="sheet-label">2. ONE COLUMN HAS MORE THAN 50 (AC-016.10): ONLY THAT COLUMN SHOWS "SHOW MORE"</h2>
+      <div class="board">
+        <section class="col" aria-labelledby="s2-new">
+          <h3 class="col-head" id="s2-new"><span class="ic ic-inbox" aria-hidden="true"></span>New</h3>
+          <ul class="stack">
+            <li class="bcard">
+              <div class="bcard-top"><a class="tag tag-quiet" href="#main">NQ-7K3M9P</a><span class="ic ic-grip grip" aria-hidden="true"></span></div>
+              <p class="b-name">Dana Whitfield</p>
+              <div class="bcard-meta"><span class="urg urg-soon"><span class="ic ic-clock" aria-hidden="true"></span>Soon</span><time class="meta" datetime="2026-11-19T09:10:00-05:00">Nov 19, 9:10 a.m.</time></div>
+              <button class="btn btn-secondary btn-block" type="button" aria-haspopup="menu" aria-label="Move NQ-7K3M9P to another status">Move to<span class="ic ic-sm ic-down" aria-hidden="true"></span></button>
+            </li>
+            <li class="bcard">
+              <div class="bcard-top"><a class="tag tag-quiet" href="#main">NQ-4HX2RB</a><span class="ic ic-grip grip" aria-hidden="true"></span></div>
+              <p class="b-name">Marcus Oyelaran</p>
+              <div class="bcard-meta"><span class="urg urg-emergency"><span class="ic ic-alert" aria-hidden="true"></span>Emergency</span><time class="meta" datetime="2026-11-19T08:42:00-05:00">Nov 19, 8:42 a.m.</time></div>
+              <button class="btn btn-secondary btn-block" type="button" aria-haspopup="menu" aria-label="Move NQ-4HX2RB to another status">Move to<span class="ic ic-sm ic-down" aria-hidden="true"></span></button>
+            </li>
+          </ul>
+        </section>
+        <section class="col" aria-labelledby="s2-quoted">
+          <h3 class="col-head" id="s2-quoted"><span class="ic ic-doc" aria-hidden="true"></span>Quoted</h3>
+          <ul class="stack">
+            <li class="bcard">
+              <div class="bcard-top"><a class="tag tag-quiet" href="#main">NQ-9TQ6WD</a><span class="ic ic-grip grip" aria-hidden="true"></span></div>
+              <p class="b-name">Priya Raman</p>
+              <div class="bcard-meta"><span class="urg urg-flexible"><span class="ic ic-calendar" aria-hidden="true"></span>Flexible</span><time class="meta" datetime="2026-11-18T16:15:00-05:00">Nov 18, 4:15 p.m.</time></div>
+              <button class="btn btn-secondary btn-block" type="button" aria-haspopup="menu" aria-label="Move NQ-9TQ6WD to another status">Move to<span class="ic ic-sm ic-down" aria-hidden="true"></span></button>
+            </li>
+            <li><button class="btn btn-secondary btn-block" type="button">Show more</button></li>
+          </ul>
+        </section>
+        <section class="col" aria-labelledby="s2-won">
+          <h3 class="col-head" id="s2-won"><span class="ic ic-check" aria-hidden="true"></span>Won</h3>
+          <ul class="stack">
+            <li class="bcard">
+              <div class="bcard-top"><a class="tag tag-quiet" href="#main">NQ-6GM2YE</a><span class="ic ic-grip grip" aria-hidden="true"></span></div>
+              <p class="b-name">Aisha Rahman</p>
+              <div class="bcard-meta"><span class="urg urg-soon"><span class="ic ic-clock" aria-hidden="true"></span>Soon</span><time class="meta" datetime="2026-11-13T15:50:00-05:00">Nov 13, 3:50 p.m.</time></div>
+              <button class="btn btn-secondary btn-block" type="button" aria-haspopup="menu" aria-label="Move NQ-6GM2YE to another status">Move to<span class="ic ic-sm ic-down" aria-hidden="true"></span></button>
+            </li>
+          </ul>
+        </section>
+        <section class="col" aria-labelledby="s2-lost">
+          <h3 class="col-head" id="s2-lost"><span class="ic ic-x-circle" aria-hidden="true"></span>Lost</h3>
+          <div class="col-empty"><span class="ic ic-sm ic-x-circle" aria-hidden="true"></span>No lost requests</div>
+        </section>
+      </div>
+      <p class="annot">Picture note: Quoted holds 51 requests, so it lists its 50 newest (only one card is drawn here) and then "Show more", which adds the last 1. New holds 2 and has no "Show more".</p>
+    </section>
+  </main>
+</body>
+</html>

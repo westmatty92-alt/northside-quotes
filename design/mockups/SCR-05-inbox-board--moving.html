@@ -1,0 +1,130 @@
+<!doctype html>
+<!-- SCR-05 · Inbox, Board view · Stories: US-016, US-007 · State: moving a card (A: Move to menu open with keyboard focus, AC-016.3, AC-016.17; B: dragging, AC-016.7, AC-016.2; C: saving, AC-016.13) -->
+<html lang="en-CA">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SCR-05 · Inbox, Board view · moving a card</title>
+  <link rel="stylesheet" href="./tokens.css">
+  <link rel="stylesheet" href="./app.css">
+</head>
+<body>
+  <a class="skip" href="#main">Skip to the board</a>
+  <header class="nav on-dark">
+    <div class="nav-inner">
+      <a class="brand" href="#main">Northside Plumbing</a>
+      <nav class="nav-links" aria-label="Main">
+        <a class="nav-link" href="#main" aria-current="page">Inbox</a>
+        <span class="nav-user">Signed in as Owner</span>
+        <button class="btn-nav" type="button"><span class="ic ic-sm ic-out" aria-hidden="true"></span>Sign out</button>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main" class="page page-wide">
+    <div class="page-head"><h1>Inbox</h1></div>
+
+    <section class="stack" aria-labelledby="a-h">
+      <h2 id="a-h" class="sheet-label">A. MOVE TO MENU OPEN ON A CARD (KEYBOARD, TAP, SCREEN READER)</h2>
+      <p class="meta">Enter or a tap opens the menu. Arrow keys move through the three other statuses, Enter chooses, Escape closes and puts focus back on the button. Menu items are 44 px high.</p>
+      <div class="board board-2">
+        <section class="col menu-room" aria-labelledby="a-new">
+          <h3 class="col-head" id="a-new"><span class="ic ic-inbox" aria-hidden="true"></span>New</h3>
+          <ul class="stack">
+            <li class="bcard">
+              <div class="bcard-top"><a class="tag tag-quiet" href="#main">NQ-7K3M9P</a><span class="ic ic-grip grip" aria-hidden="true"></span></div>
+              <p class="b-name">Dana Whitfield</p>
+              <div class="bcard-meta"><span class="urg urg-soon"><span class="ic ic-clock" aria-hidden="true"></span>Soon</span><time class="meta" datetime="2026-11-19T09:10:00-05:00">Nov 19, 9:10 a.m.</time></div>
+              <div class="menu-wrap">
+                <button class="btn btn-secondary btn-block" type="button" aria-haspopup="menu" aria-expanded="true" aria-label="Move NQ-7K3M9P to another status">Move to<span class="ic ic-sm ic-down" aria-hidden="true"></span></button>
+                <div class="menu" role="menu" aria-label="Move NQ-7K3M9P to">
+                  <p class="menu-title" role="presentation">MOVE NQ-7K3M9P TO</p>
+                  <button class="menu-item is-focus" role="menuitem" type="button"><span class="ic ic-sm ic-doc" aria-hidden="true"></span>Quoted</button>
+                  <button class="menu-item" role="menuitem" type="button"><span class="ic ic-sm ic-check" aria-hidden="true"></span>Won</button>
+                  <button class="menu-item" role="menuitem" type="button"><span class="ic ic-sm ic-x-circle" aria-hidden="true"></span>Lost</button>
+                </div>
+              </div>
+            </li>
+          </ul>
+        </section>
+        <section class="col" aria-labelledby="a-quoted">
+          <h3 class="col-head" id="a-quoted"><span class="ic ic-doc" aria-hidden="true"></span>Quoted</h3>
+          <ul class="stack">
+            <li class="bcard">
+              <div class="bcard-top"><a class="tag tag-quiet" href="#main">NQ-9TQ6WD</a><span class="ic ic-grip grip" aria-hidden="true"></span></div>
+              <p class="b-name">Priya Raman</p>
+              <div class="bcard-meta"><span class="urg urg-flexible"><span class="ic ic-calendar" aria-hidden="true"></span>Flexible</span><time class="meta" datetime="2026-11-18T16:15:00-05:00">Nov 18, 4:15 p.m.</time></div>
+              <button class="btn btn-secondary btn-block" type="button" aria-haspopup="menu" aria-label="Move NQ-9TQ6WD to another status">Move to<span class="ic ic-sm ic-down" aria-hidden="true"></span></button>
+            </li>
+          </ul>
+        </section>
+      </div>
+      <p class="live-text"><span class="ic ic-sm ic-info" aria-hidden="true"></span><span>Not visible on the real page, read out by screen readers after the move: "NQ-7K3M9P moved to Quoted". Focus stays on that card.</span></p>
+    </section>
+
+    <section class="stack" aria-labelledby="b-h">
+      <h2 id="b-h" class="sheet-label">B. DRAGGING A CARD (MOUSE OR TOUCH)</h2>
+      <p class="meta">The card keeps a gap where it came from, the card under the pointer wears a copper outline and the word Dragging, and the column it would land in is dashed. Escape, or releasing outside the four columns, puts it back.</p>
+      <div class="board board-2">
+        <section class="col" aria-labelledby="b-new">
+          <h3 class="col-head" id="b-new"><span class="ic ic-inbox" aria-hidden="true"></span>New</h3>
+          <ul class="stack">
+            <li class="bcard is-placeholder" aria-hidden="true"></li>
+            <li class="bcard">
+              <div class="bcard-top"><a class="tag tag-quiet" href="#main">NQ-7K3M9P</a><span class="ic ic-grip grip" aria-hidden="true"></span></div>
+              <p class="b-name">Dana Whitfield</p>
+              <div class="bcard-meta"><span class="urg urg-soon"><span class="ic ic-clock" aria-hidden="true"></span>Soon</span><time class="meta" datetime="2026-11-19T09:10:00-05:00">Nov 19, 9:10 a.m.</time></div>
+              <button class="btn btn-secondary btn-block" type="button" aria-haspopup="menu" aria-label="Move NQ-7K3M9P to another status">Move to<span class="ic ic-sm ic-down" aria-hidden="true"></span></button>
+            </li>
+          </ul>
+        </section>
+        <section class="col is-target" aria-labelledby="b-quoted">
+          <h3 class="col-head" id="b-quoted"><span class="ic ic-doc" aria-hidden="true"></span>Quoted</h3>
+          <ul class="stack">
+            <li class="bcard is-dragging">
+              <div class="bcard-top"><span class="tag tag-quiet">NQ-4HX2RB</span><span class="state-label"><span class="ic ic-sm ic-move" aria-hidden="true"></span>Dragging</span></div>
+              <p class="b-name">Marcus Oyelaran</p>
+              <div class="bcard-meta"><span class="urg urg-emergency"><span class="ic ic-alert" aria-hidden="true"></span>Emergency</span><time class="meta" datetime="2026-11-19T08:42:00-05:00">Nov 19, 8:42 a.m.</time></div>
+            </li>
+            <li class="drop-hint"><span class="ic ic-sm ic-down" aria-hidden="true"></span>Release to move to Quoted</li>
+            <li class="bcard">
+              <div class="bcard-top"><a class="tag tag-quiet" href="#main">NQ-9TQ6WD</a><span class="ic ic-grip grip" aria-hidden="true"></span></div>
+              <p class="b-name">Priya Raman</p>
+              <div class="bcard-meta"><span class="urg urg-flexible"><span class="ic ic-calendar" aria-hidden="true"></span>Flexible</span><time class="meta" datetime="2026-11-18T16:15:00-05:00">Nov 18, 4:15 p.m.</time></div>
+              <button class="btn btn-secondary btn-block" type="button" aria-haspopup="menu" aria-label="Move NQ-9TQ6WD to another status">Move to<span class="ic ic-sm ic-down" aria-hidden="true"></span></button>
+            </li>
+          </ul>
+        </section>
+      </div>
+    </section>
+
+    <section class="stack" aria-labelledby="c-h">
+      <h2 id="c-h" class="sheet-label">C. SAVING AFTER A DROP OR A MENU CHOICE</h2>
+      <p class="meta">The card is already in its new column, marked Saving, and its Move to button is paused so it cannot be moved twice. The weekly count changes only after the save succeeds. If the save fails the card goes back (see the errors sheet).</p>
+      <div class="board board-2">
+        <section class="col" aria-labelledby="c-new">
+          <h3 class="col-head" id="c-new"><span class="ic ic-inbox" aria-hidden="true"></span>New</h3>
+          <div class="col-empty"><span class="ic ic-sm ic-inbox" aria-hidden="true"></span>No new requests</div>
+        </section>
+        <section class="col" aria-labelledby="c-won" aria-busy="true">
+          <h3 class="col-head" id="c-won"><span class="ic ic-check" aria-hidden="true"></span>Won</h3>
+          <ul class="stack">
+            <li class="bcard is-saving">
+              <div class="bcard-top"><a class="tag tag-quiet" href="#main">NQ-7K3M9P</a><span class="state-label is-busy" role="status"><span class="ic ic-sm ic-refresh" aria-hidden="true"></span>Saving</span></div>
+              <p class="b-name">Dana Whitfield</p>
+              <div class="bcard-meta"><span class="urg urg-soon"><span class="ic ic-clock" aria-hidden="true"></span>Soon</span><time class="meta" datetime="2026-11-19T09:10:00-05:00">Nov 19, 9:10 a.m.</time></div>
+              <button class="btn btn-secondary btn-block btn-disabled" type="button" disabled aria-label="Move NQ-7K3M9P to another status, saving">Move to<span class="ic ic-sm ic-down" aria-hidden="true"></span></button>
+            </li>
+            <li class="bcard">
+              <div class="bcard-top"><a class="tag tag-quiet" href="#main">NQ-6GM2YE</a><span class="ic ic-grip grip" aria-hidden="true"></span></div>
+              <p class="b-name">Aisha Rahman</p>
+              <div class="bcard-meta"><span class="urg urg-soon"><span class="ic ic-clock" aria-hidden="true"></span>Soon</span><time class="meta" datetime="2026-11-13T15:50:00-05:00">Nov 13, 3:50 p.m.</time></div>
+              <button class="btn btn-secondary btn-block" type="button" aria-haspopup="menu" aria-label="Move NQ-6GM2YE to another status">Move to<span class="ic ic-sm ic-down" aria-hidden="true"></span></button>
+            </li>
+          </ul>
+        </section>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

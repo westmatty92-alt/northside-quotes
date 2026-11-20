@@ -1,0 +1,65 @@
+<!doctype html>
+<!-- SCR-04 · Inbox, List view · Stories: US-005, US-008 · State: loading (skeleton in the real layout, so nothing jumps when data arrives) -->
+<html lang="en-CA">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SCR-04 · Inbox, List view · loading</title>
+  <link rel="stylesheet" href="./tokens.css">
+  <link rel="stylesheet" href="./app.css">
+</head>
+<body>
+  <a class="skip" href="#main">Skip to requests</a>
+  <header class="nav on-dark">
+    <div class="nav-inner">
+      <a class="brand" href="#main">Northside Plumbing</a>
+      <nav class="nav-links" aria-label="Main">
+        <a class="nav-link" href="#main" aria-current="page">Inbox</a>
+        <span class="nav-user">Signed in as Owner</span>
+        <button class="btn-nav" type="button"><span class="ic ic-sm ic-out" aria-hidden="true"></span>Sign out</button>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main" class="page" aria-busy="true">
+    <div class="page-head"><h1>Inbox</h1></div>
+    <p class="sr-only" role="status">Loading requests</p>
+
+    <section class="week" aria-label="This week, loading">
+      <div class="week-head"><h2 class="sheet-label">THIS WEEK</h2></div>
+      <div class="week-tiles">
+        <div class="tile"><span class="skel skel-lg sk-b"></span><span class="skel sk-a"></span></div>
+        <div class="tile"><span class="skel skel-lg sk-b"></span><span class="skel sk-b"></span></div>
+        <div class="tile"><span class="skel skel-lg sk-b"></span><span class="skel sk-b"></span></div>
+      </div>
+    </section>
+
+    <section class="toolbar" aria-label="View and filter">
+      <div class="toolbar-row">
+        <div class="segments segments-wide" role="group" aria-label="View">
+          <a class="segment is-active" href="#main" aria-current="true"><span class="ic ic-sm ic-list" aria-hidden="true"></span>List</a>
+          <a class="segment" href="#main"><span class="ic ic-sm ic-board" aria-hidden="true"></span>Board</a>
+        </div>
+      </div>
+      <div class="segments" role="group" aria-label="Show requests">
+        <a class="segment is-active" href="#main" aria-current="true">All</a>
+        <a class="segment" href="#main">New</a>
+        <a class="segment" href="#main">Quoted</a>
+        <a class="segment" href="#main">Won</a>
+        <a class="segment" href="#main">Lost</a>
+      </div>
+    </section>
+
+    <section aria-label="Requests, loading">
+      <div class="rows">
+        <ul>
+          <li class="row"><span class="skel skel-lg sk-a r-ref"></span><span class="skel sk-a r-name"></span><span class="skel sk-b r-urg"></span><span class="skel skel-pill skel-lg sk-b r-status"></span><span class="skel sk-a r-time"></span><span class="skel skel-lg r-move"></span></li>
+          <li class="row"><span class="skel skel-lg sk-a r-ref"></span><span class="skel sk-a r-name"></span><span class="skel sk-b r-urg"></span><span class="skel skel-pill skel-lg sk-b r-status"></span><span class="skel sk-a r-time"></span><span class="skel skel-lg r-move"></span></li>
+          <li class="row"><span class="skel skel-lg sk-a r-ref"></span><span class="skel sk-a r-name"></span><span class="skel sk-b r-urg"></span><span class="skel skel-pill skel-lg sk-b r-status"></span><span class="skel sk-a r-time"></span><span class="skel skel-lg r-move"></span></li>
+          <li class="row"><span class="skel skel-lg sk-a r-ref"></span><span class="skel sk-a r-name"></span><span class="skel sk-b r-urg"></span><span class="skel skel-pill skel-lg sk-b r-status"></span><span class="skel sk-a r-time"></span><span class="skel skel-lg r-move"></span></li>
+        </ul>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

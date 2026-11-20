@@ -1,0 +1,116 @@
+<!doctype html>
+<!-- SCR-05 · Inbox, Board view · Stories: US-016 · State: errors (AC-016.15 board cannot load, AC-016.13 save failed and card returns, AC-016.12 changed by someone else, AC-016.14 session expired) -->
+<html lang="en-CA">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SCR-05 · Inbox, Board view · errors</title>
+  <link rel="stylesheet" href="./tokens.css">
+  <link rel="stylesheet" href="./app.css">
+</head>
+<body>
+  <a class="skip" href="#main">Skip to the board</a>
+  <header class="nav on-dark">
+    <div class="nav-inner">
+      <a class="brand" href="#main">Northside Plumbing</a>
+      <nav class="nav-links" aria-label="Main">
+        <a class="nav-link" href="#main" aria-current="page">Inbox</a>
+        <span class="nav-user">Signed in as Owner</span>
+        <button class="btn-nav" type="button"><span class="ic ic-sm ic-out" aria-hidden="true"></span>Sign out</button>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main" class="page page-wide">
+    <div class="page-head"><h1>Inbox</h1></div>
+
+    <section class="stack" aria-labelledby="e1-h">
+      <h2 id="e1-h" class="sheet-label">1. THE BOARD CANNOT LOAD (AC-016.15)</h2>
+      <div class="segments segments-wide" role="group" aria-label="View">
+        <a class="segment" href="#main"><span class="ic ic-sm ic-list" aria-hidden="true"></span>List</a>
+        <a class="segment is-active" href="#main" aria-current="true"><span class="ic ic-sm ic-board" aria-hidden="true"></span>Board</a>
+      </div>
+      <div class="banner banner-error" role="alert">
+        <span class="ic ic-alert" aria-hidden="true"></span>
+        <div class="banner-body">
+          <p class="banner-title">Couldn't load requests. Try again.</p>
+          <p>No columns are shown, so an empty column is never mistaken for "no requests". The weekly count above still loads on its own.</p>
+          <button class="btn btn-secondary" type="button"><span class="ic ic-sm ic-refresh" aria-hidden="true"></span>Try again</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="stack" aria-labelledby="e2-h">
+      <h2 id="e2-h" class="sheet-label">2. THE SAVE FAILED: THE CARD IS BACK WHERE IT WAS (AC-016.13, SAME FOR THE MOVE TO MENU)</h2>
+      <div class="banner banner-error" role="alert">
+        <span class="ic ic-alert" aria-hidden="true"></span>
+        <div class="banner-body">
+          <p class="banner-title">Couldn't save. Try again.</p>
+          <p>NQ-7K3M9P is still in New. Nothing was changed and the weekly Won count is the same.</p>
+        </div>
+      </div>
+      <div class="board board-2">
+        <section class="col" aria-labelledby="e2-new">
+          <h3 class="col-head" id="e2-new"><span class="ic ic-inbox" aria-hidden="true"></span>New</h3>
+          <ul class="stack">
+            <li class="bcard">
+              <div class="bcard-top"><a class="tag tag-quiet" href="#main">NQ-7K3M9P</a><span class="ic ic-grip grip" aria-hidden="true"></span></div>
+              <p class="b-name">Dana Whitfield</p>
+              <div class="bcard-meta"><span class="urg urg-soon"><span class="ic ic-clock" aria-hidden="true"></span>Soon</span><time class="meta" datetime="2026-11-19T09:10:00-05:00">Nov 19, 9:10 a.m.</time></div>
+              <button class="btn btn-secondary btn-block is-focus" type="button" aria-haspopup="menu" aria-label="Move NQ-7K3M9P to another status">Move to<span class="ic ic-sm ic-down" aria-hidden="true"></span></button>
+            </li>
+          </ul>
+        </section>
+        <section class="col" aria-labelledby="e2-won">
+          <h3 class="col-head" id="e2-won"><span class="ic ic-check" aria-hidden="true"></span>Won</h3>
+          <ul class="stack">
+            <li class="bcard">
+              <div class="bcard-top"><a class="tag tag-quiet" href="#main">NQ-6GM2YE</a><span class="ic ic-grip grip" aria-hidden="true"></span></div>
+              <p class="b-name">Aisha Rahman</p>
+              <div class="bcard-meta"><span class="urg urg-soon"><span class="ic ic-clock" aria-hidden="true"></span>Soon</span><time class="meta" datetime="2026-11-13T15:50:00-05:00">Nov 13, 3:50 p.m.</time></div>
+              <button class="btn btn-secondary btn-block" type="button" aria-haspopup="menu" aria-label="Move NQ-6GM2YE to another status">Move to<span class="ic ic-sm ic-down" aria-hidden="true"></span></button>
+            </li>
+          </ul>
+        </section>
+      </div>
+      <p class="annot">Focus returns to the card's Move to button, so a keyboard user can try again straight away.</p>
+    </section>
+
+    <section class="stack" aria-labelledby="e3-h">
+      <h2 id="e3-h" class="sheet-label">3. SOMEONE ELSE CHANGED IT FIRST (AC-016.12)</h2>
+      <div class="banner banner-warning" role="alert">
+        <span class="ic ic-alert" aria-hidden="true"></span>
+        <div class="banner-body">
+          <p class="banner-title">This request was changed by someone else. Reload to see the latest.</p>
+          <p>NQ-7K3M9P stays as the other person left it. Your move was not saved.</p>
+          <button class="btn btn-secondary" type="button"><span class="ic ic-sm ic-refresh" aria-hidden="true"></span>Reload the board</button>
+        </div>
+      </div>
+      <div class="board board-1">
+        <section class="col" aria-labelledby="e3-new">
+          <h3 class="col-head" id="e3-new"><span class="ic ic-inbox" aria-hidden="true"></span>New (as shown on your screen until you reload)</h3>
+          <ul class="stack">
+            <li class="bcard">
+              <div class="bcard-top"><a class="tag tag-quiet" href="#main">NQ-7K3M9P</a><span class="ic ic-grip grip" aria-hidden="true"></span></div>
+              <p class="b-name">Dana Whitfield</p>
+              <div class="bcard-meta"><span class="urg urg-soon"><span class="ic ic-clock" aria-hidden="true"></span>Soon</span><time class="meta" datetime="2026-11-19T09:10:00-05:00">Nov 19, 9:10 a.m.</time></div>
+              <button class="btn btn-secondary btn-block" type="button" aria-haspopup="menu" aria-label="Move NQ-7K3M9P to another status">Move to<span class="ic ic-sm ic-down" aria-hidden="true"></span></button>
+            </li>
+          </ul>
+        </section>
+      </div>
+    </section>
+
+    <section class="stack" aria-labelledby="e4-h">
+      <h2 id="e4-h" class="sheet-label">4. THE SESSION EXPIRED DURING A DROP (AC-016.14)</h2>
+      <div class="banner banner-info" role="status">
+        <span class="ic ic-info" aria-hidden="true"></span>
+        <div class="banner-body">
+          <p class="banner-title">No message on this screen: the card goes back and the owner is sent to Staff sign-in (SCR-03).</p>
+          <p>SCR-03 then shows "Your session ended. Your last change was not saved. Sign in again, then check the request." After signing in she lands on the Inbox.</p>
+        </div>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

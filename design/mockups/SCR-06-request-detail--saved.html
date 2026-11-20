@@ -1,0 +1,94 @@
+<!doctype html>
+<!-- SCR-06 · Request detail · Stories: US-006, US-007, US-015 · State: success after saving a price and note (AC-006.1, AC-006.6, AC-007.1, AC-015.1) -->
+<html lang="en-CA">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SCR-06 · Request NQ-7K3M9P · saved</title>
+  <link rel="stylesheet" href="./tokens.css">
+  <link rel="stylesheet" href="./app.css">
+</head>
+<body>
+  <a class="skip" href="#main">Skip to the request</a>
+  <header class="nav on-dark">
+    <div class="nav-inner">
+      <a class="brand" href="#main">Northside Plumbing</a>
+      <nav class="nav-links" aria-label="Main">
+        <a class="nav-link" href="#main" aria-current="page">Inbox</a>
+        <span class="nav-user">Signed in as Owner</span>
+        <button class="btn-nav" type="button"><span class="ic ic-sm ic-out" aria-hidden="true"></span>Sign out</button>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main" class="page">
+    <a class="back" href="#main"><span class="ic ic-sm ic-back" aria-hidden="true"></span>Back to Inbox</a>
+
+    <header class="detail-head">
+      <div class="who"><p class="tag tag-display" aria-label="Reference number N Q, 7, K, 3, M, 9, P">NQ-7K3M9P</p></div>
+      <h1>Dana Whitfield</h1>
+      <div class="who">
+        <span class="badge badge-quoted"><span class="ic ic-doc" aria-hidden="true"></span>Quoted</span>
+        <span class="urg urg-soon"><span class="ic ic-clock" aria-hidden="true"></span>Soon</span>
+        <time class="meta" datetime="2026-11-19T09:10:00-05:00">Submitted Nov 19, 9:10 a.m. (Hamilton time)</time>
+      </div>
+    </header>
+
+    <div class="cols">
+      <div class="stack">
+        <section class="card" aria-labelledby="req-h">
+          <h2 id="req-h">The request</h2>
+          <dl class="dl">
+            <div><dt>PHONE</dt><dd><a href="#main">905-555-0142</a></dd></div>
+            <div><dt>EMAIL</dt><dd><a href="#main">dana@example.com</a></dd></div>
+            <div><dt>ADDRESS OF THE JOB</dt><dd>14 Barton St W, Hamilton ON</dd></div>
+            <div><dt>THE PROBLEM</dt><dd class="problem">Kitchen tap drips constantly and the cabinet under it is wet</dd></div>
+          </dl>
+        </section>
+      </div>
+
+      <div class="stack">
+        <div class="banner banner-success" role="status">
+          <span class="ic ic-check" aria-hidden="true"></span>
+          <div class="banner-body">
+            <p class="banner-title">Saved.</p>
+            <p>Price $450.00 CAD and your note are stored on NQ-7K3M9P.</p>
+          </div>
+        </div>
+
+        <form class="card quote-form" aria-labelledby="quote-h" novalidate>
+          <h2 id="quote-h">Your quote</h2>
+          <div class="price-line"><span class="tile-num">$450.00</span><span class="muted">CAD, quoted</span></div>
+          <div class="field">
+            <label for="price">Price quoted, in Canadian dollars <span class="req">(optional)</span></label>
+            <div class="input-prefix">
+              <span class="prefix" aria-hidden="true">$</span>
+              <input class="input input-money" id="price" name="price" type="text" inputmode="decimal" autocomplete="off" aria-describedby="price-hint" value="450.00">
+            </div>
+            <p class="hint" id="price-hint">From 0.01 to 99,999.99. No tax is added and no payment is taken.</p>
+          </div>
+          <div class="field">
+            <label for="note">Note <span class="req">(optional)</span></label>
+            <textarea class="input input-area" id="note" name="note" rows="4" aria-describedby="note-hint">Replace cartridge, 2 hours, can come Thursday</textarea>
+            <p class="hint counter" id="note-hint">45 of 1,000 characters.</p>
+          </div>
+          <button class="btn btn-primary btn-block" type="submit">Save price and note</button>
+        </form>
+
+        <section class="card" aria-labelledby="status-h">
+          <h2 id="status-h">Status</h2>
+          <div class="segments" role="group" aria-labelledby="status-h">
+            <button class="segment" type="button" aria-pressed="false">New</button>
+            <button class="segment is-active" type="button" aria-pressed="true"><span class="ic ic-sm ic-check" aria-hidden="true"></span>Quoted</button>
+            <button class="segment" type="button" aria-pressed="false">Won</button>
+            <button class="segment" type="button" aria-pressed="false">Lost</button>
+          </div>
+          <p class="hint">Choosing the status that is already selected changes nothing.</p>
+        </section>
+
+        <p class="meta">Last updated by Owner at 2:05 p.m.</p>
+      </div>
+    </div>
+  </main>
+</body>
+</html>

@@ -1,0 +1,91 @@
+<!doctype html>
+<!-- SCR-07 · Weekly count strip (component of SCR-04 and SCR-05) · Stories: US-008 · States: normal, updated after a save, zero, unavailable, loading (AC-008.1, AC-008.2, AC-008.7, AC-008.8, AC-005.4) -->
+<html lang="en-CA">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SCR-07 · Weekly count strip</title>
+  <link rel="stylesheet" href="./tokens.css">
+  <link rel="stylesheet" href="./app.css">
+</head>
+<body>
+  <a class="skip" href="#main">Skip to the strip states</a>
+  <main id="main" class="page">
+    <div class="page-head">
+      <h1>Weekly count</h1>
+      <p class="meta">A strip at the top of the Inbox, the same in List and Board</p>
+    </div>
+    <p class="muted">Not a page of its own. It sits above the view switch on SCR-04 and SCR-05, shows the current Monday to Sunday week in Hamilton time, and never changes with the list filter. Three numbers, no chart.</p>
+
+    <section class="stack" aria-labelledby="n-h">
+      <h2 id="n-h" class="sheet-label">1. NORMAL (AC-008.1) : OPENED ON THURSDAY NOV 19</h2>
+      <div class="week">
+        <div class="week-head">
+          <h3 class="sheet-label">THIS WEEK</h3>
+          <p class="meta">Mon Nov 16 to Sun Nov 22, Hamilton time</p>
+        </div>
+        <div class="week-tiles">
+          <div class="tile"><span class="tile-num">4</span><span class="tile-lbl">Requests this week</span></div>
+          <div class="tile"><span class="tile-num">1</span><span class="tile-lbl"><span class="ic ic-check" aria-hidden="true"></span>Won</span></div>
+          <div class="tile"><span class="tile-num">1</span><span class="tile-lbl"><span class="ic ic-x-circle" aria-hidden="true"></span>Lost</span></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="stack" aria-labelledby="u-h">
+      <h2 id="u-h" class="sheet-label">2. UPDATED AFTER A SAVE (AC-008.2) : WON GOES 1 TO 2 WITHIN 2 SECONDS</h2>
+      <div class="week">
+        <div class="week-head">
+          <h3 class="sheet-label">THIS WEEK</h3>
+          <p class="meta">Mon Nov 16 to Sun Nov 22, Hamilton time</p>
+        </div>
+        <div class="week-tiles" role="status" aria-live="polite">
+          <div class="tile"><span class="tile-num">4</span><span class="tile-lbl">Requests this week</span></div>
+          <div class="tile tile-updating"><span class="tile-num">2</span><span class="tile-lbl"><span class="ic ic-check" aria-hidden="true"></span>Won</span></div>
+          <div class="tile"><span class="tile-num">1</span><span class="tile-lbl"><span class="ic ic-x-circle" aria-hidden="true"></span>Lost</span></div>
+        </div>
+      </div>
+      <p class="annot">The number changes in place, with no page reload and no sign-in. The Won tile shows a 2 px green outline for a moment, and the live region reads out "Won 2". The outline is extra: the number and the words carry the meaning. With reduced motion nothing animates, the number just changes. If a save fails the number does not change.</p>
+    </section>
+
+    <section class="stack" aria-labelledby="z-h">
+      <h2 id="z-h" class="sheet-label">3. NO ACTIVITY THIS WEEK (AC-008.7, AC-005.4)</h2>
+      <div class="week">
+        <div class="week-head">
+          <h3 class="sheet-label">THIS WEEK</h3>
+          <p class="meta">Mon Nov 16 to Sun Nov 22, Hamilton time</p>
+        </div>
+        <div class="week-tiles">
+          <div class="tile"><span class="tile-num">0</span><span class="tile-lbl">Requests this week</span></div>
+          <div class="tile"><span class="tile-num">0</span><span class="tile-lbl"><span class="ic ic-check" aria-hidden="true"></span>Won</span></div>
+          <div class="tile"><span class="tile-num">0</span><span class="tile-lbl"><span class="ic ic-x-circle" aria-hidden="true"></span>Lost</span></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="stack" aria-labelledby="x-h">
+      <h2 id="x-h" class="sheet-label">4. THE COUNT CANNOT LOAD (AC-008.8) : THE LIST STILL LOADS</h2>
+      <div class="week">
+        <div class="week-head"><h3 class="sheet-label">THIS WEEK</h3></div>
+        <div class="week-unavailable" role="status">
+          <span class="ic ic-alert" aria-hidden="true"></span>
+          <span class="strong">Count unavailable</span>
+          <button class="btn btn-secondary" type="button"><span class="ic ic-sm ic-refresh" aria-hidden="true"></span>Try again</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="stack" aria-labelledby="l-h">
+      <h2 id="l-h" class="sheet-label">5. LOADING : SAME SIZE AS THE REAL STRIP, SO THE PAGE DOES NOT JUMP</h2>
+      <div class="week" aria-busy="true">
+        <div class="week-head"><h3 class="sheet-label">THIS WEEK</h3></div>
+        <div class="week-tiles">
+          <div class="tile"><span class="skel skel-lg sk-b"></span><span class="skel sk-a"></span></div>
+          <div class="tile"><span class="skel skel-lg sk-b"></span><span class="skel sk-b"></span></div>
+          <div class="tile"><span class="skel skel-lg sk-b"></span><span class="skel sk-b"></span></div>
+        </div>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

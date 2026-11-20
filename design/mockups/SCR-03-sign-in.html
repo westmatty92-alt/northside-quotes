@@ -1,0 +1,39 @@
+<!doctype html>
+<!-- SCR-03 · Staff sign-in · Stories: US-004 · State: primary -->
+<html lang="en-CA">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SCR-03 · Staff sign-in</title>
+  <link rel="stylesheet" href="./tokens.css">
+  <link rel="stylesheet" href="./app.css">
+</head>
+<body class="bg-raised">
+  <a class="skip" href="#main">Skip to sign-in</a>
+  <header class="pub-head"><div class="pub-head-inner"><span class="brand">Northside Plumbing</span></div></header>
+
+  <main id="main" class="signin">
+    <div class="sheet">
+      <div class="stack">
+        <h1>Staff sign-in</h1>
+        <p class="muted">For the Northside owner and office helper.</p>
+      </div>
+      <form class="sheet">
+        <div class="field">
+          <label for="email">Email</label>
+          <input class="input" id="email" name="email" type="email" autocomplete="username" value="">
+        </div>
+        <div class="field">
+          <label for="pw">Password</label>
+          <div class="search">
+            <input class="input" id="pw" name="password" type="password" autocomplete="current-password" value="">
+            <button class="btn btn-secondary" type="button" aria-pressed="false">Show</button>
+          </div>
+        </div>
+        <button class="btn btn-primary btn-block" type="submit">Sign in</button>
+      </form>
+      <p class="hint">Accounts are created by Baseleap. There is no sign-up on this page.</p>
+    </div>
+  </main>
+</body>
+</html>

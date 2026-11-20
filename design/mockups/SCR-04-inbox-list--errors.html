@@ -1,0 +1,93 @@
+<!doctype html>
+<!-- SCR-04 · Inbox, List view · Stories: US-005, US-007, US-008, US-011 · State: errors (AC-008.8 count unavailable, AC-011.4 list cannot load, AC-007.6 status save failed) -->
+<html lang="en-CA">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SCR-04 · Inbox, List view · errors</title>
+  <link rel="stylesheet" href="./tokens.css">
+  <link rel="stylesheet" href="./app.css">
+</head>
+<body>
+  <a class="skip" href="#main">Skip to requests</a>
+  <header class="nav on-dark">
+    <div class="nav-inner">
+      <a class="brand" href="#main">Northside Plumbing</a>
+      <nav class="nav-links" aria-label="Main">
+        <a class="nav-link" href="#main" aria-current="page">Inbox</a>
+        <span class="nav-user">Signed in as Owner</span>
+        <button class="btn-nav" type="button"><span class="ic ic-sm ic-out" aria-hidden="true"></span>Sign out</button>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main" class="page">
+    <div class="page-head"><h1>Inbox</h1></div>
+
+    <section class="week" aria-labelledby="week-h">
+      <div class="week-head"><h2 id="week-h" class="sheet-label">THIS WEEK</h2></div>
+      <div class="week-unavailable" role="status">
+        <span class="ic ic-alert" aria-hidden="true"></span>
+        <span class="strong">Count unavailable</span>
+        <button class="btn btn-secondary" type="button"><span class="ic ic-sm ic-refresh" aria-hidden="true"></span>Try again</button>
+      </div>
+    </section>
+
+    <section class="toolbar" aria-label="View and filter">
+      <div class="toolbar-row">
+        <div class="segments segments-wide" role="group" aria-label="View">
+          <a class="segment is-active" href="#main" aria-current="true"><span class="ic ic-sm ic-list" aria-hidden="true"></span>List</a>
+          <a class="segment" href="#main"><span class="ic ic-sm ic-board" aria-hidden="true"></span>Board</a>
+        </div>
+      </div>
+      <div class="segments" role="group" aria-label="Show requests">
+        <a class="segment" href="#main">All</a>
+        <a class="segment is-active" href="#main" aria-current="true">New</a>
+        <a class="segment" href="#main">Quoted</a>
+        <a class="segment" href="#main">Won</a>
+        <a class="segment" href="#main">Lost</a>
+      </div>
+    </section>
+
+    <section class="stack" aria-label="Requests">
+      <div class="banner banner-error" role="alert">
+        <span class="ic ic-alert" aria-hidden="true"></span>
+        <div class="banner-body">
+          <p class="banner-title">Couldn't load requests. Try again.</p>
+          <p>The list is not shown, so you don't mistake it for an empty New filter.</p>
+          <button class="btn btn-secondary" type="button"><span class="ic ic-sm ic-refresh" aria-hidden="true"></span>Try again</button>
+        </div>
+      </div>
+
+      <h2 class="sheet-label">STATUS SAVE FAILED FROM A ROW (AC-007.6), LIST LOADED</h2>
+      <div class="banner banner-error" role="alert">
+        <span class="ic ic-alert" aria-hidden="true"></span>
+        <div class="banner-body">
+          <p class="banner-title">Couldn't save. Try again.</p>
+          <p>NQ-7K3M9P is still New. Nothing was changed.</p>
+        </div>
+      </div>
+      <div class="rows">
+        <ul>
+          <li class="row">
+            <a class="tag tag-quiet r-ref" href="#main">NQ-7K3M9P</a>
+            <a class="r-name" href="#main">Dana Whitfield</a>
+            <span class="urg urg-soon r-urg"><span class="ic ic-clock" aria-hidden="true"></span>Soon</span>
+            <span class="badge badge-new r-status"><span class="ic ic-inbox" aria-hidden="true"></span>New</span>
+            <time class="r-time" datetime="2026-11-19T09:10:00-05:00">Nov 19, 9:10 a.m.</time>
+            <div class="r-move"><button class="btn btn-secondary is-focus" type="button" aria-label="Move NQ-7K3M9P to another status">Move to<span class="ic ic-sm ic-down" aria-hidden="true"></span></button></div>
+          </li>
+          <li class="row">
+            <a class="tag tag-quiet r-ref" href="#main">NQ-4HX2RB</a>
+            <a class="r-name" href="#main">Marcus Oyelaran</a>
+            <span class="urg urg-emergency r-urg"><span class="ic ic-alert" aria-hidden="true"></span>Emergency</span>
+            <span class="badge badge-new r-status"><span class="ic ic-inbox" aria-hidden="true"></span>New</span>
+            <time class="r-time" datetime="2026-11-19T08:42:00-05:00">Nov 19, 8:42 a.m.</time>
+            <div class="r-move"><button class="btn btn-secondary" type="button" aria-label="Move NQ-4HX2RB to another status">Move to<span class="ic ic-sm ic-down" aria-hidden="true"></span></button></div>
+          </li>
+        </ul>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

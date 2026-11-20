@@ -1,0 +1,136 @@
+<!doctype html>
+<!-- SCR-04 · Inbox, List view · Stories: US-005, US-007, US-008, US-011, US-013, US-016 (view switch) · State: primary -->
+<html lang="en-CA">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SCR-04 · Inbox, List view</title>
+  <link rel="stylesheet" href="./tokens.css">
+  <link rel="stylesheet" href="./app.css">
+</head>
+<body>
+  <a class="skip" href="#main">Skip to requests</a>
+  <header class="nav on-dark">
+    <div class="nav-inner">
+      <a class="brand" href="#main">Northside Plumbing</a>
+      <nav class="nav-links" aria-label="Main">
+        <a class="nav-link" href="#main" aria-current="page">Inbox</a>
+        <span class="nav-user">Signed in as Owner</span>
+        <button class="btn-nav" type="button"><span class="ic ic-sm ic-out" aria-hidden="true"></span>Sign out</button>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main" class="page">
+    <div class="page-head">
+      <h1>Inbox</h1>
+    </div>
+
+    <section class="week" aria-labelledby="week-h">
+      <div class="week-head">
+        <h2 id="week-h" class="sheet-label">THIS WEEK</h2>
+        <p class="meta">Mon Nov 16 to Sun Nov 22, Hamilton time</p>
+      </div>
+      <div class="week-tiles">
+        <div class="tile"><span class="tile-num">4</span><span class="tile-lbl">Requests this week</span></div>
+        <div class="tile"><span class="tile-num">1</span><span class="tile-lbl"><span class="ic ic-check" aria-hidden="true"></span>Won</span></div>
+        <div class="tile"><span class="tile-num">1</span><span class="tile-lbl"><span class="ic ic-x-circle" aria-hidden="true"></span>Lost</span></div>
+      </div>
+    </section>
+
+    <section class="toolbar" aria-label="View and filter">
+      <div class="toolbar-row">
+        <div class="segments segments-wide" role="group" aria-label="View">
+          <a class="segment is-active" href="#main" aria-current="true"><span class="ic ic-sm ic-list" aria-hidden="true"></span>List</a>
+          <a class="segment" href="#main"><span class="ic ic-sm ic-board" aria-hidden="true"></span>Board</a>
+        </div>
+        <form class="search" role="search" aria-label="Search requests">
+          <label class="sr-only" for="q">Search by reference, name or phone</label>
+          <div class="input" id="q"><span class="ph">Reference, name or phone</span></div>
+          <button class="btn btn-secondary" type="button">Search</button>
+        </form>
+      </div>
+      <div class="segments" role="group" aria-label="Show requests">
+        <a class="segment is-active" href="#main" aria-current="true">All</a>
+        <a class="segment" href="#main">New</a>
+        <a class="segment" href="#main">Quoted</a>
+        <a class="segment" href="#main">Won</a>
+        <a class="segment" href="#main">Lost</a>
+      </div>
+    </section>
+
+    <section aria-labelledby="list-h">
+      <h2 id="list-h" class="sr-only">Quote requests, newest first</h2>
+      <div class="rows">
+        <div class="row-head" aria-hidden="true"><span>Reference</span><span>Name</span><span>Urgency</span><span>Status</span><span>Submitted</span><span></span></div>
+        <ul>
+          <li class="row">
+            <a class="tag tag-quiet r-ref" href="#main">NQ-7K3M9P</a>
+            <a class="r-name" href="#main">Dana Whitfield</a>
+            <span class="urg urg-soon r-urg"><span class="ic ic-clock" aria-hidden="true"></span>Soon</span>
+            <span class="badge badge-new r-status"><span class="ic ic-inbox" aria-hidden="true"></span>New</span>
+            <time class="r-time" datetime="2026-11-19T09:10:00-05:00">Nov 19, 9:10 a.m.</time>
+            <div class="r-move"><button class="btn btn-secondary" type="button" aria-label="Move NQ-7K3M9P to another status">Move to<span class="ic ic-sm ic-down" aria-hidden="true"></span></button></div>
+          </li>
+          <li class="row">
+            <a class="tag tag-quiet r-ref" href="#main">NQ-4HX2RB</a>
+            <a class="r-name" href="#main">Marcus Oyelaran</a>
+            <span class="urg urg-emergency r-urg"><span class="ic ic-alert" aria-hidden="true"></span>Emergency</span>
+            <span class="badge badge-new r-status"><span class="ic ic-inbox" aria-hidden="true"></span>New</span>
+            <time class="r-time" datetime="2026-11-19T08:42:00-05:00">Nov 19, 8:42 a.m.</time>
+            <div class="r-move"><button class="btn btn-secondary" type="button" aria-label="Move NQ-4HX2RB to another status">Move to<span class="ic ic-sm ic-down" aria-hidden="true"></span></button></div>
+          </li>
+          <li class="row">
+            <a class="tag tag-quiet r-ref" href="#main">NQ-9TQ6WD</a>
+            <a class="r-name" href="#main">Priya Raman</a>
+            <span class="urg urg-flexible r-urg"><span class="ic ic-calendar" aria-hidden="true"></span>Flexible</span>
+            <span class="badge badge-quoted r-status"><span class="ic ic-doc" aria-hidden="true"></span>Quoted</span>
+            <time class="r-time" datetime="2026-11-18T16:15:00-05:00">Nov 18, 4:15 p.m.</time>
+            <div class="r-move"><button class="btn btn-secondary" type="button" aria-label="Move NQ-9TQ6WD to another status">Move to<span class="ic ic-sm ic-down" aria-hidden="true"></span></button></div>
+          </li>
+          <li class="row">
+            <a class="tag tag-quiet r-ref" href="#main">NQ-3FZ8NC</a>
+            <a class="r-name" href="#main">Tomasz Kowalski</a>
+            <span class="urg urg-soon r-urg"><span class="ic ic-clock" aria-hidden="true"></span>Soon</span>
+            <span class="badge badge-quoted r-status"><span class="ic ic-doc" aria-hidden="true"></span>Quoted</span>
+            <time class="r-time" datetime="2026-11-17T13:30:00-05:00">Nov 17, 1:30 p.m.</time>
+            <div class="r-move"><button class="btn btn-secondary" type="button" aria-label="Move NQ-3FZ8NC to another status">Move to<span class="ic ic-sm ic-down" aria-hidden="true"></span></button></div>
+          </li>
+          <li class="row">
+            <a class="tag tag-quiet r-ref" href="#main">NQ-6GM2YE</a>
+            <a class="r-name" href="#main">Aisha Rahman</a>
+            <span class="urg urg-soon r-urg"><span class="ic ic-clock" aria-hidden="true"></span>Soon</span>
+            <span class="badge badge-won r-status"><span class="ic ic-check" aria-hidden="true"></span>Won</span>
+            <time class="r-time" datetime="2026-11-13T15:50:00-05:00">Nov 13, 3:50 p.m.</time>
+            <div class="r-move"><button class="btn btn-secondary" type="button" aria-label="Move NQ-6GM2YE to another status">Move to<span class="ic ic-sm ic-down" aria-hidden="true"></span></button></div>
+          </li>
+          <li class="row">
+            <a class="tag tag-quiet r-ref" href="#main">NQ-8VD5SK</a>
+            <a class="r-name" href="#main">Luc Bergeron</a>
+            <span class="urg urg-flexible r-urg"><span class="ic ic-calendar" aria-hidden="true"></span>Flexible</span>
+            <span class="badge badge-lost r-status"><span class="ic ic-x-circle" aria-hidden="true"></span>Lost</span>
+            <time class="r-time" datetime="2026-11-12T10:25:00-05:00">Nov 12, 10:25 a.m.</time>
+            <div class="r-move"><button class="btn btn-secondary" type="button" aria-label="Move NQ-8VD5SK to another status">Move to<span class="ic ic-sm ic-down" aria-hidden="true"></span></button></div>
+          </li>
+          <li class="row">
+            <a class="tag tag-quiet r-ref" href="#main">NQ-2CJ7XT</a>
+            <a class="r-name" href="#main">Greg Hallett</a>
+            <span class="urg urg-emergency r-urg"><span class="ic ic-alert" aria-hidden="true"></span>Emergency</span>
+            <span class="badge badge-won r-status"><span class="ic ic-check" aria-hidden="true"></span>Won</span>
+            <time class="r-time" datetime="2026-11-10T08:05:00-05:00">Nov 10, 8:05 a.m.</time>
+            <div class="r-move"><button class="btn btn-secondary" type="button" aria-label="Move NQ-2CJ7XT to another status">Move to<span class="ic ic-sm ic-down" aria-hidden="true"></span></button></div>
+          </li>
+          <li class="row">
+            <a class="tag tag-quiet r-ref" href="#main">NQ-5RW4HN</a>
+            <a class="r-name" href="#main">Hannah Frey</a>
+            <span class="urg urg-flexible r-urg"><span class="ic ic-calendar" aria-hidden="true"></span>Flexible</span>
+            <span class="badge badge-lost r-status"><span class="ic ic-x-circle" aria-hidden="true"></span>Lost</span>
+            <time class="r-time" datetime="2026-11-09T19:40:00-05:00">Nov 9, 7:40 p.m.</time>
+            <div class="r-move"><button class="btn btn-secondary" type="button" aria-label="Move NQ-5RW4HN to another status">Move to<span class="ic ic-sm ic-down" aria-hidden="true"></span></button></div>
+          </li>
+        </ul>
+      </div>
+    </section>
+  </main>
+</body>
+</html>

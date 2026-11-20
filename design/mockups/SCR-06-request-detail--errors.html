@@ -1,0 +1,123 @@
+<!doctype html>
+<!-- SCR-06 · Request detail · Stories: US-005, US-006, US-007 · State: errors (AC-006.3 price refused, AC-006.4 note too long, AC-006.7 and AC-007.6 save failed, AC-006.5 changed by someone else, AC-005.7 photo storage down, AC-004.7 session expired) -->
+<html lang="en-CA">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SCR-06 · Request NQ-7K3M9P · errors</title>
+  <link rel="stylesheet" href="./tokens.css">
+  <link rel="stylesheet" href="./app.css">
+</head>
+<body>
+  <a class="skip" href="#main">Skip to the request</a>
+  <header class="nav on-dark">
+    <div class="nav-inner">
+      <a class="brand" href="#main">Northside Plumbing</a>
+      <nav class="nav-links" aria-label="Main">
+        <a class="nav-link" href="#main" aria-current="page">Inbox</a>
+        <span class="nav-user">Signed in as Owner</span>
+        <button class="btn-nav" type="button"><span class="ic ic-sm ic-out" aria-hidden="true"></span>Sign out</button>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main" class="page">
+    <a class="back" href="#main"><span class="ic ic-sm ic-back" aria-hidden="true"></span>Back to Inbox</a>
+    <header class="detail-head">
+      <div class="who"><p class="tag tag-display" aria-label="Reference number N Q, 7, K, 3, M, 9, P">NQ-7K3M9P</p></div>
+      <h1>Dana Whitfield</h1>
+    </header>
+
+    <div class="cols">
+      <div class="stack">
+        <h2 class="sheet-label">1. PRICE AND NOTE REFUSED, WHAT WAS TYPED IS KEPT (AC-006.3, AC-006.4)</h2>
+        <form class="card quote-form" aria-labelledby="q1-h" novalidate>
+          <h2 id="q1-h">Your quote</h2>
+          <div class="banner banner-error is-focus" role="alert" tabindex="-1">
+            <span class="ic ic-alert" aria-hidden="true"></span>
+            <div class="banner-body">
+              <p class="banner-title">Nothing was saved. Fix these 2 things:</p>
+              <ul>
+                <li><a href="#price1">Price: enter an amount from 0.01 to 99,999.99 with at most 2 decimals</a></li>
+                <li><a href="#note1">Note: use 1,000 characters or fewer</a></li>
+              </ul>
+            </div>
+          </div>
+          <div class="field">
+            <label for="price1">Price quoted, in Canadian dollars <span class="req">(optional)</span></label>
+            <div class="input-prefix">
+              <span class="prefix" aria-hidden="true">$</span>
+              <input class="input input-money is-error" id="price1" name="price" type="text" inputmode="decimal" autocomplete="off" aria-invalid="true" aria-describedby="price1-err" value="100000.00">
+            </div>
+            <p class="msg-error" id="price1-err"><span class="ic ic-alert" aria-hidden="true"></span><span>Enter an amount from 0.01 to 99,999.99 with at most 2 decimals</span></p>
+          </div>
+          <div class="field">
+            <label for="note1">Note <span class="req">(optional)</span></label>
+            <textarea class="input input-area is-error" id="note1" name="note" rows="4" aria-invalid="true" aria-describedby="note1-err">Replace cartridge, 2 hours, can come Thursday. Customer asked about the shut-off valve under the sink as well, and whether the cabinet floor needs replacing</textarea>
+            <p class="msg-error" id="note1-err"><span class="ic ic-alert" aria-hidden="true"></span><span>Notes can be up to 1,000 characters. This one is 1,001.</span></p>
+          </div>
+          <button class="btn btn-primary btn-block" type="submit">Save price and note</button>
+          <p class="annot">Picture note: the note is 1,001 characters long in the real case, only its start is drawn.</p>
+        </form>
+
+        <h2 class="sheet-label">2. SAVE FAILED, NETWORK DROPPED (AC-006.7, AC-007.6)</h2>
+        <form class="card quote-form" aria-labelledby="q2-h" novalidate>
+          <h2 id="q2-h">Your quote</h2>
+          <div class="banner banner-error" role="alert">
+            <span class="ic ic-alert" aria-hidden="true"></span>
+            <div class="banner-body">
+              <p class="banner-title">Couldn't save. Try again.</p>
+              <p>Your price and note are still here. Nothing was changed on the request.</p>
+            </div>
+          </div>
+          <div class="field">
+            <label for="price2">Price quoted, in Canadian dollars <span class="req">(optional)</span></label>
+            <div class="input-prefix"><span class="prefix" aria-hidden="true">$</span><input class="input input-money" id="price2" name="price" type="text" inputmode="decimal" autocomplete="off" value="450.00"></div>
+          </div>
+          <div class="field">
+            <label for="note2">Note <span class="req">(optional)</span></label>
+            <textarea class="input input-area" id="note2" name="note" rows="3">Replace cartridge, 2 hours, can come Thursday</textarea>
+          </div>
+          <button class="btn btn-primary btn-block" type="submit">Try saving again</button>
+        </form>
+      </div>
+
+      <div class="stack">
+        <h2 class="sheet-label">3. SOMEONE ELSE SAVED FIRST (AC-006.5)</h2>
+        <div class="banner banner-warning" role="alert">
+          <span class="ic ic-alert" aria-hidden="true"></span>
+          <div class="banner-body">
+            <p class="banner-title">This request was changed by someone else. Reload to see the latest.</p>
+            <p>Their price is still the saved one. Your note is kept below so you can copy it before you reload.</p>
+            <button class="btn btn-secondary" type="button"><span class="ic ic-sm ic-refresh" aria-hidden="true"></span>Reload this request</button>
+          </div>
+        </div>
+        <div class="field">
+          <label for="note3">Your note, not saved</label>
+          <textarea class="input input-area" id="note3" name="note" rows="3">Replace cartridge, 2 hours, can come Thursday</textarea>
+        </div>
+
+        <h2 class="sheet-label">4. PHOTO STORAGE UNREACHABLE (AC-005.7)</h2>
+        <section class="card" aria-labelledby="p-h">
+          <h2 id="p-h">Photos <span class="req">(3)</span></h2>
+          <ul class="photos-grid">
+            <li><div class="thumb thumb-bad"><span class="ic ic-image" aria-hidden="true"></span>Photo unavailable</div></li>
+            <li><div class="thumb thumb-bad"><span class="ic ic-image" aria-hidden="true"></span>Photo unavailable</div></li>
+            <li><div class="thumb thumb-bad"><span class="ic ic-image" aria-hidden="true"></span>Photo unavailable</div></li>
+          </ul>
+          <p class="hint">The rest of the request is still shown. Reload the page to try the photos again.</p>
+        </section>
+
+        <h2 class="sheet-label">5. SESSION EXPIRED WHILE SAVING (AC-004.7)</h2>
+        <div class="banner banner-info" role="status">
+          <span class="ic ic-info" aria-hidden="true"></span>
+          <div class="banner-body">
+            <p class="banner-title">Nothing is saved and the owner is sent to Staff sign-in (SCR-03).</p>
+            <p>SCR-03 shows "Your session ended. Your last change was not saved. Sign in again, then check the request."</p>
+          </div>
+        </div>
+      </div>
+    </div>
+  </main>
+</body>
+</html>

@@ -1,0 +1,117 @@
+<!doctype html>
+<!-- SCR-06 · Request detail · Stories: US-009, US-010, US-014, US-015, US-017 · State: GoHighLevel copy and stage tag states, retry, last updated (AC-010.1 to .4, AC-009.2, AC-009.3, AC-014.1 to .3, AC-017.1, .9, .10, .11, AC-015.1, .2) -->
+<html lang="en-CA">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SCR-06 · Request NQ-7K3M9P · GoHighLevel states</title>
+  <link rel="stylesheet" href="./tokens.css">
+  <link rel="stylesheet" href="./app.css">
+</head>
+<body>
+  <a class="skip" href="#main">Skip to the request</a>
+  <header class="nav on-dark">
+    <div class="nav-inner">
+      <a class="brand" href="#main">Northside Plumbing</a>
+      <nav class="nav-links" aria-label="Main">
+        <a class="nav-link" href="#main" aria-current="page">Inbox</a>
+        <span class="nav-user">Signed in as Owner</span>
+        <button class="btn-nav" type="button"><span class="ic ic-sm ic-out" aria-hidden="true"></span>Sign out</button>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main" class="page">
+    <a class="back" href="#main"><span class="ic ic-sm ic-back" aria-hidden="true"></span>Back to Inbox</a>
+    <header class="detail-head">
+      <div class="who"><p class="tag tag-display" aria-label="Reference number N Q, 7, K, 3, M, 9, P">NQ-7K3M9P</p></div>
+      <h1>Dana Whitfield</h1>
+      <p class="meta">Sheet of the GoHighLevel card in each state. The card sits under the status control on the real page. The owner can still change price, note and status in every state.</p>
+    </header>
+
+    <div class="cols">
+      <div class="stack">
+        <h2 class="sheet-label">1. FIRST COPY WAITING TO RETRY (AC-009.2, AC-010.4)</h2>
+        <section class="card sync" aria-labelledby="s1-h">
+          <h3 id="s1-h">GoHighLevel</h3>
+          <div class="sync-row">
+            <p class="sheet-label">CONTACT COPY</p>
+            <p class="sync-state sync-wait" role="status"><span class="ic ic-clock" aria-hidden="true"></span><span>Waiting to retry</span></p>
+            <p class="hint">GoHighLevel did not answer. Northside's copy is safe here and the next try is automatic.</p>
+          </div>
+          <div class="sync-row">
+            <p class="sheet-label">STAGE TAG</p>
+            <p class="sync-state sync-wait"><span class="ic ic-clock" aria-hidden="true"></span><span>Stage tag waiting to retry</span></p>
+          </div>
+        </section>
+
+        <h2 class="sheet-label">2. COPY FAILED, RETRY BY HAND (AC-010.3, AC-014.1)</h2>
+        <section class="card sync" aria-labelledby="s2-h">
+          <h3 id="s2-h">GoHighLevel</h3>
+          <div class="sync-row">
+            <p class="sheet-label">CONTACT COPY</p>
+            <p class="sync-state sync-fail"><span class="ic ic-alert" aria-hidden="true"></span><span>Copy to GoHighLevel failed <span class="muted">Last tried Nov 24, 9:15 a.m.</span></span></p>
+            <p class="hint">Automatic retries have stopped. The request is safe here.</p>
+            <div><button class="btn btn-secondary" type="button"><span class="ic ic-sm ic-refresh" aria-hidden="true"></span>Retry copy</button></div>
+          </div>
+          <div class="sync-row">
+            <p class="sheet-label">STAGE TAG</p>
+            <p class="sync-state sync-fail"><span class="ic ic-alert" aria-hidden="true"></span><span>Stage tag failed <span class="muted">Last tried Nov 24, 9:15 a.m.</span></span></p>
+            <p class="hint">The next status change starts a new try.</p>
+          </div>
+        </section>
+
+        <h2 class="sheet-label">3. RETRY IN PROGRESS, THEN RETRY DID NOT WORK (AC-014.2, AC-014.3)</h2>
+        <section class="card sync" aria-labelledby="s3-h">
+          <h3 id="s3-h">GoHighLevel</h3>
+          <div class="sync-row">
+            <p class="sync-state sync-fail"><span class="ic ic-alert" aria-hidden="true"></span><span>Copy to GoHighLevel failed</span></p>
+            <div><button class="btn btn-secondary btn-disabled" type="button" disabled aria-disabled="true"><span class="ic ic-sm ic-refresh" aria-hidden="true"></span>Retrying</button></div>
+            <p class="hint">The button is paused while the try runs, so a double click makes one try.</p>
+          </div>
+          <div class="banner banner-error" role="alert">
+            <span class="ic ic-alert" aria-hidden="true"></span>
+            <div class="banner-body">
+              <p class="banner-title">The retry did not work.</p>
+              <p>GoHighLevel is still not answering. The copy stays marked failed. Try again later.</p>
+            </div>
+          </div>
+        </section>
+      </div>
+
+      <div class="stack">
+        <h2 class="sheet-label">4. STAGE TAG BEING UPDATED, THEN DONE (AC-017.1, AC-017.9)</h2>
+        <section class="card sync" aria-labelledby="s4-h">
+          <h3 id="s4-h">GoHighLevel</h3>
+          <div class="sync-row">
+            <p class="sheet-label">CONTACT COPY</p>
+            <p class="sync-state sync-ok"><span class="ic ic-check" aria-hidden="true"></span><span>Copied to GoHighLevel <span class="muted">Nov 19, 9:11 a.m.</span></span></p>
+          </div>
+          <div class="sync-row">
+            <p class="sheet-label">STAGE TAG</p>
+            <p class="sync-state sync-wait"><span class="ic ic-clock" aria-hidden="true"></span><span>Stage tag waiting to retry</span></p>
+            <p class="hint">Status shows Quoted here. The tag catches up on its own, and a later retry always uses the current status.</p>
+          </div>
+        </section>
+
+        <h2 class="sheet-label">5. TOKEN MISSING OR REJECTED (AC-009.3, AC-017.10)</h2>
+        <section class="card sync" aria-labelledby="s5-h">
+          <h3 id="s5-h">GoHighLevel</h3>
+          <div class="sync-row">
+            <p class="sync-state sync-fail"><span class="ic ic-alert" aria-hidden="true"></span><span>Copy to GoHighLevel failed</span></p>
+            <p class="sync-state sync-fail"><span class="ic ic-alert" aria-hidden="true"></span><span>Stage tag failed</span></p>
+            <p class="hint">No key, token or technical detail is ever shown here.</p>
+          </div>
+        </section>
+
+        <h2 class="sheet-label">6. WHO LAST CHANGED IT (AC-015.1, AC-015.2)</h2>
+        <section class="card stack" aria-labelledby="s6-h">
+          <h3 id="s6-h">Last updated</h3>
+          <p>Last updated by Office helper at 2:05 p.m.</p>
+          <p class="muted">A request nobody has changed shows: Not updated yet</p>
+        </section>
+      </div>
+    </div>
+  </main>
+</body>
+</html>

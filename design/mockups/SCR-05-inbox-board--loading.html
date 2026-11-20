@@ -1,0 +1,66 @@
+<!doctype html>
+<!-- SCR-05 · Inbox, Board view · Stories: US-016, US-008 · State: loading (four column skeletons in the real layout, so nothing jumps when cards arrive) -->
+<html lang="en-CA">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SCR-05 · Inbox, Board view · loading</title>
+  <link rel="stylesheet" href="./tokens.css">
+  <link rel="stylesheet" href="./app.css">
+</head>
+<body>
+  <a class="skip" href="#main">Skip to the board</a>
+  <header class="nav on-dark">
+    <div class="nav-inner">
+      <a class="brand" href="#main">Northside Plumbing</a>
+      <nav class="nav-links" aria-label="Main">
+        <a class="nav-link" href="#main" aria-current="page">Inbox</a>
+        <span class="nav-user">Signed in as Owner</span>
+        <button class="btn-nav" type="button"><span class="ic ic-sm ic-out" aria-hidden="true"></span>Sign out</button>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main" class="page page-wide" aria-busy="true">
+    <div class="page-head"><h1>Inbox</h1></div>
+    <p class="sr-only" role="status">Loading the board</p>
+
+    <section class="week" aria-label="This week, loading">
+      <div class="week-head"><h2 class="sheet-label">THIS WEEK</h2></div>
+      <div class="week-tiles">
+        <div class="tile"><span class="skel skel-lg sk-b"></span><span class="skel sk-a"></span></div>
+        <div class="tile"><span class="skel skel-lg sk-b"></span><span class="skel sk-b"></span></div>
+        <div class="tile"><span class="skel skel-lg sk-b"></span><span class="skel sk-b"></span></div>
+      </div>
+    </section>
+
+    <section class="toolbar" aria-label="View">
+      <div class="segments segments-wide" role="group" aria-label="View">
+        <a class="segment" href="#main"><span class="ic ic-sm ic-list" aria-hidden="true"></span>List</a>
+        <a class="segment is-active" href="#main" aria-current="true"><span class="ic ic-sm ic-board" aria-hidden="true"></span>Board</a>
+      </div>
+    </section>
+
+    <div class="board" aria-label="Board, loading">
+      <section class="col" aria-label="New, loading">
+        <h2 class="col-head"><span class="ic ic-inbox" aria-hidden="true"></span>New</h2>
+        <div class="bcard"><span class="skel skel-lg sk-a"></span><span class="skel sk-a"></span><span class="skel sk-b"></span><span class="skel skel-lg"></span></div>
+        <div class="bcard"><span class="skel skel-lg sk-a"></span><span class="skel sk-a"></span><span class="skel sk-b"></span><span class="skel skel-lg"></span></div>
+      </section>
+      <section class="col" aria-label="Quoted, loading">
+        <h2 class="col-head"><span class="ic ic-doc" aria-hidden="true"></span>Quoted</h2>
+        <div class="bcard"><span class="skel skel-lg sk-a"></span><span class="skel sk-a"></span><span class="skel sk-b"></span><span class="skel skel-lg"></span></div>
+        <div class="bcard"><span class="skel skel-lg sk-a"></span><span class="skel sk-a"></span><span class="skel sk-b"></span><span class="skel skel-lg"></span></div>
+      </section>
+      <section class="col" aria-label="Won, loading">
+        <h2 class="col-head"><span class="ic ic-check" aria-hidden="true"></span>Won</h2>
+        <div class="bcard"><span class="skel skel-lg sk-a"></span><span class="skel sk-a"></span><span class="skel sk-b"></span><span class="skel skel-lg"></span></div>
+      </section>
+      <section class="col" aria-label="Lost, loading">
+        <h2 class="col-head"><span class="ic ic-x-circle" aria-hidden="true"></span>Lost</h2>
+        <div class="bcard"><span class="skel skel-lg sk-a"></span><span class="skel sk-a"></span><span class="skel sk-b"></span><span class="skel skel-lg"></span></div>
+      </section>
+    </div>
+  </main>
+</body>
+</html>

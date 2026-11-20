@@ -1,0 +1,34 @@
+<!doctype html>
+<!-- SCR-08 · Photo viewer · Stories: US-012 · State: loading, photo 3 of 3 (the frame keeps its size so nothing jumps; Next is paused on the last photo) -->
+<html lang="en-CA">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SCR-08 · Photo 3 of 3 loading · NQ-7K3M9P</title>
+  <link rel="stylesheet" href="./tokens.css">
+  <link rel="stylesheet" href="./app.css">
+</head>
+<body>
+  <div class="viewer on-dark" role="dialog" aria-modal="true" aria-labelledby="v-title" aria-busy="true">
+    <div class="viewer-bar">
+      <div>
+        <h1 id="v-title" class="viewer-count">Photo 3 of 3</h1>
+        <p class="meta">NQ-7K3M9P, Dana Whitfield</p>
+      </div>
+      <button class="btn btn-secondary is-focus" type="button"><span class="ic ic-sm ic-x" aria-hidden="true"></span>Close</button>
+    </div>
+
+    <div class="viewer-stage">
+      <div class="viewer-frame is-loading" role="status">
+        <span class="skel skel-lg sk-a"></span>
+        <p class="meta">Loading photo</p>
+      </div>
+    </div>
+
+    <div class="viewer-actions">
+      <button class="btn btn-secondary" type="button"><span class="ic ic-sm ic-left" aria-hidden="true"></span>Previous photo</button>
+      <button class="btn btn-secondary btn-disabled" type="button" disabled aria-disabled="true">Next photo<span class="ic ic-sm ic-right" aria-hidden="true"></span></button>
+    </div>
+  </div>
+</body>
+</html>

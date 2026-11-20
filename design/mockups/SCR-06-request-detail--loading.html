@@ -1,0 +1,69 @@
+<!doctype html>
+<!-- SCR-06 · Request detail · Stories: US-005 · State: loading (skeleton in the real two-column layout), plus the busy states of the save buttons -->
+<html lang="en-CA">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SCR-06 · Request · loading</title>
+  <link rel="stylesheet" href="./tokens.css">
+  <link rel="stylesheet" href="./app.css">
+</head>
+<body>
+  <a class="skip" href="#main">Skip to the request</a>
+  <header class="nav on-dark">
+    <div class="nav-inner">
+      <a class="brand" href="#main">Northside Plumbing</a>
+      <nav class="nav-links" aria-label="Main">
+        <a class="nav-link" href="#main" aria-current="page">Inbox</a>
+        <span class="nav-user">Signed in as Owner</span>
+        <button class="btn-nav" type="button"><span class="ic ic-sm ic-out" aria-hidden="true"></span>Sign out</button>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main" class="page" aria-busy="true">
+    <a class="back" href="#main"><span class="ic ic-sm ic-back" aria-hidden="true"></span>Back to Inbox</a>
+    <p class="sr-only" role="status">Loading the request</p>
+
+    <header class="detail-head" aria-label="Request, loading">
+      <span class="skel skel-lg sk-a"></span>
+      <span class="skel skel-lg sk-a"></span>
+      <span class="skel sk-a"></span>
+    </header>
+
+    <div class="cols">
+      <div class="stack">
+        <section class="card" aria-label="The request, loading">
+          <span class="skel skel-lg sk-b"></span>
+          <span class="skel skel-lg"></span>
+          <span class="skel sk-a"></span>
+          <span class="skel sk-a"></span>
+          <span class="skel sk-a"></span>
+        </section>
+        <section class="card" aria-label="Photos, loading">
+          <span class="skel skel-lg sk-b"></span>
+          <div class="photos-grid"><span class="skel thumb"></span><span class="skel thumb"></span><span class="skel thumb"></span></div>
+        </section>
+      </div>
+      <div class="stack">
+        <section class="card" aria-label="Your quote, loading">
+          <span class="skel skel-lg sk-b"></span>
+          <span class="skel skel-lg"></span>
+          <span class="skel skel-lg"></span>
+        </section>
+        <section class="card stack" aria-labelledby="busy-h">
+          <h2 id="busy-h" class="sheet-label">BUSY BUTTONS WHILE A SAVE RUNS</h2>
+          <button class="btn btn-primary btn-block btn-disabled" type="button" disabled aria-disabled="true"><span class="ic ic-sm ic-refresh" aria-hidden="true"></span>Saving</button>
+          <div class="segments" role="group" aria-label="Status, saving">
+            <button class="segment" type="button" disabled>New</button>
+            <button class="segment" type="button" disabled>Quoted</button>
+            <button class="segment is-active" type="button" aria-pressed="true" disabled><span class="ic ic-sm ic-refresh" aria-hidden="true"></span>Won</button>
+            <button class="segment" type="button" disabled>Lost</button>
+          </div>
+          <p class="hint">While a save runs the button reads Saving and cannot be pressed again, so one tap makes one save. Success or "Couldn't save. Try again." follows.</p>
+        </section>
+      </div>
+    </div>
+  </main>
+</body>
+</html>

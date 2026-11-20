@@ -1,0 +1,36 @@
+<!doctype html>
+<!-- SCR-08 · Photo viewer · Stories: US-012, US-005 · State: error, photo cannot be loaded (AC-005.7), and the first photo (Previous is paused, there is no wrap-around) -->
+<html lang="en-CA">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SCR-08 · Photo 1 of 3 unavailable · NQ-7K3M9P</title>
+  <link rel="stylesheet" href="./tokens.css">
+  <link rel="stylesheet" href="./app.css">
+</head>
+<body>
+  <div class="viewer on-dark" role="dialog" aria-modal="true" aria-labelledby="v-title">
+    <div class="viewer-bar">
+      <div>
+        <h1 id="v-title" class="viewer-count">Photo 1 of 3</h1>
+        <p class="meta">NQ-7K3M9P, Dana Whitfield</p>
+      </div>
+      <button class="btn btn-secondary" type="button"><span class="ic ic-sm ic-x" aria-hidden="true"></span>Close</button>
+    </div>
+
+    <div class="viewer-stage">
+      <div class="viewer-frame is-bad" role="alert">
+        <span class="ic ic-alert" aria-hidden="true"></span>
+        <p class="strong">Photo unavailable</p>
+        <p class="meta">The photo could not be loaded. The request itself is fine.</p>
+        <button class="btn btn-secondary is-focus" type="button"><span class="ic ic-sm ic-refresh" aria-hidden="true"></span>Try again</button>
+      </div>
+    </div>
+
+    <div class="viewer-actions">
+      <button class="btn btn-secondary btn-disabled" type="button" disabled aria-disabled="true"><span class="ic ic-sm ic-left" aria-hidden="true"></span>Previous photo</button>
+      <button class="btn btn-secondary" type="button">Next photo<span class="ic ic-sm ic-right" aria-hidden="true"></span></button>
+    </div>
+  </div>
+</body>
+</html>

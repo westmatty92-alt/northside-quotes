@@ -1,0 +1,130 @@
+<!doctype html>
+<!-- SCR-05 · Inbox, Board view · Stories: US-016, US-007, US-008 · State: primary -->
+<html lang="en-CA">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>SCR-05 · Inbox, Board view</title>
+  <link rel="stylesheet" href="./tokens.css">
+  <link rel="stylesheet" href="./app.css">
+</head>
+<body>
+  <a class="skip" href="#main">Skip to the board</a>
+  <header class="nav on-dark">
+    <div class="nav-inner">
+      <a class="brand" href="#main">Northside Plumbing</a>
+      <nav class="nav-links" aria-label="Main">
+        <a class="nav-link" href="#main" aria-current="page">Inbox</a>
+        <span class="nav-user">Signed in as Owner</span>
+        <button class="btn-nav" type="button"><span class="ic ic-sm ic-out" aria-hidden="true"></span>Sign out</button>
+      </nav>
+    </div>
+  </header>
+
+  <main id="main" class="page page-wide">
+    <div class="page-head"><h1>Inbox</h1></div>
+
+    <section class="week" aria-labelledby="week-h">
+      <div class="week-head">
+        <h2 id="week-h" class="sheet-label">THIS WEEK</h2>
+        <p class="meta">Mon Nov 16 to Sun Nov 22, Hamilton time</p>
+      </div>
+      <div class="week-tiles">
+        <div class="tile"><span class="tile-num">4</span><span class="tile-lbl">Requests this week</span></div>
+        <div class="tile"><span class="tile-num">1</span><span class="tile-lbl"><span class="ic ic-check" aria-hidden="true"></span>Won</span></div>
+        <div class="tile"><span class="tile-num">1</span><span class="tile-lbl"><span class="ic ic-x-circle" aria-hidden="true"></span>Lost</span></div>
+      </div>
+    </section>
+
+    <section class="toolbar" aria-label="View">
+      <div class="toolbar-row">
+        <div class="segments segments-wide" role="group" aria-label="View">
+          <a class="segment" href="#main"><span class="ic ic-sm ic-list" aria-hidden="true"></span>List</a>
+          <a class="segment is-active" href="#main" aria-current="true"><span class="ic ic-sm ic-board" aria-hidden="true"></span>Board</a>
+        </div>
+      </div>
+      <p class="meta">Drag a card to another column, or use its Move to button. Press Escape to cancel a drag.</p>
+      <nav class="segments jump" aria-label="Jump to a column">
+        <a class="segment" href="#col-new">New</a>
+        <a class="segment" href="#col-quoted">Quoted</a>
+        <a class="segment" href="#col-won">Won</a>
+        <a class="segment" href="#col-lost">Lost</a>
+      </nav>
+    </section>
+
+    <div class="board">
+      <section class="col" id="col-new" aria-labelledby="h-new">
+        <h2 class="col-head" id="h-new"><span class="ic ic-inbox" aria-hidden="true"></span>New</h2>
+        <ul class="stack">
+          <li class="bcard">
+            <div class="bcard-top"><a class="tag tag-quiet" href="#main">NQ-7K3M9P</a><span class="ic ic-grip grip" aria-hidden="true"></span></div>
+            <p class="b-name">Dana Whitfield</p>
+            <div class="bcard-meta"><span class="urg urg-soon"><span class="ic ic-clock" aria-hidden="true"></span>Soon</span><time class="meta" datetime="2026-11-19T09:10:00-05:00">Nov 19, 9:10 a.m.</time></div>
+            <button class="btn btn-secondary btn-block" type="button" aria-haspopup="menu" aria-label="Move NQ-7K3M9P to another status">Move to<span class="ic ic-sm ic-down" aria-hidden="true"></span></button>
+          </li>
+          <li class="bcard">
+            <div class="bcard-top"><a class="tag tag-quiet" href="#main">NQ-4HX2RB</a><span class="ic ic-grip grip" aria-hidden="true"></span></div>
+            <p class="b-name">Marcus Oyelaran</p>
+            <div class="bcard-meta"><span class="urg urg-emergency"><span class="ic ic-alert" aria-hidden="true"></span>Emergency</span><time class="meta" datetime="2026-11-19T08:42:00-05:00">Nov 19, 8:42 a.m.</time></div>
+            <button class="btn btn-secondary btn-block" type="button" aria-haspopup="menu" aria-label="Move NQ-4HX2RB to another status">Move to<span class="ic ic-sm ic-down" aria-hidden="true"></span></button>
+          </li>
+        </ul>
+      </section>
+
+      <section class="col" id="col-quoted" aria-labelledby="h-quoted">
+        <h2 class="col-head" id="h-quoted"><span class="ic ic-doc" aria-hidden="true"></span>Quoted</h2>
+        <ul class="stack">
+          <li class="bcard">
+            <div class="bcard-top"><a class="tag tag-quiet" href="#main">NQ-9TQ6WD</a><span class="ic ic-grip grip" aria-hidden="true"></span></div>
+            <p class="b-name">Priya Raman</p>
+            <div class="bcard-meta"><span class="urg urg-flexible"><span class="ic ic-calendar" aria-hidden="true"></span>Flexible</span><time class="meta" datetime="2026-11-18T16:15:00-05:00">Nov 18, 4:15 p.m.</time></div>
+            <button class="btn btn-secondary btn-block" type="button" aria-haspopup="menu" aria-label="Move NQ-9TQ6WD to another status">Move to<span class="ic ic-sm ic-down" aria-hidden="true"></span></button>
+          </li>
+          <li class="bcard">
+            <div class="bcard-top"><a class="tag tag-quiet" href="#main">NQ-3FZ8NC</a><span class="ic ic-grip grip" aria-hidden="true"></span></div>
+            <p class="b-name">Tomasz Kowalski</p>
+            <div class="bcard-meta"><span class="urg urg-soon"><span class="ic ic-clock" aria-hidden="true"></span>Soon</span><time class="meta" datetime="2026-11-17T13:30:00-05:00">Nov 17, 1:30 p.m.</time></div>
+            <button class="btn btn-secondary btn-block" type="button" aria-haspopup="menu" aria-label="Move NQ-3FZ8NC to another status">Move to<span class="ic ic-sm ic-down" aria-hidden="true"></span></button>
+          </li>
+        </ul>
+      </section>
+
+      <section class="col" id="col-won" aria-labelledby="h-won">
+        <h2 class="col-head" id="h-won"><span class="ic ic-check" aria-hidden="true"></span>Won</h2>
+        <ul class="stack">
+          <li class="bcard">
+            <div class="bcard-top"><a class="tag tag-quiet" href="#main">NQ-6GM2YE</a><span class="ic ic-grip grip" aria-hidden="true"></span></div>
+            <p class="b-name">Aisha Rahman</p>
+            <div class="bcard-meta"><span class="urg urg-soon"><span class="ic ic-clock" aria-hidden="true"></span>Soon</span><time class="meta" datetime="2026-11-13T15:50:00-05:00">Nov 13, 3:50 p.m.</time></div>
+            <button class="btn btn-secondary btn-block" type="button" aria-haspopup="menu" aria-label="Move NQ-6GM2YE to another status">Move to<span class="ic ic-sm ic-down" aria-hidden="true"></span></button>
+          </li>
+          <li class="bcard">
+            <div class="bcard-top"><a class="tag tag-quiet" href="#main">NQ-2CJ7XT</a><span class="ic ic-grip grip" aria-hidden="true"></span></div>
+            <p class="b-name">Greg Hallett</p>
+            <div class="bcard-meta"><span class="urg urg-emergency"><span class="ic ic-alert" aria-hidden="true"></span>Emergency</span><time class="meta" datetime="2026-11-10T08:05:00-05:00">Nov 10, 8:05 a.m.</time></div>
+            <button class="btn btn-secondary btn-block" type="button" aria-haspopup="menu" aria-label="Move NQ-2CJ7XT to another status">Move to<span class="ic ic-sm ic-down" aria-hidden="true"></span></button>
+          </li>
+        </ul>
+      </section>
+
+      <section class="col" id="col-lost" aria-labelledby="h-lost">
+        <h2 class="col-head" id="h-lost"><span class="ic ic-x-circle" aria-hidden="true"></span>Lost</h2>
+        <ul class="stack">
+          <li class="bcard">
+            <div class="bcard-top"><a class="tag tag-quiet" href="#main">NQ-8VD5SK</a><span class="ic ic-grip grip" aria-hidden="true"></span></div>
+            <p class="b-name">Luc Bergeron</p>
+            <div class="bcard-meta"><span class="urg urg-flexible"><span class="ic ic-calendar" aria-hidden="true"></span>Flexible</span><time class="meta" datetime="2026-11-12T10:25:00-05:00">Nov 12, 10:25 a.m.</time></div>
+            <button class="btn btn-secondary btn-block" type="button" aria-haspopup="menu" aria-label="Move NQ-8VD5SK to another status">Move to<span class="ic ic-sm ic-down" aria-hidden="true"></span></button>
+          </li>
+          <li class="bcard">
+            <div class="bcard-top"><a class="tag tag-quiet" href="#main">NQ-5RW4HN</a><span class="ic ic-grip grip" aria-hidden="true"></span></div>
+            <p class="b-name">Hannah Frey</p>
+            <div class="bcard-meta"><span class="urg urg-flexible"><span class="ic ic-calendar" aria-hidden="true"></span>Flexible</span><time class="meta" datetime="2026-11-09T19:40:00-05:00">Nov 9, 7:40 p.m.</time></div>
+            <button class="btn btn-secondary btn-block" type="button" aria-haspopup="menu" aria-label="Move NQ-5RW4HN to another status">Move to<span class="ic ic-sm ic-down" aria-hidden="true"></span></button>
+          </li>
+        </ul>
+      </section>
+    </div>
+  </main>
+</body>
+</html>
