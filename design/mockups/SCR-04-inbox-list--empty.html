@@ -1,28 +1,29 @@
 <!doctype html>
-<!-- SCR-04 · Inbox, List view · Stories: US-005, US-008, US-011 · State: first use, no requests (AC-005.4, AC-008.7) and a filter with no matches (AC-011.2) -->
+<!-- SCR-04 · Requests tab · Stories: US-005, US-008, US-011, US-013 · State: first use, no requests (AC-005.4, AC-008.7), a filter with no matches (AC-011.2) and a search with no matches (AC-013.2) -->
 <html lang="en-CA">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>SCR-04 · Inbox, List view · empty</title>
+  <title>SCR-04 · Requests · empty</title>
   <link rel="stylesheet" href="./tokens.css">
+  <link rel="stylesheet" href="./fonts.css">
   <link rel="stylesheet" href="./app.css">
 </head>
-<body>
+<body class="has-tabs">
   <a class="skip" href="#main">Skip to requests</a>
   <header class="nav on-dark">
     <div class="nav-inner">
-      <a class="brand" href="#main">Northside Plumbing</a>
-      <nav class="nav-links" aria-label="Main">
-        <a class="nav-link" href="#main" aria-current="page">Inbox</a>
-        <span class="nav-user">Signed in as Owner</span>
-        <button class="btn-nav" type="button"><span class="ic ic-sm ic-out" aria-hidden="true"></span>Sign out</button>
+      <a class="brand" href="#main" aria-label="Northside Plumbing, Requests"><svg class="wordmark" viewBox="0 0 260 64" role="img" aria-label="Northside Plumbing, Hamilton"><path class="wm-pipe-line" d="M10 54 V30 a14 14 0 0 1 14 -14 H44"/><rect class="wm-pipe" x="40" y="9" width="10" height="14" rx="2"/><rect class="wm-pipe" x="5" y="50" width="10" height="10" rx="2"/><text class="wm-name" x="62" y="36">NORTHSIDE</text><text class="wm-sub" x="63" y="55">PLUMBING · HAMILTON</text></svg></a>
+      <nav class="nav-tabs" aria-label="Main">
+        <a class="nav-tab" href="#main" aria-current="page"><span class="ic ic-sm ic-list" aria-hidden="true"></span>Requests</a>
+        <a class="nav-tab" href="#main"><span class="ic ic-sm ic-board" aria-hidden="true"></span>Pipeline</a>
       </nav>
+      <div class="nav-end"><span class="nav-user">Signed in as Owner</span><button class="btn-nav" type="button"><span class="ic ic-sm ic-out" aria-hidden="true"></span>Sign out</button></div>
     </div>
   </header>
 
   <main id="main" class="page">
-    <div class="page-head"><h1>Inbox</h1></div>
+    <div class="page-head"><h1>Requests</h1></div>
 
     <section class="week" aria-labelledby="week-h">
       <div class="week-head">
@@ -36,15 +37,6 @@
       </div>
     </section>
 
-    <section class="toolbar" aria-label="View and filter">
-      <div class="toolbar-row">
-        <div class="segments segments-wide" role="group" aria-label="View">
-          <a class="segment is-active" href="#main" aria-current="true"><span class="ic ic-sm ic-list" aria-hidden="true"></span>List</a>
-          <a class="segment" href="#main"><span class="ic ic-sm ic-board" aria-hidden="true"></span>Board</a>
-        </div>
-      </div>
-    </section>
-
     <section aria-labelledby="empty-h">
       <div class="empty">
         <span class="ic ic-inbox" aria-hidden="true"></span>
@@ -55,7 +47,7 @@
     </section>
 
     <section class="stack" aria-labelledby="filt-h">
-      <h2 id="filt-h" class="sheet-label">SAME SCREEN, A FILTER WITH NO MATCHES (LIST HAS REQUESTS, NONE LOST)</h2>
+      <h2 id="filt-h" class="sheet-label">SAME TAB, A FILTER WITH NO MATCHES (THERE ARE REQUESTS, NONE LOST)</h2>
       <div class="segments" role="group" aria-label="Show requests">
         <a class="segment" href="#main">All</a>
         <a class="segment" href="#main">New</a>
@@ -69,6 +61,25 @@
         <button class="btn btn-secondary" type="button">Show all requests</button>
       </div>
     </section>
+
+    <section class="stack" aria-labelledby="search-h">
+      <h2 id="search-h" class="sheet-label">SAME TAB, A SEARCH WITH NO MATCHES</h2>
+      <form class="search" role="search" aria-label="Search requests">
+        <label class="sr-only" for="q">Search by reference, name or phone</label>
+        <div class="input" id="q">zzz</div>
+        <button class="btn btn-secondary" type="button">Search</button>
+      </form>
+      <div class="empty">
+        <span class="ic ic-inbox" aria-hidden="true"></span>
+        <h2>No matching requests</h2>
+        <button class="btn btn-secondary" type="button">Show all requests</button>
+      </div>
+    </section>
   </main>
+
+  <nav class="tabbar" aria-label="Main">
+    <a class="tab" href="#main" aria-current="page"><span class="ic ic-list" aria-hidden="true"></span>Requests</a>
+    <a class="tab" href="#main"><span class="ic ic-board" aria-hidden="true"></span>Pipeline</a>
+  </nav>
 </body>
 </html>

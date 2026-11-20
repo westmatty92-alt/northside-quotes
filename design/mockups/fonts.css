@@ -1,0 +1,31 @@
+/* fonts.css: the two brand typefaces, self-hosted (SIL Open Font License, @fontsource packages, Latin subset).
+   Files live in ../fonts/. Nothing is loaded from the network. font-display: swap, as the build will do. */
+
+@font-face {
+  font-family: "Barlow Semi Condensed";
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: local("Barlow Semi Condensed SemiBold"), local("BarlowSemiCondensed-SemiBold"), url("../fonts/barlow-semi-condensed-latin-600-normal.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Barlow Semi Condensed";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: local("Barlow Semi Condensed Bold"), local("BarlowSemiCondensed-Bold"), url("../fonts/barlow-semi-condensed-latin-700-normal.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Source Sans 3";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: local("Source Sans 3"), local("SourceSans3-Regular"), url("../fonts/source-sans-3-latin-400-normal.woff2") format("woff2");
+}
+@font-face {
+  font-family: "Source Sans 3";
+  font-style: normal;
+  font-weight: 600;
+  font-display: swap;
+  src: local("Source Sans 3 SemiBold"), local("SourceSans3-SemiBold"), url("../fonts/source-sans-3-latin-600-normal.woff2") format("woff2");
+}

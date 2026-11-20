@@ -1,32 +1,33 @@
 <!doctype html>
-<!-- SCR-06 · Request detail · Stories: US-005, US-006, US-007, US-010, US-012, US-014, US-015, US-017 · State: primary (new request, 3 photos, copy done, no price yet) -->
+<!-- SCR-06 · Request detail · Stories: US-005, US-006, US-007, US-010, US-012, US-014, US-015, US-017 · State: primary (new request, 3 photos, offers box was ticked and the copy is done, no price yet). Opened from the Requests tab, so that tab is marked as where the owner is and Back goes to Requests. -->
 <html lang="en-CA">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>SCR-06 · Request NQ-7K3M9P</title>
   <link rel="stylesheet" href="./tokens.css">
+  <link rel="stylesheet" href="./fonts.css">
   <link rel="stylesheet" href="./app.css">
 </head>
-<body>
+<body class="has-tabs">
   <a class="skip" href="#main">Skip to the request</a>
   <header class="nav on-dark">
     <div class="nav-inner">
-      <a class="brand" href="#main">Northside Plumbing</a>
-      <nav class="nav-links" aria-label="Main">
-        <a class="nav-link" href="#main" aria-current="page">Inbox</a>
-        <span class="nav-user">Signed in as Owner</span>
-        <button class="btn-nav" type="button"><span class="ic ic-sm ic-out" aria-hidden="true"></span>Sign out</button>
+      <a class="brand" href="#main" aria-label="Northside Plumbing, Requests"><svg class="wordmark" viewBox="0 0 260 64" role="img" aria-label="Northside Plumbing, Hamilton"><path class="wm-pipe-line" d="M10 54 V30 a14 14 0 0 1 14 -14 H44"/><rect class="wm-pipe" x="40" y="9" width="10" height="14" rx="2"/><rect class="wm-pipe" x="5" y="50" width="10" height="10" rx="2"/><text class="wm-name" x="62" y="36">NORTHSIDE</text><text class="wm-sub" x="63" y="55">PLUMBING · HAMILTON</text></svg></a>
+      <nav class="nav-tabs" aria-label="Main">
+        <a class="nav-tab" href="#main" aria-current="true"><span class="ic ic-sm ic-list" aria-hidden="true"></span>Requests</a>
+        <a class="nav-tab" href="#main"><span class="ic ic-sm ic-board" aria-hidden="true"></span>Pipeline</a>
       </nav>
+      <div class="nav-end"><span class="nav-user">Signed in as Owner</span><button class="btn-nav" type="button"><span class="ic ic-sm ic-out" aria-hidden="true"></span>Sign out</button></div>
     </div>
   </header>
 
   <main id="main" class="page">
-    <a class="back" href="#main"><span class="ic ic-sm ic-back" aria-hidden="true"></span>Back to Inbox</a>
+    <a class="back" href="#main"><span class="ic ic-sm ic-back" aria-hidden="true"></span>Back to Requests</a>
 
     <header class="detail-head">
       <div class="who">
-        <p class="tag tag-display" aria-label="Reference number N Q, 7, K, 3, M, 9, P">NQ-7K3M9P</p>
+        <div class="tag-hang"><span class="pipe" aria-hidden="true"></span><p class="tag tag-display" aria-label="Reference number N Q, 7, K, 3, M, 9, P">NQ-7K3M9P</p></div>
       </div>
       <h1>Dana Whitfield</h1>
       <div class="who">
@@ -111,5 +112,10 @@
       </div>
     </div>
   </main>
+
+  <nav class="tabbar" aria-label="Main">
+    <a class="tab" href="#main" aria-current="true"><span class="ic ic-list" aria-hidden="true"></span>Requests</a>
+    <a class="tab" href="#main"><span class="ic ic-board" aria-hidden="true"></span>Pipeline</a>
+  </nav>
 </body>
 </html>
