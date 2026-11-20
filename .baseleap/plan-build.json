@@ -1,0 +1,348 @@
+{
+  "tasks": [
+    {
+      "id": "OPS1",
+      "agent": "devops",
+      "phase": "build",
+      "title": "Vercel config, environments manifest, env check, CI + QA smoke + security + uptime workflows, release workflow (token A), runbook",
+      "description": "Per ops-platform, ops-environments, ops-ci, ops-observe and ops-release: vercel.json (region yul1, the four ghl-sync crons at 00/06/12/18 UTC and housekeeping at 07:30 UTC, git.deploymentEnabled.main false); infra/environments.json declaring Preview/Production rows and every env var NAME from docs/architecture.md plus CI names (VERCEL_AUTOMATION_BYPASS_SECRET, SUPABASE_PRODUCTION_DB_URL, staging test keys); .env.example updated to match (names only); scripts/env-check.mjs that fails when APP_SIGNING_SECRET or CRON_SECRET is missing from Preview or Production (names only, values never read; SEC-4), with --manifest-only (compares manifest, code and .env.example without calling Vercel) and --self-test (a fixture missing CRON_SECRET must fail); scripts/install-scanners.sh (pinned, checksum-verified actionlint, gitleaks, opengrep, osv-scanner); .github/workflows ci.yml (verify, api-tests on the staging DB, a security job that runs the scanners via install-scanners.sh, actionlint), qa-smoke.yml on staging deploys, uptime.yml at a frequency inside GitHub Free minutes, and release.yml behind the GitHub production environment applying migrations with SUPABASE_PRODUCTION_DB_URL (Matthew's token A: no Supabase personal access token anywhere), prebuilt production deploy, read-only smoke, automatic Instant Rollback; scripts/smoke.mjs (read-only /api/health check, exits non-zero unless 200); docs/runbook.md with the 3A password procedure (min length 12, reauthentication on, Baseleap sets and resets passwords in the dashboard), the no-custom-SMTP rule (SEC-10), incident, rollback and secret rotation. Drop SUPABASE_DB_PASSWORD and SUPABASE_PRODUCTION_REF if the connection string makes them redundant (ruling).",
+      "acceptance": [
+        "vercel.json has region yul1, exactly five cron entries matching architecture.md, and main Git deploys turned off",
+        "env-check --self-test fails on a manifest missing CRON_SECRET; --manifest-only passes on the real manifest",
+        "no workflow or doc references SUPABASE_ACCESS_TOKEN or supabase db push",
+        "every workflow passes actionlint, has least-privilege permissions and pins actions to a full SHA",
+        "runbook covers 3A passwords, no custom SMTP, release, rollback and secret rotation"
+      ],
+      "out_of_scope": ["setting any secret value", "running a production release (DEP1)", "app code"],
+      "depends_on": ["A2"],
+      "requires_gates": ["account_setup"],
+      "files": [".github/**", "vercel.json", "infra/**", ".env.example", "scripts/env-check.mjs", "scripts/smoke.mjs", "scripts/install-scanners.sh", "docs/runbook.md", "docs/deployments/**"],
+      "verify": [
+        "node -e \"const v=require('./vercel.json');process.exit((v.crons||[]).length===5&&v.git&&v.git.deploymentEnabled&&v.git.deploymentEnabled.main===false&&JSON.stringify(v).includes('yul1')?0:1)\"",
+        "node scripts/env-check.mjs --manifest-only",
+        "node scripts/env-check.mjs --self-test",
+        "test -s .github/workflows/ci.yml && test -s .github/workflows/release.yml && test -s .github/workflows/qa-smoke.yml && test -s .github/workflows/uptime.yml",
+        "bash scripts/install-scanners.sh actionlint && .baseleap/tools/bin/actionlint",
+        "! grep -rEn 'uses: [^@ ]+@(v[0-9.]+|main|master)\\s*$' .github/workflows",
+        "! grep -rn 'SUPABASE_ACCESS_TOKEN' .github vercel.json infra docs/runbook.md .env.example",
+        "! grep -rn 'db push' .github",
+        "test -s docs/runbook.md"
+      ],
+      "context": ["docs/architecture.md#Lane ownership", "docs/architecture.md#Environment variables", "docs/architecture.md#Build requirements from S0", "docs/architecture.md#Build requirements from PRD v1.2", "docs/ops/account-setup.md", "docs/SECURITY_MODEL.md"],
+      "model": "sonnet",
+      "estimated_hours": 3
+    },
+    {
+      "id": "BE1",
+      "agent": "backend",
+      "phase": "build",
+      "title": "Backend platform + public submission: env, form token, http/log/events, createQuoteRequest, submitQuoteRequest, spam refusals, health, housekeeping",
+      "description": "Thin route handlers over services per docs/openapi.yaml and architecture.md Modules, replacing A2's typed stubs. env.ts fails closed under 32 characters (invariant 15); X-Form-Token HMAC issue/verify; http.ts problem+json wrapper with PostgREST error mapping and {error_class, code}-only logging (SEC-5); allow-listed log.ts; events.ts (ids only). createQuoteRequest: email trimmed before validation; marketing_consent coerced with value === true, never 422 (AC-001.17); maps start_quote_request outcomes (created 201, replayed 200, updated 200 after clearing uploads, token_used 409 form_already_used, rate_limited 429 with Retry-After; 23505 on submission_key = replay); IP hashed per SECURITY_MODEL Network address (IPv6 /64); record_spam_refusal after honeypot/time-trap/rate-limit refusals, errors ignored, identical refusal either way; a request is accepted when the rate counter can't be read (AC-003.5). submitQuoteRequest with photo magic-byte/size/dimension checks then complete_quote_request; photo_upload_failed event; the after() GHL attempt only when a job was queued (via the integration seam). 503 on both form-token routes when APP_SIGNING_SECRET is missing or short. /api/health. Housekeeping job route behind CRON_SECRET (Bearer undefined/empty/missing = 401) purging stale pending requests and all counter tables incl. spam_refusal_windows and sign_in_pauses. Staging-backed tests fail (never skip) when env is missing.",
+      "acceptance": [
+        "every response matches the contract schema; 4xx bodies are problem+json",
+        "AC-001.17: marketing_consent 'maybe', 1, null or missing is stored as false with no 422",
+        "a forced 23514 on create leaks no name, phone or email into the log line or response (SEC-5)",
+        "Bearer undefined, empty and missing each give 401 on /api/jobs/housekeeping; a short APP_SIGNING_SECRET gives 503 on create and submit",
+        "20 parallel creates from one address accept exactly 5 (against staging)"
+      ],
+      "out_of_scope": ["sign-in and staff routes (BE2)", "inbox reads and writes (BE3)", "GHL client and its routes (INT1, INT2)", "UI"],
+      "depends_on": ["A2"],
+      "files": ["src/lib/server/services/**", "src/lib/server/env.ts", "src/lib/server/form-token.ts", "src/lib/server/http.ts", "src/lib/server/log.ts", "src/lib/server/events.ts", "src/lib/server/admin.ts", "src/lib/server/jobs/housekeeping.ts", "src/app/api/health/**", "src/app/api/jobs/housekeeping/**", "src/app/api/quote-requests/route.ts", "src/app/api/quote-requests/[request_id]/submission/**", "tests/api/**", "tests/unit/**", "tests/helpers/**", "supabase/seed.sql"],
+      "verify": ["npm run typecheck", "npm run lint", "node --env-file-if-exists=.env.local node_modules/.bin/vitest run tests/api/submission tests/api/housekeeping tests/api/health tests/unit/env --passWithNoTests=false", "npm run build", "node scripts/check-code-guards.mjs service-role"],
+      "context": ["docs/openapi.yaml (createQuoteRequest, submitQuoteRequest, runHousekeeping, getHealth)", "docs/architecture.md#Modules", "docs/architecture.md#Build requirements from S0", "docs/architecture.md#Build requirements from PRD v1.2", "docs/SECURITY_MODEL.md", "docs/metrics-spec.md", "supabase/migrations/**", "lane worktree ../northside-quotes-wt-backend"],
+      "model": "sonnet",
+      "estimated_hours": 3
+    },
+    {
+      "id": "BE2",
+      "agent": "backend",
+      "phase": "build",
+      "title": "Staff auth: signIn with per-email and per-address limits, proxy redirects with next allow-list, CSP nonce, getCurrentStaff",
+      "description": "signIn calls take_sign_in_attempt(email_hash, ip_hash) before Supabase Auth; allowed false -> 429 sign_in_paused with no Retry-After; any error -> 503 sign_in_unavailable with no Auth call (AC-004.13); 503 when APP_SIGNING_SECRET is short; mark_sign_in_succeeded only for a staff sign-in; staff_signed_in event. requireStaff helper and session refresh via @supabase/ssr; src/proxy.ts redirects signed-out visits to /requests, /pipeline and both detail paths to /sign-in?next=<path>, follows next only on the SECURITY_MODEL invariant 22 allow-list, sets a fresh CSP nonce per request (invariant 13, SEC-15). getCurrentStaff. No sign-up, password change or reset route anywhere (FR-27).",
+      "acceptance": [
+        "5 emails x 4 failures from one address then a 21st attempt gives 429; same credentials from another address give 200",
+        "a forced database error on the limit call gives 503 and Supabase Auth is not called",
+        "next=https://evil.example, //evil.example and /%2F%2Fevil.example all land on /requests",
+        "signed-out GET /pipeline redirects to /sign-in?next=/pipeline; two requests get different CSP nonces",
+        "no route matches sign-up, password change or password reset"
+      ],
+      "out_of_scope": ["staff pages (FE2, FE3)", "inbox data routes (BE3)"],
+      "depends_on": ["BE1"],
+      "files": ["src/proxy.ts", "src/lib/server/auth/**", "src/lib/server/session.ts", "src/lib/server/supabase.ts", "src/lib/server/http.ts", "src/app/api/auth/**", "src/app/api/staff/**", "tests/api/**", "tests/unit/**", "tests/helpers/**"],
+      "verify": ["npm run typecheck", "npm run lint", "node --env-file-if-exists=.env.local node_modules/.bin/vitest run tests/api/auth tests/unit/proxy --passWithNoTests=false", "npm run build", "node scripts/check-code-guards.mjs service-role"],
+      "context": ["docs/openapi.yaml (signIn, getCurrentStaff)", "docs/SECURITY_MODEL.md", "docs/architecture.md#Routes and screens", "docs/architecture.md#Build requirements from PRD v1.2", "lane worktree ../northside-quotes-wt-backend"],
+      "model": "sonnet",
+      "estimated_hours": 2
+    },
+    {
+      "id": "BE3",
+      "agent": "backend",
+      "phase": "build",
+      "title": "Inbox reads and writes: list (cursor, status, search), detail with GHL state, photos refresh, saveQuote, status change, weekly count",
+      "description": "listQuoteRequests through the list_quote_requests RPC only with a validated cursor (400 on a bad cursor; no .or()/.filter() strings, SEC-13); getQuoteRequest with signed photo URLs and the GHL state mapping in architecture.md (no consent -> not_copied_no_consent, stage_tag null); listQuoteRequestPhotos; saveQuote (409 on a stale version, 422 for the AC-006.3 prices) and changeQuoteRequestStatus through the version-checked RPCs, each event fired once, with the stage-tag after() attempt via the integration seam; getCurrentWeeklyCount Mon-Sun America/Toronto, won/lost by status-change date. Every staff route requires a staff session (401/403) and returns 404 for unknown ids.",
+      "acceptance": [
+        "list is newest first, paginates by cursor, filters by status and search, and rejects a malformed cursor with 400",
+        "saveQuote and status change with a stale version return 409 and change nothing; AC-006.3 prices give 422",
+        "an unticked request's detail shows ghl.copy.state not_copied_no_consent and stage_tag null",
+        "weekly count counts won/lost by status-change date in America/Toronto Mon-Sun",
+        "401 without a session, 403 for a non-staff user, 404 for an unknown id on every staff route"
+      ],
+      "out_of_scope": ["GHL calls (INT1, INT2)", "UI"],
+      "depends_on": ["BE2"],
+      "files": ["src/lib/server/services/**", "src/app/api/quote-requests/route.ts", "src/app/api/quote-requests/[request_id]/route.ts", "src/app/api/quote-requests/[request_id]/photos/**", "src/app/api/quote-requests/[request_id]/quote/**", "src/app/api/quote-requests/[request_id]/status-changes/**", "src/app/api/weekly-counts/**", "tests/api/**", "tests/helpers/**"],
+      "verify": ["npm run typecheck", "npm run lint", "node --env-file-if-exists=.env.local node_modules/.bin/vitest run tests/api/inbox --passWithNoTests=false", "npm run build", "node scripts/check-code-guards.mjs service-role"],
+      "context": ["docs/openapi.yaml (listQuoteRequests, getQuoteRequest, listQuoteRequestPhotos, saveQuote, changeQuoteRequestStatus, getCurrentWeeklyCount)", "docs/architecture.md#GHL state shown on SCR-06", "docs/SECURITY_MODEL.md", "docs/metrics-spec.md", "supabase/migrations/**", "lane worktree ../northside-quotes-wt-backend"],
+      "model": "sonnet",
+      "estimated_hours": 3
+    },
+    {
+      "id": "INT1",
+      "agent": "integration",
+      "phase": "build",
+      "title": "GHL core: typed client, contact copy by match rule, stage tags, job runner + seam, offline GHL simulator",
+      "description": "Exactly what docs/integration-contract.md says, in src/lib/server/integrations/** and the job module. Typed GHL client (token, version header, timeout, error classes incl. rejected for 400/404/422; GHL_API_BASE_URL ignored when VERCEL_ENV=production, SEC-20); contact copy only for consenting requests via find_ghl_contact_match, then GHL duplicate search, then create (400 on create repeats the search once, then rejected); link changes tags only, never contact fields; stage tags from ghl_stage_for_request, one stage tag at a time, previous removed, quote-request kept; claim_ghl_job one job per lease and finish_ghl_job with its lease_id; stop claiming with under 60 s of the 300 s budget left; contact id validated and encodeURIComponent-ed; GHL events from metrics-spec; runGhlJobs seam replaces A2's stub (same signature). Deterministic GHL stub in tests/mocks/ that QA reuses offline. No live GHL calls.",
+      "acceptance": [
+        "an unticked request makes zero stub calls",
+        "a second ticked request with the same email, and one with the same phone, make no create call and send no contact fields",
+        "AC-017.15 change order ends with quote-lost as the only stage tag",
+        "a stale lease id cannot settle a job; timeouts and 429 storms leave jobs waiting, never lost",
+        "GHL_API_BASE_URL is ignored in production"
+      ],
+      "out_of_scope": ["route handlers (INT2)", "GHL custom fields (OQ-11: not in v1)", "inbound webhooks (none in v1)", "live GHL calls"],
+      "depends_on": ["A2"],
+      "files": ["src/lib/server/integrations/**", "src/lib/server/jobs/ghl-sync.ts", "tests/integrations/**", "tests/mocks/**", "docs/integrations/**"],
+      "verify": ["npm run typecheck", "npm run lint", "node --env-file-if-exists=.env.local node_modules/.bin/vitest run tests/integrations/ghl --passWithNoTests=false", "npm run build", "node scripts/check-code-guards.mjs service-role"],
+      "context": ["docs/integration-contract.md", "docs/architecture.md#Modules (GHL client and runner)", "docs/architecture.md#Build requirements from S0", "docs/architecture.md#Build requirements from PRD v1.2", "docs/metrics-spec.md", "supabase/migrations/*ghl*"],
+      "model": "sonnet",
+      "estimated_hours": 3
+    },
+    {
+      "id": "INT2",
+      "agent": "integration",
+      "phase": "build",
+      "title": "GHL routes: /api/jobs/ghl-sync cron route and retryGhlCopy",
+      "description": "Dispatched after lane/backend (BE3) is merged so env.ts, http.ts and requireStaff exist in the checkout. /api/jobs/ghl-sync behind CRON_SECRET via env.ts (Bearer undefined/empty/missing = 401) calling runGhlJobs with no requestId; retryGhlCopy behind requireStaff, 409 not_retryable for an unticked request with no GHL call (AC-014.4), problem+json via http.ts.",
+      "acceptance": [
+        "Bearer undefined, empty and missing give 401 on /api/jobs/ghl-sync",
+        "retryGhlCopy returns 409 not_retryable for an unticked request and makes no stub call",
+        "responses match the contract"
+      ],
+      "out_of_scope": ["GHL core (INT1)"],
+      "depends_on": ["INT1", "BE3"],
+      "files": ["src/app/api/jobs/ghl-sync/**", "src/app/api/quote-requests/[request_id]/ghl-copy-retries/**", "tests/integrations/**"],
+      "verify": ["npm run typecheck", "npm run lint", "node --env-file-if-exists=.env.local node_modules/.bin/vitest run tests/integrations/routes --passWithNoTests=false", "npm run build", "node scripts/check-code-guards.mjs service-role"],
+      "context": ["docs/openapi.yaml (runGhlSyncJobs, retryGhlCopy)", "docs/integration-contract.md", "docs/SECURITY_MODEL.md"],
+      "model": "sonnet",
+      "estimated_hours": 1
+    },
+    {
+      "id": "FE1",
+      "agent": "frontend",
+      "phase": "build",
+      "title": "Public pages: SCR-01 Request a quote (photos, consent, spam-safe token handling) and SCR-02 Request sent; fetcher and browser Supabase client",
+      "description": "Build SCR-01 and SCR-02 from the mockups and DESIGN.md through the Orval client and MSW mocks only, against A2's typed form-token/env stubs. SCR-01 renders per request (await connection() before issueFormToken; no static/ISR); direct photo upload with supabase-js to the request's folder (max 3, 5 MB, JPEG/PNG/WebP) with upload-failure states; offers checkbox never ticked on load, by script or autofill, kept on every refusal (AC-001.16); after a completed submission drop the token and router.refresh(); each completed nonce goes into sessionStorage and on mount and pageshow a page whose token is listed refreshes first (SEC-2); 409 form_already_used and 400 form_expired refresh the token and keep typed values; SCR-02 keeps the reference in sessionStorage for reloads in the same tab, otherwise redirects to /. Replace A2's fetcher placeholder (base URL, auth, problem+json errors). In mock mode only, a ?mockScenario= switch selects designed states for verify-ui. Every designed state, accessible, within performance budgets.",
+      "acceptance": [
+        "every SCR-01 and SCR-02 state in docs/design-specs.md renders and matches its mockup at 390 and 1280",
+        "no axe violations and no console errors on any listed state",
+        "the offers checkbox is unticked on load and keeps its state after a refusal",
+        "a 409 form_already_used keeps every typed value and allows a resend with a fresh token; a listed nonce triggers a refresh on pageshow",
+        "component tests cover each designed state"
+      ],
+      "out_of_scope": ["staff pages (FE2, FE3)", "server code"],
+      "depends_on": ["A2"],
+      "files": ["src/app/(public)/page.tsx", "src/app/(public)/request-sent/**", "src/components/request/**", "src/components/ui/**", "src/hooks/**", "src/lib/api/fetcher.ts", "src/lib/supabase/browser.ts", "src/lib/utils.ts", "src/mocks/**"],
+      "verify": [
+        "npm run typecheck",
+        "npm run lint",
+        "npx vitest run src/components/request --passWithNoTests=false",
+        "NEXT_PUBLIC_API_MOCKING=on NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321 NEXT_PUBLIC_SUPABASE_ANON_KEY=mock APP_SIGNING_SECRET=verify-ui-dummy-secret-at-least-32-chars npm run build",
+        "node scripts/check-code-guards.mjs generated",
+        "node scripts/verify-ui.mjs http://localhost:3201 --step FE1 --serve \"npm run start -- -p 3201\" --env APP_SIGNING_SECRET=verify-ui-dummy-secret-at-least-32-chars SCR-01=/ SCR-01--errors=/?mockScenario=errors SCR-01--send-failed=/?mockScenario=send-failed SCR-02=/request-sent?mockScenario=sent --allow-request \"SCR-01--send-failed=/api/\""
+      ],
+      "context": ["docs/openapi.yaml (createQuoteRequest, submitQuoteRequest, uploadQuotePhoto)", "docs/user-flows.md", "docs/design-specs.md (SCR-01, SCR-02)", "design/mockups/SCR-01*", "design/mockups/SCR-02*", "DESIGN.md", "docs/architecture.md#Build requirements from S0", "docs/architecture.md#Build requirements from PRD v1.2", "lane worktree ../northside-quotes-wt-frontend"],
+      "model": "sonnet",
+      "estimated_hours": 3
+    },
+    {
+      "id": "FE2",
+      "agent": "frontend",
+      "phase": "build",
+      "title": "Staff shell and Requests tab: SCR-03 sign-in, tab navigation, SCR-04 Requests, SCR-06 detail (both tabs), SCR-07 weekly strip, SCR-08 photo viewer",
+      "description": "Staff layout with two tabs (Requests /requests, Pipeline /pipeline) in one navigation landmark with aria-current, top bar from 640 px and bottom tab bar on phones, no List/Board switch, Sign out in the bar (to SCR-03, AC-004.9). SCR-03 with 401/429/503/session-ended messages and no forgot-password link; sign-in lands on /requests or the allowed next path; a 401 while saving goes to /sign-in?next=<path> (AC-004.7). SCR-04 newest first with status filter and search as client state, the SCR-07 strip. SCR-06 at /requests/[id] and /pipeline/[id] with price + note, status change, GHL copy and stage-tag labels ('Not copied: no offers consent' with no Retry and no stage-tag line when unticked), Retry for failed copies (Could), Back restoring filter, search and scroll. SCR-08 photo viewer with plain <img src={signed url}> (SEC-16) refreshing near-expiry URLs. Mock scenarios for designed states.",
+      "acceptance": [
+        "every SCR-03, SCR-04, SCR-06, SCR-07 and SCR-08 state renders and matches its mockup at 390 and 1280",
+        "tabs are separate routes with aria-current on the current tab; no view toggle exists",
+        "an unticked request's detail shows 'Not copied: no offers consent' with no Retry",
+        "sign-out returns to SCR-03; a 401 while saving redirects to /sign-in?next=",
+        "no axe violations and no console errors; component tests cover each designed state"
+      ],
+      "out_of_scope": ["the Pipeline board (FE3)", "server code"],
+      "depends_on": ["FE1"],
+      "files": ["src/app/(public)/sign-in/**", "src/app/(staff)/layout.tsx", "src/app/(staff)/requests/**", "src/app/(staff)/pipeline/[request_id]/**", "src/components/staff/**", "src/components/ui/**", "src/hooks/**", "src/lib/supabase/browser.ts", "src/mocks/**"],
+      "verify": [
+        "npm run typecheck",
+        "npm run lint",
+        "npx vitest run src/components/staff --passWithNoTests=false",
+        "NEXT_PUBLIC_API_MOCKING=on NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321 NEXT_PUBLIC_SUPABASE_ANON_KEY=mock APP_SIGNING_SECRET=verify-ui-dummy-secret-at-least-32-chars npm run build",
+        "node scripts/check-code-guards.mjs generated",
+        "node scripts/verify-ui.mjs http://localhost:3202 --step FE2 --serve \"npm run start -- -p 3202\" --env APP_SIGNING_SECRET=verify-ui-dummy-secret-at-least-32-chars SCR-03=/sign-in SCR-03--error=/sign-in?mockScenario=error SCR-04=/requests?mockScenario=signed-in SCR-04--empty=/requests?mockScenario=empty SCR-06=/requests/mock-1?mockScenario=signed-in SCR-06--no-consent=/requests/mock-2?mockScenario=signed-in --click \"SCR-06=button:has-text('View photo')\" --allow-request \"SCR-03--error=/api/\""
+      ],
+      "context": ["docs/openapi.yaml (signIn, getCurrentStaff, listQuoteRequests, getQuoteRequest, listQuoteRequestPhotos, saveQuote, changeQuoteRequestStatus, retryGhlCopy, getCurrentWeeklyCount)", "docs/user-flows.md", "docs/design-specs.md (SCR-03, SCR-04, SCR-06, SCR-07, SCR-08)", "design/mockups/SCR-0[34678]*", "DESIGN.md", "docs/architecture.md#Routes and screens", "lane worktree ../northside-quotes-wt-frontend"],
+      "model": "sonnet",
+      "estimated_hours": 4
+    },
+    {
+      "id": "FE3",
+      "agent": "frontend",
+      "phase": "build",
+      "title": "Pipeline tab: SCR-05 board with drag and Move to menu, failed-save revert, weekly strip",
+      "description": "SCR-05 at /pipeline: fixed New/Quoted/Won/Lost columns, one listQuoteRequests call per column (never q), every request shown; drag a card or use its Move to menu (keyboard and tap alternative) to call changeQuoteRequestStatus with the version; Saving state, revert on failure or 409 with a visible message, live-region announcement; the SCR-07 strip refetched after each successful move; cards open /pipeline/[id]. Mock scenarios for designed states.",
+      "acceptance": [
+        "AC-016.3, .13, .14 and .17 states render as designed",
+        "moving by keyboard through the Move to menu works without a pointer",
+        "a failed or stale save returns the card to its column and stores nothing",
+        "every SCR-05 state matches its mockup at 390 and 1280; no axe violations, no console errors",
+        "component tests cover drag, Move to, revert and announcement"
+      ],
+      "out_of_scope": ["editable columns", "card ordering", "server code"],
+      "depends_on": ["FE2"],
+      "files": ["src/app/(staff)/pipeline/page.tsx", "src/components/staff/pipeline/**", "src/hooks/**", "src/mocks/**"],
+      "verify": [
+        "npm run typecheck",
+        "npm run lint",
+        "npx vitest run src/components/staff/pipeline --passWithNoTests=false",
+        "NEXT_PUBLIC_API_MOCKING=on NEXT_PUBLIC_SUPABASE_URL=http://127.0.0.1:54321 NEXT_PUBLIC_SUPABASE_ANON_KEY=mock APP_SIGNING_SECRET=verify-ui-dummy-secret-at-least-32-chars npm run build",
+        "node scripts/check-code-guards.mjs generated",
+        "node scripts/verify-ui.mjs http://localhost:3203 --step FE3 --serve \"npm run start -- -p 3203\" --env APP_SIGNING_SECRET=verify-ui-dummy-secret-at-least-32-chars SCR-05=/pipeline?mockScenario=signed-in SCR-05--save-failed=/pipeline?mockScenario=save-failed --allow-request \"SCR-05--save-failed=/api/\""
+      ],
+      "context": ["docs/openapi.yaml (listQuoteRequests, changeQuoteRequestStatus, getCurrentWeeklyCount)", "docs/design-specs.md (SCR-05, SCR-07)", "design/mockups/SCR-05*", "DESIGN.md", "docs/user-stories.md#US-016", "lane worktree ../northside-quotes-wt-frontend"],
+      "model": "sonnet",
+      "estimated_hours": 3
+    },
+    {
+      "id": "QA1",
+      "agent": "qa",
+      "phase": "verify",
+      "title": "Test plan + Playwright E2E on the staging preview: the done spine and every user flow",
+      "description": "docs/test-plan.md mapping every PRD v1.2 acceptance criterion (Must, Should and Could, incl. architecture.md 'Build requirements from PRD v1.2 -> QA' and the S0 QA list) to a black-box test; live-GHL criteria are covered offline by INT1/INT2's simulator tests and say so. Playwright specs in tests/e2e on the staging Vercel preview (STAGING_URL; never local or production; playwright.config.ts throws on any other host), getting past preview protection with the bypass header plus x-vercel-set-bypass-cookie on the first navigation only for the preview host (never sent to supabase.co), signed-in sessions for owner and helper (QA_* names), phone and desktop viewports, console and failed-request capture, axe, traces on failure. The done spine: homeowner submits with photos (offers box unticked) -> NQ- reference -> owner signs in, sees it first on Requests -> price + note -> marks won (list and board) -> weekly count updates. Also tabs as separate addresses, /inbox 404, two GETs of / give different nonces and no-store, Back-and-resend never merges. Reports name the staging preview URL (Matthew's request). One root-cause ticket per failure in .baseleap/reports/QA1-errors.md.",
+      "acceptance": [
+        "every AC in the PRD maps to a test or an offline-coverage note in docs/test-plan.md",
+        "the done-spine E2E passes on the staging preview",
+        "docs/qa-reports/latest-run.md lists pass/fail per criterion and the preview URL",
+        "a pass on retry is reported as flaky, never as a pass"
+      ],
+      "out_of_scope": ["permission probes and fuzz (QA2)", "fixing product code"],
+      "depends_on": ["BE3", "INT2", "FE3", "OPS1"],
+      "files": ["tests/e2e/**", "playwright.config.ts", "docs/test-plan.md", "docs/qa-reports/**"],
+      "verify": ["test -s docs/test-plan.md", "grep -q 'vercel.app' docs/qa-reports/latest-run.md", "node --env-file=.env.local node_modules/.bin/playwright test tests/e2e --grep-invert @probe"],
+      "context": ["docs/PRD.md", "docs/user-stories.md", "docs/openapi.yaml", "docs/architecture.md#Build requirements from S0", "docs/architecture.md#Build requirements from PRD v1.2", "staging preview URL (integration.merged event)"],
+      "model": "sonnet",
+      "estimated_hours": 3
+    },
+    {
+      "id": "QA2",
+      "agent": "qa",
+      "phase": "verify",
+      "title": "Permission probes, API boundary checks and Schemathesis fuzz on the staging preview",
+      "description": "Per qa-probe and qa-fuzz on the staging preview: staff users and anonymous callers try to cross every SECURITY_MODEL line through the app API and directly through Supabase REST with their own tokens (cross-request ids, role escalation, mass assignment, storage folder escape, a 4th photo, unsubmitted photos); rate limits (20 parallel creates from one address accept exactly 5; for one email, sign-in attempts 6 to 20 return 429 with no Retry-After); job routes with Bearer undefined give 401; AC-001.17 consent coercion; stored XSS rendering; tests/fuzz/run.sh runs Schemathesis over docs/openapi.yaml against $STAGING_URL/api with the bypass header and exits non-zero on any 5xx or contract break. Writes docs/qa-reports/QA2-run.md naming the staging preview URL.",
+      "acceptance": [
+        "every permission row in the test plan has a probe and a result",
+        "no 5xx and no contract-breaking response in the fuzz run",
+        "rate-limit and job-route checks pass as stated",
+        "one root-cause ticket per failure in .baseleap/reports/QA2-errors.md"
+      ],
+      "out_of_scope": ["fixing product code", "load testing"],
+      "depends_on": ["QA1"],
+      "files": ["tests/fuzz/**", "tests/e2e/probes/**", "docs/qa-reports/QA2-run.md"],
+      "verify": ["grep -q 'vercel.app' docs/qa-reports/QA2-run.md", "node --env-file=.env.local node_modules/.bin/playwright test tests/e2e/probes", "bash tests/fuzz/run.sh"],
+      "context": ["docs/SECURITY_MODEL.md", "docs/threat-model.md", "docs/openapi.yaml", "docs/test-plan.md"],
+      "model": "sonnet",
+      "estimated_hours": 2.5
+    },
+    {
+      "id": "DV1",
+      "agent": "designer",
+      "phase": "verify",
+      "title": "Visual review of the staging preview against the mockups and DESIGN.md",
+      "description": "Per ux-visual-review: run verify-ui against the staging preview (bypass header) for every SCR-NN, compare with the mockups at phone and desktop widths, check brand fidelity (Northside brand files), tabs, consent checkbox and accessibility; file severity-ranked findings with routable directives and an APPROVED/BLOCKED verdict. Names the staging preview URL.",
+      "acceptance": ["every SCR-NN reviewed at both widths", "each Critical/Important finding has an owner and a directive"],
+      "out_of_scope": ["editing code"],
+      "depends_on": ["QA1"],
+      "files": [".baseleap/reviews/DV1.md"],
+      "verify": ["test -s .baseleap/reviews/DV1.md", "grep -q 'vercel.app' .baseleap/reviews/DV1.md"],
+      "context": ["staging preview URL", "docs/user-flows.md", "docs/design-specs.md", "docs/design/screens/**", "DESIGN.md"],
+      "model": "sonnet",
+      "estimated_hours": 1
+    },
+    {
+      "id": "REV1",
+      "agent": "reviewer",
+      "phase": "verify",
+      "title": "Code review of the staging diff",
+      "description": "Independent review of main..staging against the PRD acceptance criteria, the contract and the architecture: correctness, contract conformance, minimal diffs, strict typing, test honesty, N+1 and unbounded queries, races and idempotency (board moves, submission replay, GHL leases). APPROVED/BLOCKED verdict with routable patch directives. Names the staging preview URL.",
+      "acceptance": ["verdict follows review-verdict and passes review-check --kind code", "every AC the diff touches is assessed"],
+      "out_of_scope": ["editing code"],
+      "depends_on": ["QA2"],
+      "files": [".baseleap/reviews/REV1.md"],
+      "verify": ["node scripts/review-check.mjs .baseleap/reviews/REV1.md --kind code"],
+      "context": ["main..staging diff", "docs/PRD.md", "docs/openapi.yaml", "docs/architecture.md"],
+      "model": "opus",
+      "estimated_hours": 1.5
+    },
+    {
+      "id": "SEC1",
+      "agent": "security",
+      "phase": "verify",
+      "title": "Security review of the staging diff: access control, RLS, secrets, dependencies",
+      "description": "Adversarial review of main..staging against SECURITY_MODEL and the S0 threat model: every route authenticates and authorises, BOLA, RLS and storage policies in executable SQL, service-role allow-list, CSP/headers, logs free of personal data, secrets in history/tree/bundle, dependency CVEs, the S0 live checks, open Minors SEC-21/22/24. Opengrep with Baseleap rules, Gitleaks and OSV-Scanner/npm audit via scripts/install-scanners.sh, confirmed by reading code. Names the staging preview URL.",
+      "acceptance": ["verdict passes review-check --kind security", "scanner results recorded or marked not assessable with the reason"],
+      "out_of_scope": ["editing code"],
+      "depends_on": ["QA2"],
+      "files": [".baseleap/reviews/SEC1.md", ".opengrep/**", ".gitleaks.toml", "scripts/security-scan.sh"],
+      "verify": ["node scripts/review-check.mjs .baseleap/reviews/SEC1.md --kind security"],
+      "context": ["main..staging diff", "docs/SECURITY_MODEL.md", "docs/threat-model.md", "supabase/migrations/**", "env var names in docs/architecture.md"],
+      "model": "opus",
+      "estimated_hours": 1.5
+    },
+    {
+      "id": "DOC1",
+      "agent": "docs",
+      "phase": "verify",
+      "title": "SOPs for what was built and verified",
+      "description": "Write the SOPs in docs/sops/plan.md from the verified build only, citing evidence (ledger steps, QA reports, runbook, release logs) in docs/sops/evidence.md; client staff SOPs in docs/sops/client-staff/ (ruling); mark anything without evidence as unverified; docs/sops/changelog.md for Gate 3.",
+      "acceptance": ["every SOP passes sop-check", "every step cites evidence or is marked unverified", "changelog.md lists any unverified steps"],
+      "out_of_scope": ["publishing to Notion before Gate 3"],
+      "depends_on": ["QA2"],
+      "files": ["docs/sops/**"],
+      "verify": ["node scripts/sop-check.mjs docs/sops", "test -s docs/sops/changelog.md", "test -d docs/sops/client-staff", "test -n \"$(find docs/sops -name '*.md' ! -name plan.md ! -name changelog.md ! -name evidence.md)\""],
+      "context": ["docs/sops/plan.md", "docs/runbook.md", "docs/qa-reports/**", "docs/ops/account-setup.md"],
+      "model": "sonnet",
+      "estimated_hours": 1.5
+    },
+    {
+      "id": "DEP1",
+      "agent": "devops",
+      "phase": "deploy",
+      "title": "First production release as pipeline drills: release, rollback, secret rotation, then production health 200",
+      "description": "After Gate 3 only, through release.yml behind the GitHub production environment that Matthew approves: migrations with SUPABASE_PRODUCTION_DB_URL (no access token), prebuilt production deploy, read-only smoke, then the drills Matthew chose (5A): a release, an Instant Rollback and a secret rotation (Matthew sets the new value), each logged in docs/ops/pipeline-drills.md, ending on a healthy release. Requires Part 7 of docs/ops/account-setup.md done by Matthew.",
+      "acceptance": [
+        "release, rollback and secret-rotation drills each logged with time, commit and result",
+        "the production health URL returns 200 after the final release",
+        "release log entry in docs/deployments/; reviewer and security verdicts are APPROVED"
+      ],
+      "out_of_scope": ["custom domain", "any paid plan"],
+      "depends_on": ["DV1", "REV1", "SEC1", "DOC1"],
+      "files": ["docs/ops/pipeline-drills.md", "docs/deployments/**"],
+      "verify": [
+        "grep -Eq 'Verdict:\\**\\s*APPROVED' .baseleap/reviews/REV1.md",
+        "grep -Eq 'Verdict:\\**\\s*APPROVED' .baseleap/reviews/SEC1.md",
+        "grep -qi rollback docs/ops/pipeline-drills.md && grep -qi rotation docs/ops/pipeline-drills.md",
+        "ls docs/deployments/*.md",
+        "node scripts/smoke.mjs https://northside-quotes.vercel.app"
+      ],
+      "context": ["docs/runbook.md", "docs/ops/account-setup.md (Part 7)", ".github/workflows/release.yml"],
+      "model": "sonnet",
+      "estimated_hours": 2
+    }
+  ]
+}

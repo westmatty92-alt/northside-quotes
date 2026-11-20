@@ -1,0 +1,147 @@
+{
+  "profile": "full_stack",
+  "profile_reason": "Custom server logic (spam limits: honeypot + 3s minimum + 5 per 10 min per address; photo type/size checks; NQ- reference generation), Supabase Auth for two staff users, private photo storage, and a server-held GHL token with save-first retries need a backend. All nine core roles plus bl-integration (contact copy + stage-tag swaps with retries move data to GHL at runtime) and bl-docs (SOP plan + SOPs). Nothing skipped: this is the full-team rehearsal Matthew approved, and the app collects personal data and photos, so security stays.",
+  "build_mode": "hybrid",
+  "build_mode_reason": "Intake Q7 (Matthew, 2026-11-19) plus the Gate 1 rejection ruling: our app is the system of record and holds every request and all pipelines; GHL's standard hybrid role is website hosting and email marketing, and in v1 only email marketing is used (PRD NG-11: no website asked for). GHL is fed by a one-way contact copy tagged quote-request plus one stage tag, never authoritative and never blocking.",
+  "system_of_record": "app",
+  "platforms": [
+    { "name": "app", "role": "public quote form, owner inbox (list + pipeline board), all pipelines, source of truth (Supabase ca-central-1)" },
+    { "name": "ghl", "role": "test sub-account: email marketing (website hosting role unused in v1, NG-11); receives a one-way contact copy tagged quote-request plus the current stage tag" }
+  ],
+  "tasks": [
+    {
+      "id": "D1",
+      "agent": "designer",
+      "phase": "design",
+      "title": "Brand contract, user flows, design specs, rendered mockups",
+      "description": "From the approved PRD v1.1 and stories, produce DESIGN.md (brand contract with tokens; no client brand files exist, so propose a plain trades look and say so), src/app/theme.css and docs/tokens.json from it, docs/user-flows.md with a screen inventory (SCR-NN), docs/design-specs.md, and token-only HTML mockups in design/mockups rendered to docs/design/screens/SCR-NN-mobile.png and SCR-NN-desktop.png. No embed widths: PRD NG-11 rules out embedding, so no Access cell says 'embed'. Screens: public Request a quote form (mobile first, up to 3 photos, urgency, invisible honeypot), confirmation with NQ- reference, sign-in, owner inbox list (default view), pipeline board (New/Quoted/Won/Lost, drag plus 'Move to' menu), request detail (photos, price + note, status, GHL copy and stage-tag status label), weekly count. Every screen's States table covers empty, loading, error, success, disabled and validation as they apply, plus upload failure, a failed board save reverting, and an expired session. These screenshots go into the Gate 2 packet for Matthew.",
+      "acceptance": [
+        "every Must story with UI maps to at least one SCR-NN in the screen inventory (Should stories checked by the orchestrator at Gate 2)",
+        "each screen has docs/design/screens/SCR-NN-mobile.png and SCR-NN-desktop.png",
+        "AC-016.3, AC-016.13, AC-016.14 and AC-016.17 each appear in a SCR States table or the edge-path table",
+        "mockups use DESIGN.md tokens only",
+        "check-design.mjs and the DESIGN.md lint exit 0"
+      ],
+      "out_of_scope": ["editable or added board columns", "customer accounts", "email or SMS templates", "GHL website pages", "embed layouts"],
+      "depends_on": ["P0"],
+      "files": ["DESIGN.md", "src/app/theme.css", "docs/tokens.json", "docs/user-flows.md", "docs/design-specs.md", "design/**", "docs/design/**"],
+      "verify": ["npx --yes @google/design.md lint DESIGN.md", "node scripts/check-design.mjs"],
+      "context": ["docs/PRD.md", "docs/user-stories.md", "docs/metrics-spec.md", ".baseleap/inputs/brand/README.md"],
+      "model": "sonnet",
+      "estimated_hours": 2
+    },
+    {
+      "id": "OPS-SETUP",
+      "agent": "devops",
+      "phase": "design",
+      "title": "Account-setup packet for Matthew (GitHub, Vercel, Supabase ca-central-1, env var names)",
+      "description": "Write docs/ops/account-setup.md from the ops-environments account-setup template: what Matthew creates or connects by hand and in what order, as a table with Account | Owner | Created by | Recurring cost columns. Throwaway GitHub westmatty92-alt repo with main and staging branches and this repo as its remote; Vercel team baseleap project (check whether the team's plan supports preview protection and state the finding; any cost is a DECISION line); a NEW free Supabase project in the sandbox org in ca-central-1 used as staging, and how production is handled within $0 (a second project's cost, if any, as a DECISION line); Supabase Auth with public sign-up disabled and the two staff accounts created by Baseleap. Storage buckets are NOT created by hand: the architect's migrations create them. The verify environment on the orchestrator machine needs SUPABASE_STAGING_DB_URL and SUPABASE_ACCESS_TOKEN (names only; they go in the machine's .env.local, not Vercel). Name the GHL token variable but leave its scopes as 'per docs/integration-contract.md, Credentials and scopes', requested later through ops-secrets. Env var NAMES only. $0 spend limit: any paid item is flagged as needing spend_approval.",
+      "acceptance": [
+        "an Account | Owner | Created by | Recurring cost table covers GitHub, Vercel, Supabase and GHL",
+        "ca-central-1 is stated for every Supabase resource",
+        "SUPABASE_STAGING_DB_URL and SUPABASE_ACCESS_TOKEN are listed for the orchestrator machine",
+        "only env var names appear; no values, keys or tokens",
+        "no {{template}} placeholders remain"
+      ],
+      "out_of_scope": ["creating any account", "setting any secret value", "CI workflows", "creating storage buckets"],
+      "depends_on": ["P0"],
+      "files": ["docs/ops/account-setup.md"],
+      "verify": [
+        "test -s docs/ops/account-setup.md",
+        "! grep -n '{{' docs/ops/account-setup.md",
+        "grep -q 'ca-central-1' docs/ops/account-setup.md",
+        "grep -q 'SUPABASE_STAGING_DB_URL' docs/ops/account-setup.md",
+        "! grep -En 'eyJ[A-Za-z0-9_-]{10,}|sb_secret_[A-Za-z0-9]|pit-[0-9a-f]{8}|gh[pousr]_[A-Za-z0-9]{20,}|sk_(live|test)_' docs/ops/account-setup.md"
+      ],
+      "context": [".baseleap/brief.md", ".baseleap/inputs/intake.md", "docs/PRD.md"],
+      "model": "sonnet",
+      "estimated_hours": 0.75
+    },
+    {
+      "id": "A1",
+      "agent": "architect",
+      "phase": "design",
+      "title": "Blueprint: decisions, architecture, security model, schema + RLS, API contract, integration contract",
+      "description": "From PRD v1.1, user flows and design specs: house-stack decision records; docs/architecture.md with ERD, lane ownership (backend, frontend, integration, devops), 'Stories served without the API' for any Must story with no operation (e.g. sign-in through Supabase Auth), and a scheduled-retry design that fits the free Vercel/Supabase tier (save first, retry at least every 24h, up to 5) or a DECISION line with its cost; docs/SECURITY_MODEL.md (anon may only create a request and upload up to 3 photos to its own request's folder; staff = owner and helper with identical rights; no public sign-up; photos private, served via short-lived signed URLs). Public operations (submit, photo upload) don't use security: []; they declare a named public scheme in components.securitySchemes (e.g. an apiKey header carrying the anon key or a signed form token) and SECURITY_MODEL.md explains it. The first parameterless GET other than /health accepts an http bearer scheme and has a 2xx application/json response with a schema or example (check-mock calls it). Supabase migrations with RLS on every table, pgTAP enabled, storage buckets and storage.objects policies created in a migration (on conflict do nothing), plus RLS tests in supabase/tests/rls/ including storage. docs/openapi.yaml covers submit, photo upload, inbox list, board move/status change, price + note, weekly count, health. docs/integration-contract.md has sections Systems and roles, Record ownership, Field mapping (first table with a Direction column using in/out/both/read-only only), Events and webhooks ('None in v1' for inbound), Conflicts, When the platform is down (a table with at least one row), Credentials and scopes, and Open questions answering OQ-11 (GHL fields for the reference number and problem text) and OQ-15 (can the integration add/remove tags and create a missing tag) with official GHL docs URLs, marking anything unconfirmed 'to confirm' with its consequence (US-017 cut if tags are impossible).",
+      "acceptance": [
+        "every table has RLS enabled with policies and a test in supabase/tests/rls/",
+        "storage.objects policies limit anon to inserting into its own request's folder, at most 3 photos, with an RLS test",
+        "every OpenAPI operation traces to a story id and has at least one documented 4xx (full 401/403/404/422 coverage reviewed at Gate 2)",
+        "integration-contract.md has every required section and the Direction column",
+        "OQ-11 and OQ-15 answered with sources or marked 'to confirm' with the consequence",
+        "the retry schedule fits the free tier, or its cost is a DECISION line",
+        "check-architecture.mjs, redocly lint and check-mock.mjs exit 0"
+      ],
+      "out_of_scope": ["application feature code", "CI", "GHL website or email setup"],
+      "depends_on": ["D1", "OPS-SETUP"],
+      "files": ["docs/decisions/**", "docs/architecture.md", "docs/SECURITY_MODEL.md", "docs/openapi.yaml", "docs/integration-contract.md", "supabase/migrations/**", "supabase/tests/**"],
+      "verify": [
+        "node scripts/check-architecture.mjs",
+        "npx --yes @redocly/cli lint docs/openapi.yaml",
+        "node scripts/check-mock.mjs",
+        "grep -q 'OQ-11' docs/integration-contract.md && grep -q 'OQ-15' docs/integration-contract.md"
+      ],
+      "context": ["docs/PRD.md", "docs/user-stories.md", "docs/user-flows.md", "docs/design-specs.md", "DESIGN.md", "docs/metrics-spec.md", "docs/ops/account-setup.md"],
+      "model": "opus",
+      "estimated_hours": 3
+    },
+    {
+      "id": "S0",
+      "agent": "security",
+      "phase": "design",
+      "title": "Threat model of the blueprint before code",
+      "description": "Adversarial review of A1: anonymous public form abuse (spam, oversized or malicious uploads, guessing reference numbers), photo privacy including storage.objects policies (the checker doesn't inspect them), staff auth with no reset email, RLS on every table, the GHL token boundary and what the copy sends to a third party (personal data), and the retry job's trigger. Critical and Important findings become contract questions to the architect, answered before Gate 2.",
+      "acceptance": [
+        "docs/threat-model.md lists assets, entry points, threats and the control for each",
+        "every Critical/Important finding has a routable directive in .baseleap/reviews/S0.md in the shared verdict format"
+      ],
+      "out_of_scope": ["code review (no code yet)", "dependency scanning"],
+      "depends_on": ["A1"],
+      "files": ["docs/threat-model.md", ".baseleap/reviews/S0.md"],
+      "verify": ["test -s docs/threat-model.md", "node scripts/review-check.mjs .baseleap/reviews/S0.md --kind security"],
+      "context": ["docs/PRD.md", "docs/architecture.md", "docs/SECURITY_MODEL.md", "docs/openapi.yaml", "docs/integration-contract.md", "supabase/migrations/**", "supabase/tests/**"],
+      "model": "opus",
+      "estimated_hours": 1
+    },
+    {
+      "id": "DOC0",
+      "agent": "docs",
+      "phase": "design",
+      "title": "SOP plan for what this build creates or changes",
+      "description": "From the PRD, design specs and the blueprint, list every procedure this build creates or changes, using the templates/sop-plan.md table: who runs it, SOP kind and home, and the evidence that will back it (e.g. owner/helper daily inbox and board use, adding a staff account, what to do when the GHL copy or stage tag shows 'failed', the release and rollback runbook, purging requests after 24 months). Output docs/sops/plan.md for the Gate 2 brief.",
+      "acceptance": [
+        "one row per procedure with who runs it, kind, home and expected evidence",
+        "no procedure is described as built; it's a plan",
+        "no {{template}} placeholders remain"
+      ],
+      "out_of_scope": ["writing the SOPs (DOC1, verify phase)", "publishing to Notion"],
+      "depends_on": ["A1"],
+      "files": ["docs/sops/plan.md"],
+      "verify": ["test -s docs/sops/plan.md", "! grep -n '{{' docs/sops/plan.md", "grep -qi '| *procedure' docs/sops/plan.md"],
+      "context": ["docs/PRD.md", "docs/design-specs.md", "docs/architecture.md", "docs/integration-contract.md", "docs/ops/account-setup.md"],
+      "model": "sonnet",
+      "estimated_hours": 0.5
+    },
+    {
+      "id": "A2",
+      "agent": "architect",
+      "phase": "design",
+      "title": "Scaffold that builds; migrations + RLS tests on the staging Supabase project",
+      "description": "Repo skeleton in the main working tree per architecture.md: Next.js app importing D1's src/app/theme.css unchanged (D1's checker compares it byte for byte), Orval-generated client, Zod schemas and MSW handlers in src/lib/api/generated/, generated DB types, frontend/backend/integration folders per lane ownership, src/lib/server/admin.ts as the only service-role entry point, .env.example with names only. Keep the existing .gitignore lines (.env.local, .baseleap/run.json, .baseleap/tools/). db:test applies pending migrations to the staging Supabase project (idempotent supabase db push --db-url $SUPABASE_STAGING_DB_URL) then runs supabase test db against it. If db:test exposes a migration or RLS test defect, fix it here (A2 owns those paths in its later wave) and say so in the report. Branches and the GitHub remote are devops' job in the build plan.",
+      "acceptance": [
+        "npm ci, gen:types, typecheck, lint and build all exit 0 on the skeleton",
+        "db:test applies the migrations and passes the RLS tests on the staging project",
+        "Orval output in src/lib/api/generated/ matches a fresh run (generated guard passes)",
+        "the service-role guard passes"
+      ],
+      "out_of_scope": ["feature code", "CI workflows", "Vercel project settings", "creating branches or remotes"],
+      "depends_on": ["A1", "OPS-SETUP"],
+      "requires_gates": ["account_setup"],
+      "files": ["package.json", "package-lock.json", "tsconfig.json", "next-env.d.ts", "next.config.*", "eslint.config.*", "vitest.config.*", "vitest.setup.*", "postcss.config.*", "orval.config.ts", "components.json", ".nvmrc", ".npmrc", "src/**", "public/**", "supabase/config.toml", "supabase/scripts/**", "supabase/migrations/**", "supabase/tests/**", ".gitignore", ".env.example"],
+      "verify": ["npm ci", "npm run gen:types", "npm run typecheck", "npm run lint", "npm run build", "npm run db:test", "node scripts/check-mock.mjs", "node scripts/check-code-guards.mjs generated", "node scripts/check-code-guards.mjs service-role"],
+      "context": ["docs/architecture.md", "docs/openapi.yaml", "docs/SECURITY_MODEL.md", "docs/integration-contract.md", "DESIGN.md", "src/app/theme.css", "supabase/migrations/**", "docs/ops/account-setup.md"],
+      "model": "sonnet",
+      "estimated_hours": 2
+    }
+  ]
+}
