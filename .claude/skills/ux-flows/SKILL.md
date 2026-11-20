@@ -24,7 +24,7 @@ Rules:
 
 ## 2. Navigation
 
-- Primary navigation ≤ 5 top-level items; group the rest.
+- **Every feature gets its own tab in the primary navigation** (Matthew, Nov 19 2026): Pipeline, Contacts, Requests, Calendar, Reports, Settings… each is a tab with its own address, never a toggle or a section hidden inside another screen. Two views of the same records (e.g. a list and a board) are two tabs when they serve different jobs. Up to 5 tabs: a top bar on desktop and a bottom tab bar on phones. More than 5: a left sidebar on desktop, with the 4 most-used tabs plus **More** on phones. Order tabs by how often the user needs them.
 - Name things in the user's words (from the PRD personas), not the system's.
 - **GHL embed routes have no app chrome** — no top nav, no sidebar; they're one focused task inside the client's GHL page (see `ux-a11y` §4).
 - Mark which screens are signed-in, public, or embed-only.

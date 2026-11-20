@@ -122,7 +122,12 @@ async function main() {
         out({ ok: true, gate_id: g.id, gate_key: key, next: 'STOP. Present the gate packet to Matthew and wait.' });
       } else if (sub === 'status') {
         const { latest, all } = await L.latestGates(db, planId);
-        out({ latest: Object.values(latest).map((g) => ({ key: g.gate_key, status: g.status })), open: all.filter((g) => g.status === 'open').map((g) => ({ key: g.gate_key, summary: g.summary })) });
+        out({
+          latest: Object.values(latest).map((g) => ({ key: g.gate_key, status: g.status })),
+          open: all.filter((g) => g.status === 'open').map((g) => ({ key: g.gate_key, summary: g.summary })),
+          // Matthew's rulings, newest first: the orchestrator reads his notes here instead of querying the database.
+          history: all.filter((g) => g.status !== 'open').map((g) => ({ key: g.gate_key, status: g.status, resolved_at: g.resolved_at, note: g.resolution_note ?? '' })),
+        });
       } else if (sub === 'resolve') {
         // Belt: the DB already refuses service-role resolution. Braces: refuse non-interactive
         // and Claude Code shells outright, so an agent can't even reach the password prompt.

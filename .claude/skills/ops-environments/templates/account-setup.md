@@ -80,8 +80,7 @@ Go to **Settings → Environments**.
 | Kind | Name | Value |
 |---|---|---|
 | Secret | `VERCEL_TOKEN` | Vercel 3.7 |
-| Secret | `SUPABASE_ACCESS_TOKEN` | Supabase 2.4 |
-| Secret | `SUPABASE_DB_PASSWORD` | production database password |
+| Secret | `SUPABASE_PRODUCTION_DB_URL` | production connection string (Connect → Direct · Connection string → Session pooler, password filled in). Never a Supabase access token (Token A, Nov 19) |
 | Variable | `VERCEL_ORG_ID` | Team ID |
 | Variable | `VERCEL_PROJECT_ID` | Project ID |
 | Variable | `SUPABASE_PRODUCTION_REF` | production project ref |
@@ -94,7 +93,7 @@ Go to **Settings → Environments**.
 
 | ✓ | Where | What |
 |---|---|---|
-| ☐ | Supabase | two projects, keys copied, URL configuration on both, access token |
+| ☐ | Supabase | two projects, keys copied, URL configuration on both, connection strings (no access token) |
 | ☐ | Vercel | every row of the table, in Production and Preview, with the right type |
 | ☐ | Vercel | system variables exposed, production branch `main`, region yul1, bypass secret, domain verified |
 | ☐ | GitHub `staging` | bypass secret, `PRODUCTION_HOSTS` |

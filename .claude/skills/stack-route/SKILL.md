@@ -45,6 +45,7 @@ If a needed specialist's file doesn't exist in `.claude/agents/`, **stop** — s
 - Parallelize steps in the same ready wave **only** when their `files` don't overlap. The ledger already rejected same-wave clashes; respect it at dispatch time too.
 - Phase 2 has three standing lanes: `wt-backend`, `wt-frontend`, and devops in the main tree (config only). Create each lane once (`git worktree add ../<repo>-wt-backend -b lane/backend staging`) and give every step in that lane the lane path in its brief, so consecutive steps build on each other.
 - Within a lane, steps run one at a time. Across lanes, they run in parallel (`run_in_background: true`).
+- **Never end your turn while a specialist is still running.** In a headless session (`claude -p`, the relay Claude uses when Matthew is away), ending the turn kills background subagents mid-step: the rehearsal lost D1's third attempt this way (Nov 19). Wait for every dispatched specialist's report before you stop. An interrupted step is class `env`, never a `fail` against the specialist.
 - Lane count is the number of independent file groups, not the number of steps. The ledger rejects same-wave file overlaps at plan time.
 - **Phase 3 merge:** merge `lane/backend`, then `lane/frontend`, into `staging` and push. That triggers the Vercel preview. Record the merge SHAs and the preview URL as an event (`event integration.merged`). Conflicts go back to the owning lane; you never resolve them yourself.
 

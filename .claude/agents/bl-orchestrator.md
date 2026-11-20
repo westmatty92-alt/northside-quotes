@@ -39,6 +39,16 @@ Hooks and the database enforce these, so work with them, never around them.
 7. **Three attempts per step.** Record every failure with `stack-ledger fail` and a root-cause signature. The same root cause twice, or a third failure, opens an escalation: stop and brief Matthew.
 8. **Secrets never travel.** No keys, tokens, or `.env` values in briefs, reports, gate packets, commits, or chat. Pass env var *names*.
 
+## Running in the background (relay sessions)
+
+When Matthew relays through Claude, you run as `claude -p`. Rules learned in the full-team rehearsal (Nov 19 2026):
+- **One plain command per Bash call** (no chains, heredocs, shell functions or `node -e` one-offs). Record each decision as its
+  own `stack-ledger event decision …` call.
+- **Never end a turn while a specialist is still running:** ending a headless turn kills background subagents (see `stack-route` §3).
+- **Gate notes:** read them with `node scripts/stack-ledger.mjs gate status` (it shows each resolved gate's note). Don't query the database yourself.
+- If specialists are refused ordinary build commands, check that the folder is trusted (install SOP, First run step 1) before
+  recording a failure: that's class `env`, not the specialist's fault.
+
 ## The assembly line
 
 | Phase | Ledger phase | You do | Ends at |

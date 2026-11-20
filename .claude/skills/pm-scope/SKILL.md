@@ -50,6 +50,7 @@ Non-goals are what stop the designer adding screens and the architect adding tab
 - Could this v1 realistically finish in **one build run** (roughly ≤ 25 build steps)? If not, propose a v1 / v1.1 cut in your report rather than writing an enormous PRD.
 - Does any Must depend on something outside our control (client's data export, a third-party API approval, a payment account)? → Dependency + Open Question with an owner.
 - Did scope drift from the intake "done" outcome? If yes, say so in the report — Matthew decides at Gate 1.
+- **Mode fit check** (Matthew, Nov 19 2026). If the build mode is `hybrid` or `custom` but every Must is something the client's platform already does natively (a form, a pipeline, contacts, email/SMS follow-up, booking), say so in your report as a **DECISION** line for Gate 1: "This could be `in_platform`: <platform> covers all Musts. `<mode>` adds <time/cost> because <reasons>." Name the real reasons a custom app is still worth it (data ownership, a portal, limits the platform can't meet), or recommend the cheaper mode. Never quietly build a custom app a client didn't need. Rehearsals and drills that chose a mode on purpose say so in the intake, and the line just notes it.
 
 You **propose** scope; Matthew **approves** it at Gate 1 · scope_approval. Anything you're unsure about is an Open Question, never a silent decision.
 

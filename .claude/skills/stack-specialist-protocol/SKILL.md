@@ -50,6 +50,20 @@ If a shared artifact is wrong, missing something, or contradicts another one (th
 - No production actions (prod DB writes, deploys to `main`, DNS, sending real email/SMS) unless your step is explicitly the post-Gate-3 deploy step.
 - No new paid services or dependencies with a cost — report it; the orchestrator opens a spend gate.
 
+## 5a. How to run commands (learned the hard way, Nov 2026)
+
+You often run in the background, where nobody can click "allow". The project's allow list covers build, test, lint, local
+Supabase, git and `node scripts/*`. Anything else is refused, so:
+- **One plain command per Bash call.** No `cd … &&`, no `;` chains, no `git -C <path>`, no heredocs, no shell functions, no
+  `python3 - <<EOF` edits. Run from the repo root with relative paths. A refused command is information: report it, don't
+  dress it up in another form.
+- **Edit files with Write/Edit, never with shell redirects or `sed -i`.** Read files with Read/Grep/Glob, never `cat`/`grep`
+  from the shell (those can reach `.env` files and are not allowed).
+- **Before you hand in code:** run the repo's `npm run lint` and `npx tsc --noEmit` and fix what they report. CI's required
+  `verify` check lints everything, tests included.
+- **Each repo gets its own `npm ci`.** Never symlink `node_modules` from another repo (Next.js/Turbopack refuses to build).
+- A local run doesn't prove hosted behaviour: the local Supabase stack allows things hosted Supabase refuses. Say which one you ran.
+
 ## 6. Report
 
 Write the full report to `.baseleap/reports/<STEP>.md`. On a fix attempt, **append** a new `## Attempt N` section — never rewrite earlier attempts. Then return only the summary block (≤ 15 lines) to the orchestrator.

@@ -112,14 +112,21 @@ jobs:
             fs.appendFileSync(process.env.GITHUB_OUTPUT, `id=${d.id}\nurl=${d.url}\nsha=${sha}\n`);
           NODE
 
-      - name: Migrations (dry run, then apply)
+      # Token A (Matthew, Nov 19 2026): no Supabase personal access token anywhere (they reach every org the owner is in).
+      # Production migrations use the production database's own connection string (session pooler), stored only as a
+      # secret in the GitHub `production` environment. Same pattern as ops-ci/templates/staging-migrations.yml (verified
+      # on staging Nov 18); the production path is verified at each new client's release drill (pipeline-drills.md).
+      - name: Migrations (dry run, then apply) — production database only
         env:
-          SUPABASE_ACCESS_TOKEN: ${{ secrets.SUPABASE_ACCESS_TOKEN }}
-          SUPABASE_DB_PASSWORD: ${{ secrets.SUPABASE_DB_PASSWORD }}
+          SUPABASE_PRODUCTION_DB_URL: ${{ secrets.SUPABASE_PRODUCTION_DB_URL }}
         run: |
-          npx --no-install supabase link --project-ref "$SUPABASE_PROJECT_REF"
-          npx --no-install supabase db push --remote="$SUPABASE_PROJECT_REF" --dry-run 2>&1 | tee "$RUNNER_TEMP/migrations-dry-run.txt"
-          npx --no-install supabase db push --remote="$SUPABASE_PROJECT_REF" --yes
+          case "$SUPABASE_PRODUCTION_DB_URL" in
+            "") echo "::error::Secret SUPABASE_PRODUCTION_DB_URL is not set in the production environment."; exit 1 ;;
+            *"$SUPABASE_PROJECT_REF"*) ;;
+            *) echo "::error::SUPABASE_PRODUCTION_DB_URL is not for project $SUPABASE_PROJECT_REF."; exit 1 ;;
+          esac
+          npx --no-install supabase db push --remote="$SUPABASE_PRODUCTION_DB_URL" --dry-run 2>&1 | sed '/postgresql:\/\//d' | tee "$RUNNER_TEMP/migrations-dry-run.txt"
+          npx --no-install supabase db push --remote="$SUPABASE_PRODUCTION_DB_URL" --yes 2>&1 | sed '/postgresql:\/\//d'
 
       - name: Pull production settings, build, and deploy the prebuilt output (not yet live)
         id: deploy
