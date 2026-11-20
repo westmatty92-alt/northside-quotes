@@ -1,0 +1,93 @@
+{
+  "$comment": "infra/environments.json (owned by bl-devops). Names and rules only, never values. Values are set by Matthew in Vercel, GitHub and the orchestrator's .env.local (docs/ops/account-setup.md). scripts/env-check.mjs reads this file. scope: app = Vercel runtime variable; system = provided by Vercel, never set by hand; ci = GitHub environment secret/variable (must be absent from Vercel); orchestrator = .env.local on the orchestrator machine and/or GitHub (must be absent from Vercel). production/preview rules: required | optional | absent. githubEnvs: the GitHub environments (or 'repo') that hold the name.",
+  "project": "northside-quotes",
+  "ignoredPrefixes": ["BASELEAP_"],
+  "environments": {
+    "production": {
+      "branch": "main",
+      "vercel": "production",
+      "supabase": "Northside production (ca-central-1)",
+      "url": "https://northside-quotes.vercel.app",
+      "githubEnvironment": "production",
+      "deploys": "only by .github/workflows/release.yml after Gate 3 and Matthew's approval; Git deploys of main are off in vercel.json"
+    },
+    "staging": {
+      "branch": "staging",
+      "vercel": "preview",
+      "supabase": "Northside staging (ca-central-1)",
+      "url": "https://northside-quotes-git-staging-baseleap.vercel.app",
+      "githubEnvironment": "staging"
+    },
+    "lane-previews": {
+      "branch": "lane/*",
+      "vercel": "preview",
+      "supabase": "Northside staging (shared)",
+      "url": null
+    }
+  },
+  "variables": [
+    { "name": "NEXT_PUBLIC_SUPABASE_URL", "scope": "app", "public": true, "production": "required", "preview": "required", "setBy": "matthew", "note": "production: production project URL; preview: staging project URL" },
+    { "name": "NEXT_PUBLIC_SUPABASE_ANON_KEY", "scope": "app", "public": true, "production": "required", "preview": "required", "setBy": "matthew", "note": "publishable key of the matching project" },
+    { "name": "SUPABASE_SERVICE_ROLE_KEY", "scope": "app", "sensitive": true, "production": "required", "preview": "required", "setBy": "matthew", "note": "read only in src/lib/server/admin.ts (SECURITY_MODEL invariant 2)" },
+    { "name": "SITE_URL", "scope": "app", "production": "required", "preview": "required", "setBy": "matthew", "note": "two rows: production address, staging address" },
+    { "name": "APP_SIGNING_SECRET", "scope": "app", "sensitive": true, "production": "required", "preview": "required", "setBy": "matthew", "note": "SEC-4, at least 32 characters, a different value per environment, Vercel only (never GitHub, never an agent machine)" },
+    { "name": "CRON_SECRET", "scope": "app", "sensitive": true, "production": "required", "preview": "required", "setBy": "matthew", "note": "SEC-4, at least 32 characters, a different value per environment, Vercel only" },
+    { "name": "GHL_PRIVATE_INTEGRATION_TOKEN", "scope": "app", "sensitive": true, "production": "optional", "preview": "optional", "setBy": "matthew", "note": "test sub-account token, scopes contacts.readonly and contacts.write only; a later setting request. Becomes required before the first release that must copy to GHL (DEP1 decides)" },
+    { "name": "GHL_LOCATION_ID", "scope": "app", "production": "required", "preview": "required", "setBy": "matthew", "note": "test sub-account id, not secret, same value in both" },
+    { "name": "GHL_API_BASE_URL", "scope": "app", "production": "absent", "preview": "optional", "setBy": "matthew", "note": "optional; never set in production (ignored there, SECURITY_MODEL invariant 9)" },
+
+    { "name": "VERCEL_ENV", "scope": "system", "production": "absent", "preview": "absent", "setBy": "vercel", "note": "Vercel system variable (Automatically expose System Environment Variables)" },
+    { "name": "VERCEL_GIT_COMMIT_SHA", "scope": "system", "production": "absent", "preview": "absent", "setBy": "vercel", "note": "Vercel system variable; /api/health version" },
+
+    { "name": "VERCEL_AUTOMATION_BYPASS_SECRET", "scope": "ci", "sensitive": true, "production": "absent", "preview": "absent", "githubEnvs": ["staging"], "setBy": "matthew", "note": "Protection Bypass for Automation, from the Vercel project; sent as x-vercel-protection-bypass to staging only" },
+    { "name": "SUPABASE_STAGING_URL", "scope": "ci", "sensitive": true, "production": "absent", "preview": "absent", "githubEnvs": ["staging"], "setBy": "matthew", "note": "staging project URL, for tests" },
+    { "name": "SUPABASE_STAGING_ANON_KEY", "scope": "ci", "sensitive": true, "production": "absent", "preview": "absent", "githubEnvs": ["staging"], "setBy": "matthew", "note": "staging publishable key, for tests" },
+    { "name": "SUPABASE_STAGING_SERVICE_ROLE_KEY", "scope": "ci", "sensitive": true, "production": "absent", "preview": "absent", "githubEnvs": ["staging"], "setBy": "matthew", "note": "staging secret key, for tests" },
+    { "name": "SUPABASE_STAGING_DB_URL", "scope": "orchestrator", "sensitive": true, "production": "absent", "preview": "absent", "githubEnvs": ["staging"], "setBy": "matthew", "note": "staging session-pooler URI with password; migrations and RLS tests (npm run db:migrate, db:test); also in the orchestrator's .env.local" },
+    { "name": "SUPABASE_STAGING_REF", "scope": "orchestrator", "production": "absent", "preview": "absent", "githubEnvs": ["staging"], "setBy": "matthew", "note": "staging project ref (not secret); db.mjs refuses a staging URL that does not name it" },
+    { "name": "SUPABASE_PROD_PROJECT_REF", "scope": "orchestrator", "production": "absent", "preview": "absent", "githubEnvs": [], "setBy": "matthew", "note": "optional guard on the orchestrator machine only: db.mjs refuses a staging URL that names the production project" },
+    { "name": "PRODUCTION_HOSTS", "scope": "ci", "production": "absent", "preview": "absent", "githubEnvs": ["staging"], "setBy": "matthew", "note": "production hostnames, so QA tooling refuses to run against them" },
+    { "name": "STAGING_URL", "scope": "ci", "production": "absent", "preview": "absent", "githubEnvs": [], "setBy": "devops", "note": "QA's base URL. In CI qa-smoke.yml sets it from the deployment; on the orchestrator machine it is in .env.local" },
+    { "name": "QA_OWNER_EMAIL", "scope": "ci", "production": "absent", "preview": "absent", "githubEnvs": ["staging"], "setBy": "matthew", "note": "staging owner test login (QA names, proposed by DevOps; QA confirms)" },
+    { "name": "QA_OWNER_PASSWORD", "scope": "ci", "sensitive": true, "production": "absent", "preview": "absent", "githubEnvs": ["staging"], "setBy": "matthew", "note": "staging owner test password" },
+    { "name": "QA_HELPER_EMAIL", "scope": "ci", "production": "absent", "preview": "absent", "githubEnvs": ["staging"], "setBy": "matthew", "note": "staging helper test login" },
+    { "name": "QA_HELPER_PASSWORD", "scope": "ci", "sensitive": true, "production": "absent", "preview": "absent", "githubEnvs": ["staging"], "setBy": "matthew", "note": "staging helper test password" },
+
+    { "name": "SUPABASE_PRODUCTION_DB_URL", "scope": "ci", "sensitive": true, "production": "absent", "preview": "absent", "githubEnvs": ["production"], "setBy": "matthew", "note": "token A: production session-pooler URI with password; lives ONLY in the GitHub production environment; migrations in release.yml" },
+    { "name": "VERCEL_TOKEN", "scope": "ci", "sensitive": true, "production": "absent", "preview": "absent", "githubEnvs": ["production"], "setBy": "matthew", "note": "release token, team baseleap only, 30-day expiry; also read-only drift check in release.yml" },
+    { "name": "VERCEL_ORG_ID", "scope": "ci", "production": "absent", "preview": "absent", "githubEnvs": ["production"], "setBy": "matthew", "note": "Vercel team id (not secret)" },
+    { "name": "VERCEL_PROJECT_ID", "scope": "ci", "production": "absent", "preview": "absent", "githubEnvs": ["production"], "setBy": "matthew", "note": "Vercel project id (not secret)" },
+    { "name": "PRODUCTION_URL", "scope": "ci", "production": "absent", "preview": "absent", "githubEnvs": ["repo"], "setBy": "matthew", "note": "repo-level variable, read by release.yml and uptime.yml" }
+  ],
+  "github": {
+    "repo": {
+      "secrets": [],
+      "variables": ["PRODUCTION_URL"]
+    },
+    "staging": {
+      "secrets": ["VERCEL_AUTOMATION_BYPASS_SECRET", "SUPABASE_STAGING_URL", "SUPABASE_STAGING_ANON_KEY", "SUPABASE_STAGING_SERVICE_ROLE_KEY", "SUPABASE_STAGING_DB_URL"],
+      "variables": ["SUPABASE_STAGING_REF", "PRODUCTION_HOSTS"],
+      "optionalSecrets": ["QA_OWNER_EMAIL", "QA_OWNER_PASSWORD", "QA_HELPER_EMAIL", "QA_HELPER_PASSWORD"]
+    },
+    "production": {
+      "secrets": ["VERCEL_TOKEN", "SUPABASE_PRODUCTION_DB_URL"],
+      "variables": ["VERCEL_ORG_ID", "VERCEL_PROJECT_ID"],
+      "deploymentBranches": ["main"],
+      "requiredReviewers": ["westmatty92-alt"],
+      "allowAdministratorsToBypass": false
+    }
+  },
+  "vercelConfig": {
+    "$comment": "What vercel.json must say (docs/architecture.md 'Lane ownership'). Headers are next.config.ts's, not vercel.json's.",
+    "regions": ["yul1"],
+    "gitDeploymentEnabledMain": false,
+    "crons": [
+      { "path": "/api/jobs/ghl-sync", "schedule": "0 0 * * *" },
+      { "path": "/api/jobs/ghl-sync", "schedule": "0 6 * * *" },
+      { "path": "/api/jobs/ghl-sync", "schedule": "0 12 * * *" },
+      { "path": "/api/jobs/ghl-sync", "schedule": "0 18 * * *" },
+      { "path": "/api/jobs/housekeeping", "schedule": "30 7 * * *" }
+    ]
+  },
+  "smokePaths": ["/api/health", "/", "/sign-in"]
+}
