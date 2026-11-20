@@ -34,7 +34,8 @@ select throws_ok($$ select public.mark_sign_in_succeeded(gen_random_uuid()) $$, 
 reset role;
 
 set local role service_role;
-select is((select count(*) from public.sign_in_attempts), 1::bigint, 'the server (service role) reads the attempts');
+select is((select count(*) from public.sign_in_attempts where email_hash = repeat('cd', 32)), 1::bigint,
+  'the server (service role) reads the attempts');  -- scoped to this test's row: real sign-ins on staging never change it
 reset role;
 
 select * from finish();

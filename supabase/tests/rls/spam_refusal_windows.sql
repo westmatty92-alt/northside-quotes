@@ -27,7 +27,8 @@ set local "request.jwt.claims" to '{"sub":"a0000000-0000-4000-8000-000000000001"
 set local "request.jwt.claim.sub" to 'a0000000-0000-4000-8000-000000000001';
 set local role authenticated;
 select throws_ok($$ select count(*) from public.spam_refusal_windows $$, '42501', null, 'staff cannot read address keys');
-select is((select count(*) from public.events where name = 'spam_submission_blocked'), 1::bigint,
+-- counts are scoped to this test's event and window, so real refusals on staging never change them
+select is((select count(*) from public.events where name = 'spam_submission_blocked' and id = 'd0000000-0000-4000-8000-000000000001'), 1::bigint,
   'staff read the capped event itself (it holds no address)');
 select throws_ok($$ select public.record_spam_refusal(repeat('ab', 32), 'honeypot') $$, '42501', null,
   'staff cannot call record_spam_refusal');
@@ -43,13 +44,15 @@ select throws_ok($$ select public.record_spam_refusal(repeat('ab', 32), 'honeypo
 reset role;
 
 set local role service_role;
-select is((select count(*) from public.spam_refusal_windows), 1::bigint, 'the server (service role) reads the windows');
+select is((select count(*) from public.spam_refusal_windows where event_id = 'd0000000-0000-4000-8000-000000000001'), 1::bigint,
+  'the server (service role) reads the windows');
 select throws_ok($$ update public.events set name = 'staff_signed_in' where id = 'd0000000-0000-4000-8000-000000000001' $$,
   '42501', null, 'the server can update only an event''s properties (its count), never its name');
 reset role;
 
 delete from public.events where id = 'd0000000-0000-4000-8000-000000000001';
-select is((select count(*) from public.spam_refusal_windows), 0::bigint, 'a window goes with its event (cascade)');
+select is((select count(*) from public.spam_refusal_windows where event_id = 'd0000000-0000-4000-8000-000000000001'), 0::bigint,
+  'a window goes with its event (cascade)');
 
 select * from finish();
 rollback;

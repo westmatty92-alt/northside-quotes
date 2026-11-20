@@ -30,11 +30,19 @@ select ok((select relforcerowsecurity from pg_class where oid = 'public.quote_re
 select throws_ok($$ update public.quote_requests set ghl_contact_id = '../locations/abc' where id = 'c0000000-0000-4000-8000-000000000001' $$,
   '23514', null, 'a GHL contact id with path characters is refused (S0 SEC-12)');
 
+-- Counts for staff are scoped to this test's two requests (c...01 submitted, c...02 pending), so
+-- real requests on staging never change them. c...01 is submitted at now() (this transaction's
+-- start), so it is the newest row and always on the first page of list_quote_requests.
+-- Assertions that expect 0 rows whatever the data (pending rows, old sessions, non-staff) stay
+-- unscoped, which is stronger.
+
 -- owner
 set local "request.jwt.claims" to '{"sub":"a0000000-0000-4000-8000-000000000001","role":"authenticated","session_id":"b0000000-0000-4000-8000-000000000001"}';
 set local "request.jwt.claim.sub" to 'a0000000-0000-4000-8000-000000000001';
 set local role authenticated;
-select is((select count(*) from public.quote_requests), 1::bigint, 'owner sees the submitted request only');
+select is((select count(*) from public.quote_requests
+            where id in ('c0000000-0000-4000-8000-000000000001', 'c0000000-0000-4000-8000-000000000002')), 1::bigint,
+  'owner sees the submitted request only');
 select is((select count(*) from public.quote_requests where state = 'pending'), 0::bigint, 'owner never sees a pending request (FR-3)');
 select throws_ok($$ update public.quote_requests set status = 'won' $$, '42501', null, 'owner cannot update the table directly (RPC only)');
 select throws_ok($$ delete from public.quote_requests $$, '42501', null, 'owner cannot delete requests (NG-7)');
@@ -42,18 +50,34 @@ select throws_ok($$ insert into public.quote_requests (submission_key, name, pho
                     values (gen_random_uuid(), 'Fake Person', '9055550100', 'f@example.com', '1 Main St', 'Made up problem text', 'soon') $$,
   '42501', null, 'owner cannot insert requests directly');
 -- list_quote_requests (S0 SEC-13): typed search, RLS still decides
-select is((select count(*) from public.list_quote_requests()), 1::bigint, 'the list shows the submitted request only');
-select is((select reference from public.list_quote_requests(null, 'nq-7k3m9p')), 'NQ-7K3M9P', 'search by reference ignores case (AC-013.1)');
-select is((select count(*) from public.list_quote_requests(null, 'whit')), 1::bigint, 'search by part of the name (AC-013.3)');
-select is((select count(*) from public.list_quote_requests(null, '555-0142')), 1::bigint, 'search by phone digits');
-select is((select count(*) from public.list_quote_requests(null, 'zzz')), 0::bigint, 'no match lists nothing (AC-013.2)');
-select is((select count(*) from public.list_quote_requests(null, 'Sam')), 0::bigint, 'search never finds a pending request');
-select is((select count(*) from public.list_quote_requests(null, '%,state.eq.pending')), 0::bigint,
+select is((select count(*) from public.list_quote_requests()
+            where id in ('c0000000-0000-4000-8000-000000000001', 'c0000000-0000-4000-8000-000000000002')), 1::bigint,
+  'the list shows the submitted request only');
+select is((select reference from public.list_quote_requests(null, 'nq-7k3m9p') where id = 'c0000000-0000-4000-8000-000000000001'), 'NQ-7K3M9P',
+  'search by reference ignores case (AC-013.1)');
+select is((select count(*) from public.list_quote_requests(null, 'whit')
+            where id in ('c0000000-0000-4000-8000-000000000001', 'c0000000-0000-4000-8000-000000000002')), 1::bigint,
+  'search by part of the name (AC-013.3)');
+select is((select count(*) from public.list_quote_requests(null, '555-0142')
+            where id in ('c0000000-0000-4000-8000-000000000001', 'c0000000-0000-4000-8000-000000000002')), 1::bigint,
+  'search by phone digits');
+select is((select count(*) from public.list_quote_requests(null, 'zzz')
+            where id in ('c0000000-0000-4000-8000-000000000001', 'c0000000-0000-4000-8000-000000000002')), 0::bigint,
+  'no match lists nothing (AC-013.2)');
+select is((select count(*) from public.list_quote_requests(null, 'Sam')
+            where id in ('c0000000-0000-4000-8000-000000000001', 'c0000000-0000-4000-8000-000000000002')), 0::bigint,
+  'search never finds a pending request');
+select is((select count(*) from public.list_quote_requests(null, '%,state.eq.pending')
+            where id in ('c0000000-0000-4000-8000-000000000001', 'c0000000-0000-4000-8000-000000000002')), 0::bigint,
   'filter syntax in the search text is plain text, not a filter');
-select is((select count(*) from public.list_quote_requests('won')), 0::bigint, 'status filter');
-select is((select count(*) from public.list_quote_requests(null, null, now() + interval '1 minute', 'ffffffff-ffff-4fff-bfff-ffffffffffff')), 1::bigint,
+select is((select count(*) from public.list_quote_requests('won')
+            where id in ('c0000000-0000-4000-8000-000000000001', 'c0000000-0000-4000-8000-000000000002')), 0::bigint,
+  'status filter');
+select is((select count(*) from public.list_quote_requests(null, null, now() + interval '1 minute', 'ffffffff-ffff-4fff-bfff-ffffffffffff')
+            where id in ('c0000000-0000-4000-8000-000000000001', 'c0000000-0000-4000-8000-000000000002')), 1::bigint,
   'keyset: rows before the cursor are listed');
-select is((select count(*) from public.list_quote_requests(null, null, now() - interval '1 day', '00000000-0000-4000-8000-000000000000')), 0::bigint,
+select is((select count(*) from public.list_quote_requests(null, null, now() - interval '1 day', '00000000-0000-4000-8000-000000000000')
+            where id in ('c0000000-0000-4000-8000-000000000001', 'c0000000-0000-4000-8000-000000000002')), 0::bigint,
   'keyset: nothing after the last row');
 reset role;
 
@@ -61,7 +85,9 @@ reset role;
 set local "request.jwt.claims" to '{"sub":"a0000000-0000-4000-8000-000000000002","role":"authenticated","session_id":"b0000000-0000-4000-8000-000000000002"}';
 set local "request.jwt.claim.sub" to 'a0000000-0000-4000-8000-000000000002';
 set local role authenticated;
-select is((select count(*) from public.quote_requests), 1::bigint, 'helper sees the same requests as the owner (AC-004.2)');
+select is((select count(*) from public.quote_requests
+            where id in ('c0000000-0000-4000-8000-000000000001', 'c0000000-0000-4000-8000-000000000002')), 1::bigint,
+  'helper sees the same requests as the owner (AC-004.2)');
 reset role;
 
 -- owner, session older than 7 days

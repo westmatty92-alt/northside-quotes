@@ -32,7 +32,9 @@ select throws_ok($$ insert into public.quote_photos (request_id, position, stora
 set local "request.jwt.claims" to '{"sub":"a0000000-0000-4000-8000-000000000001","role":"authenticated","session_id":"b0000000-0000-4000-8000-000000000001"}';
 set local "request.jwt.claim.sub" to 'a0000000-0000-4000-8000-000000000001';
 set local role authenticated;
-select is((select count(*) from public.quote_photos), 2::bigint, 'staff see the photos of a submitted request');
+-- scoped to this test's request so real photo rows on staging never change the count
+select is((select count(*) from public.quote_photos where request_id = 'c0000000-0000-4000-8000-000000000001'), 2::bigint,
+  'staff see the photos of a submitted request');
 select throws_ok($$ delete from public.quote_photos $$, '42501', null, 'staff cannot delete photos');
 select throws_ok($$ update public.quote_photos set size_bytes = 1 $$, '42501', null, 'staff cannot change photo rows');
 reset role;

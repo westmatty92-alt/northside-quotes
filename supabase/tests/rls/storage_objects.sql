@@ -82,7 +82,10 @@ update public.quote_requests set state = 'submitted', reference = 'NQ-ABCD24', s
 set local "request.jwt.claims" to '{"sub":"a0000000-0000-4000-8000-000000000001","role":"authenticated","session_id":"b0000000-0000-4000-8000-000000000001"}';
 set local "request.jwt.claim.sub" to 'a0000000-0000-4000-8000-000000000001';
 set local role authenticated;
-select is((select count(*) from storage.objects where bucket_id = 'quote-photos'), 1::bigint,
+-- scoped to this test's folders (d...01 to d...05), so real photos on staging never change the count;
+-- the 0-row assertions for anon, old sessions and non-staff stay unscoped (stronger)
+select is((select count(*) from storage.objects where bucket_id = 'quote-photos'
+             and name like 'd0000000-0000-4000-8000-00000000000_/%'), 1::bigint,
   'staff read the photo stored with the submitted request, and nothing else');
 select is((select count(*) from storage.objects where bucket_id = 'quote-photos' and name like 'd0000000-0000-4000-8000-000000000001/%'), 0::bigint,
   'staff cannot read photos of a pending, never-submitted request (invariant 5, S0 SEC-8)');

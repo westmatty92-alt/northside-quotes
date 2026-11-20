@@ -4,6 +4,14 @@ begin;
 create extension if not exists pgtap with schema extensions;  -- test-only; removed again by the rollback (S0 SEC-18)
 select no_plan();
 
+-- weekly_counts_at counts every row, so real requests on staging in the test week would change the
+-- totals. Remember the counts before this test's rows exist; the assertions check what this test's
+-- rows add.
+select set_config('nq_test.wk_requests', requests::text, true),
+       set_config('nq_test.wk_won', won::text, true),
+       set_config('nq_test.wk_lost', lost::text, true)
+  from app_private.weekly_counts_at('2026-11-19 12:00 America/Toronto');
+
 insert into public.quote_requests
   (id, submission_key, state, reference, name, phone, email, address, problem, urgency, status, status_changed_at, submitted_at)
 values
@@ -27,11 +35,14 @@ values
   ('f0000000-0000-4000-8000-000000000005', gen_random_uuid(), 'pending', null, 'Not Yet', '9055550115',
    's5@example.com', '5 Main St W, Hamilton', 'Still uploading photos', 'soon', 'new', null, null);
 
-select is((select requests from app_private.weekly_counts_at('2026-11-19 12:00 America/Toronto')), 2::bigint,
+select is((select requests - current_setting('nq_test.wk_requests')::bigint
+             from app_private.weekly_counts_at('2026-11-19 12:00 America/Toronto')), 2::bigint,
   'Requests this week counts Monday 00:00:00 and later, by submitted time');
-select is((select won from app_private.weekly_counts_at('2026-11-19 12:00 America/Toronto')), 1::bigint,
+select is((select won - current_setting('nq_test.wk_won')::bigint
+             from app_private.weekly_counts_at('2026-11-19 12:00 America/Toronto')), 1::bigint,
   'Won counts a request won this week even if submitted last week');
-select is((select lost from app_private.weekly_counts_at('2026-11-19 12:00 America/Toronto')), 1::bigint,
+select is((select lost - current_setting('nq_test.wk_lost')::bigint
+             from app_private.weekly_counts_at('2026-11-19 12:00 America/Toronto')), 1::bigint,
   'Won then Lost in the same week counts only as Lost');
 select is((select week_start from app_private.weekly_counts_at('2026-11-19 12:00 America/Toronto')),
   '2026-11-16 00:00:00 America/Toronto'::timestamptz, 'the week starts Monday 00:00 Hamilton time');
@@ -39,7 +50,9 @@ select is((select week_start from app_private.weekly_counts_at('2026-10-29 12:00
   '2026-10-26 04:00:00+00'::timestamptz, 'DST week starts Monday 2026-10-26 00:00 EDT (AC-008.6)');
 select is((select week_end from app_private.weekly_counts_at('2026-10-29 12:00 America/Toronto')),
   '2026-11-02 05:00:00+00'::timestamptz, 'DST week ends at Monday 2026-11-02 00:00 EST, after Sunday 23:59:59');
-select is((select requests + won + lost from app_private.weekly_counts_at('2026-12-02 12:00 America/Toronto')), 0::bigint,
+-- A week before this system existed: the server stamps submitted_at and status_changed_at with
+-- now(), so no real row can ever fall in it (a future week would fill up once staging is used).
+select is((select requests + won + lost from app_private.weekly_counts_at('2025-12-03 12:00 America/Toronto')), 0::bigint,
   'a week with no activity shows 0, 0, 0 (AC-008.7)');
 
 select * from finish();

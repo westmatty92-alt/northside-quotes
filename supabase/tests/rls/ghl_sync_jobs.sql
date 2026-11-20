@@ -23,7 +23,9 @@ insert into public.ghl_sync_jobs (request_id, kind) values ('c0000000-0000-4000-
 
 select ok((select relrowsecurity from pg_class where oid = 'public.ghl_sync_jobs'::regclass), 'ghl_sync_jobs: RLS is enabled');
 select ok((select relforcerowsecurity from pg_class where oid = 'public.ghl_sync_jobs'::regclass), 'ghl_sync_jobs: RLS is forced');
-select throws_ok($$ update public.ghl_sync_jobs set lease_id = gen_random_uuid() where kind = 'contact_copy' $$,
+-- Counts and updates below touch only this test's requests (c...01 to c...03), so real jobs on
+-- staging never change them; 0-row assertions for roles that may read nothing stay unscoped.
+select throws_ok($$ update public.ghl_sync_jobs set lease_id = gen_random_uuid() where request_id = 'c0000000-0000-4000-8000-000000000001' and kind = 'contact_copy' $$,
   '23514', null, 'a lease id without a lease time is refused (lease pair check)');
 select throws_ok($$ insert into public.ghl_sync_jobs (request_id, kind) values ('c0000000-0000-4000-8000-000000000001', 'contact_copy') $$,
   '23505', null, 'a second contact copy job for the same request is refused (FR-15)');
@@ -60,7 +62,9 @@ delete from public.quote_requests where id = 'c0000000-0000-4000-8000-0000000000
 set local "request.jwt.claims" to '{"sub":"a0000000-0000-4000-8000-000000000001","role":"authenticated","session_id":"b0000000-0000-4000-8000-000000000001"}';
 set local "request.jwt.claim.sub" to 'a0000000-0000-4000-8000-000000000001';
 set local role authenticated;
-select is((select count(*) from public.ghl_sync_jobs), 1::bigint, 'staff read sync state');
+select is((select count(*) from public.ghl_sync_jobs
+            where request_id in ('c0000000-0000-4000-8000-000000000001', 'c0000000-0000-4000-8000-000000000002')), 1::bigint,
+  'staff read sync state');
 select throws_ok($$ update public.ghl_sync_jobs set state = 'succeeded' $$, '42501', null, 'staff cannot mark a copy as done');
 select throws_ok($$ insert into public.ghl_sync_jobs (request_id, kind, target_status) values ('c0000000-0000-4000-8000-000000000001', 'stage_tag', 'won') $$,
   '42501', null, 'staff cannot insert jobs directly');

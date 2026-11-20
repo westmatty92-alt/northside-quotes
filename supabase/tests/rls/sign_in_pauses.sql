@@ -35,7 +35,8 @@ select throws_ok($$ insert into public.sign_in_pauses (scope, key_hash, paused_u
 reset role;
 
 set local role service_role;
-select is((select count(*) from public.sign_in_pauses), 1::bigint, 'the server (service role) reads the pauses');
+select is((select count(*) from public.sign_in_pauses where key_hash = repeat('cd', 32)), 1::bigint,
+  'the server (service role) reads the pauses');  -- scoped to this test's row: real pauses on staging never change it
 select throws_ok($$ update public.sign_in_pauses set paused_until = now() $$, '42501', null,
   'not even the server shortens a pause: it has no update privilege');
 reset role;

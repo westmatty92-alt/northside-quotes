@@ -88,11 +88,16 @@ select is((select count(*) from public.ghl_sync_jobs where request_id = 'c000000
   'only one stage-tag push is active after quick changes (AC-017.6)');
 select is((select target_status from public.ghl_sync_jobs where request_id = 'c0000000-0000-4000-8000-000000000001'
              and kind = 'stage_tag' and state = 'pending'), 'lost', 'the active push targets the latest status');
-select is((select count(*) from public.ghl_sync_jobs where kind = 'stage_tag' and state = 'superseded'), 2::bigint,
+-- scoped to this test's two requests, so real jobs and events on staging never change these
+select is((select count(*) from public.ghl_sync_jobs
+            where request_id in ('c0000000-0000-4000-8000-000000000001', 'c0000000-0000-4000-8000-000000000009')
+              and kind = 'stage_tag' and state = 'superseded'), 2::bigint,
   'earlier pushes are superseded');
-select is((select count(*) from public.events where name = 'quote_request_quoted'), 1::bigint,
+select is((select count(*) from public.events where name = 'quote_request_quoted'
+             and request_id in ('c0000000-0000-4000-8000-000000000001', 'c0000000-0000-4000-8000-000000000009')), 1::bigint,
   'the first price fires quote_request_quoted once');
-select ok((select (properties ->> 'minutes_since_submit')::integer between 89 and 91 from public.events where name = 'quote_request_quoted'),
+select ok((select (properties ->> 'minutes_since_submit')::integer between 89 and 91 from public.events
+            where name = 'quote_request_quoted' and request_id = 'c0000000-0000-4000-8000-000000000001'),
   'minutes_since_submit is measured from submission');
 select is((select count(*) from public.events where name = 'quote_request_status_changed'
              and request_id = 'c0000000-0000-4000-8000-000000000001'), 3::bigint,

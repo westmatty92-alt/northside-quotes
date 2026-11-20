@@ -29,7 +29,9 @@ select throws_ok($$ insert into public.quote_request_status_changes (request_id,
 set local "request.jwt.claims" to '{"sub":"a0000000-0000-4000-8000-000000000001","role":"authenticated","session_id":"b0000000-0000-4000-8000-000000000001"}';
 set local "request.jwt.claim.sub" to 'a0000000-0000-4000-8000-000000000001';
 set local role authenticated;
-select is((select count(*) from public.quote_request_status_changes), 1::bigint, 'staff read the status history');
+-- scoped to this test's request so real history rows on staging never change the count
+select is((select count(*) from public.quote_request_status_changes where request_id = 'c0000000-0000-4000-8000-000000000001'), 1::bigint,
+  'staff read the status history');
 select throws_ok($$ insert into public.quote_request_status_changes (request_id, from_status, to_status)
                     values ('c0000000-0000-4000-8000-000000000001', 'quoted', 'won') $$,
   '42501', null, 'staff cannot forge an audit row');

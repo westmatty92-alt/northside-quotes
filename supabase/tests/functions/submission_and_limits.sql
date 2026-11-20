@@ -10,6 +10,15 @@ begin;
 create extension if not exists pgtap with schema extensions;  -- test-only; removed again by the rollback (S0 SEC-18)
 select no_plan();
 
+-- Real data on staging: every count below is scoped to this test's own keys, hashes and rows.
+-- Events and requests this test writes have created_at = now(), which is this transaction's start,
+-- so "created_at = now()" picks exactly this test's rows. The spam cap counts every spam event of
+-- the Hamilton day, so remember how many real ones exist today; the filler below tops up to 1,000.
+-- (Needs fewer than 997 real spam events today on the target database.)
+select set_config('nq_test.spam_today_before', (select count(*) from public.events
+         where name = 'spam_submission_blocked'
+           and created_at >= date_trunc('day', now() at time zone 'America/Toronto') at time zone 'America/Toronto')::text, true);
+
 set local role service_role;
 
 -- ---- one form token, one request -----------------------------------------------------------
@@ -91,7 +100,7 @@ select is((select count(*) filter (where public.start_quote_request(gen_random_u
              '1 Main St W, Hamilton', 'Repeated request text here', 'soon', 0, repeat('c3', 32)) ->> 'outcome' = 'rate_limited')
              from generate_series(1, 6)), 1::bigint,
   'the 6th new request from one address within 10 minutes is refused (AC-003.4)');
-select is((select count(*) from public.quote_requests where email = 'bot@example.com'), 5::bigint,
+select is((select count(*) from public.quote_requests where email = 'bot@example.com' and created_at = now()), 5::bigint,
   'and is not stored');
 select ok((public.start_quote_request(gen_random_uuid(), 'Bot Person', '9055550100', 'bot@example.com',
              '1 Main St W, Hamilton', 'Repeated request text here', 'soon', 0, repeat('c3', 32)) ->> 'retry_after_seconds')::integer between 1 and 600,
@@ -105,33 +114,36 @@ select ok(public.take_submission_slot(repeat('d4', 32)), 'submissions older than
 select is((select count(*) filter (where (public.record_spam_refusal(repeat('5a', 32), 'honeypot') ->> 'logged')::boolean)
              from generate_series(1, 30)), 30::bigint,
   '30 honeypot refusals from one address are all accounted for');
-select is((select count(*) from public.events where name = 'spam_submission_blocked'), 1::bigint,
+select is((select count(*) from public.events where name = 'spam_submission_blocked' and created_at = now()), 1::bigint,
   'AC-003.7: exactly 1 spam_submission_blocked event for that address and reason in the window');
-select is((select (properties ->> 'count')::integer from public.events where name = 'spam_submission_blocked'), 30,
+select is((select (properties ->> 'count')::integer from public.events where name = 'spam_submission_blocked' and created_at = now()), 30,
   'AC-003.7: its count is 30');
 select ok((select properties ?& array['reason', 'count'] and not (properties ? 'ip_hash')
              and properties ->> 'reason' = 'honeypot'
-             from public.events where name = 'spam_submission_blocked'),
+             from public.events where name = 'spam_submission_blocked' and created_at = now()),
   'AC-003.7: the event holds the reason and count and no network address');
 select is((public.record_spam_refusal(repeat('5a', 32), 'too_fast') ->> 'count')::integer, 1,
   'another reason from the same address opens its own window');
 select is((public.record_spam_refusal(repeat('5b', 32), 'honeypot') ->> 'count')::integer, 1,
   'another address opens its own window');
-select is((select count(*) from public.events where name = 'spam_submission_blocked'), 3::bigint, 'three events so far');
+select is((select count(*) from public.events where name = 'spam_submission_blocked' and created_at = now()), 3::bigint, 'three events so far');
 
 update public.spam_refusal_windows set window_start = window_start - interval '11 minutes' where ip_hash = repeat('5a', 32);
 select is((public.record_spam_refusal(repeat('5a', 32), 'honeypot') ->> 'count')::integer, 1,
   'after 10 minutes the next refusal starts a new window with a new event');
-select is((select count(*) from public.events where name = 'spam_submission_blocked'), 4::bigint, 'a fourth event');
+select is((select count(*) from public.events where name = 'spam_submission_blocked' and created_at = now()), 4::bigint, 'a fourth event');
 
+-- top the Hamilton day up to exactly 1,000: this test's 4, the real ones from earlier today, and filler
 insert into public.events (name, properties)
-select 'spam_submission_blocked', '{"reason":"rate_limited","count":1}'::jsonb from generate_series(1, 996);
+select 'spam_submission_blocked', '{"reason":"rate_limited","count":1}'::jsonb
+  from generate_series(1, 996 - current_setting('nq_test.spam_today_before')::integer);
 select is((select count(*) from public.events where name = 'spam_submission_blocked'
              and created_at >= date_trunc('day', now() at time zone 'America/Toronto') at time zone 'America/Toronto'), 1000::bigint,
   '1,000 spam events recorded for this Hamilton day');
 select is((public.record_spam_refusal(repeat('5c', 32), 'honeypot') ->> 'logged')::boolean, false,
   'AC-003.8: a refusal from a new address past the daily cap is not logged');
-select is((select count(*) from public.events where name = 'spam_submission_blocked'), 1000::bigint,
+select is((select count(*) from public.events where name = 'spam_submission_blocked'
+             and created_at >= date_trunc('day', now() at time zone 'America/Toronto') at time zone 'America/Toronto'), 1000::bigint,
   'AC-003.8: the events table gains no new row');
 select is((select count(*) from public.spam_refusal_windows where ip_hash = repeat('5c', 32)), 0::bigint,
   'and nothing at all is written for it, so a flood cannot grow the window table either');

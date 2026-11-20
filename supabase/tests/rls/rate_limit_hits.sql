@@ -32,7 +32,8 @@ select throws_ok($$ select public.take_submission_slot(repeat('ab', 32)) $$, '42
 reset role;
 
 set local role service_role;
-select is((select count(*) from public.rate_limit_hits), 1::bigint, 'the server (service role) reads the counter');
+select is((select count(*) from public.rate_limit_hits where ip_hash = repeat('ab', 32)), 1::bigint,
+  'the server (service role) reads the counter');  -- scoped to this test's row: real hits on staging never change it
 reset role;
 
 select * from finish();
