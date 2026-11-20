@@ -1,10 +1,11 @@
-Self-hosted fonts for the Northside mockups (open licence, SIL OFL 1.1). Loaded by design/mockups/fonts.css. Nothing is fetched from the network.
+Brand fonts for the Northside mockups (open licence, SIL OFL 1.1).
 
-STATUS: the four files below are NOT here yet. The design session could not run `npm pack` (it needs approval), so the screenshots were drawn with fallback fonts.
-To add them, from the repo root:
-  npm pack @fontsource/barlow-semi-condensed @fontsource/source-sans-3 --pack-destination design/fonts
-then copy these Latin woff2 files out of the unpacked packages' files/ folders into this folder, and re-run node scripts/render-mockups.mjs:
-  barlow-semi-condensed-latin-600-normal.woff2
-  barlow-semi-condensed-latin-700-normal.woff2
-  source-sans-3-latin-400-normal.woff2
-  source-sans-3-latin-600-normal.woff2
+No font files are copied into this folder. design/mockups/fonts.css points its @font-face rules at the @fontsource packages that `npm ci` installs:
+  ../../node_modules/@fontsource/barlow-semi-condensed/files/barlow-semi-condensed-latin-600-normal.woff2
+  ../../node_modules/@fontsource/barlow-semi-condensed/files/barlow-semi-condensed-latin-700-normal.woff2
+  ../../node_modules/@fontsource/source-sans-3/files/source-sans-3-latin-400-normal.woff2
+  ../../node_modules/@fontsource/source-sans-3/files/source-sans-3-latin-600-normal.woff2
+
+Mockups need `npm ci` to render with the brand fonts. Without node_modules the screenshots fall back to system fonts.
+The app self-hosts the same files through next/font/local (see docs/architecture.md), so the mockups and the build show the same typefaces.
+Nothing is fetched from the network.
