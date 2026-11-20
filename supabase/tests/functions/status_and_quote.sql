@@ -57,7 +57,8 @@ select throws_ok($$ select public.change_quote_request_status('c0000000-0000-400
   'PT409', null, 'a move from a stale screen is refused (AC-016.12)');
 select throws_ok($$ select public.change_quote_request_status('c0000000-0000-4000-8000-000000000001', 'archived', 3) $$,
   'PT422', null, 'only New, Quoted, Won and Lost exist (NG-14)');
-select throws_ok($$ select public.change_quote_request_status('c0000000-0000-4000-8000-000000000009', 'won', 1) $$,
+-- an id that names no row (c...09 is a real request below, so it cannot stand in for "unknown")
+select throws_ok($$ select public.change_quote_request_status('c0000000-0000-4000-8000-0000000000ff', 'won', 1) $$,
   'PT404', null, 'an unknown request is not found');
 select is((public.change_quote_request_status('c0000000-0000-4000-8000-000000000001', 'quoted', 3) ->> 'version')::integer, 4,
   'won -> quoted');
@@ -79,7 +80,8 @@ select is((select count(*) from public.quote_request_status_changes where reques
 -- what was stored (as the table owner)
 select is((select count(*) from public.quote_request_status_changes where request_id = 'c0000000-0000-4000-8000-000000000001'), 3::bigint,
   'three real changes stored, the repeat Won is not (AC-007.7)');
-select is((select changed_by from public.quote_request_status_changes where to_status = 'won'),
+select is((select changed_by from public.quote_request_status_changes
+             where request_id = 'c0000000-0000-4000-8000-000000000001' and to_status = 'won'),
   'a0000000-0000-4000-8000-000000000001'::uuid, 'the change records who made it');
 select is((select count(*) from public.ghl_sync_jobs where request_id = 'c0000000-0000-4000-8000-000000000001'
              and kind = 'stage_tag' and state in ('pending', 'waiting')), 1::bigint,

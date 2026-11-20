@@ -52,7 +52,9 @@ create trigger ghl_sync_jobs_set_updated_at before update on public.ghl_sync_job
 -- Ruling 1B (FR-15, FR-24, AC-009.9, AC-017.16): no GHL job, of either kind, for a request whose
 -- homeowner did not tick the offers box. complete_quote_request and change_quote_request_status
 -- already skip those requests; this trigger makes it impossible for any other path (a bug, a
--- by-hand insert by the service role) to queue one.
+-- by-hand insert by the service role) to queue one. It also fires when an existing job is
+-- repointed (`request_id`) or re-purposed (`kind`), so an update cannot move a job onto an
+-- unticked request either (S0 SEC-23).
 create or replace function app_private.ghl_sync_jobs_require_consent() returns trigger
 language plpgsql
 set search_path = ''
@@ -68,7 +70,7 @@ $$;
 revoke all on function app_private.ghl_sync_jobs_require_consent() from public;
 
 drop trigger if exists ghl_sync_jobs_require_consent on public.ghl_sync_jobs;
-create trigger ghl_sync_jobs_require_consent before insert on public.ghl_sync_jobs
+create trigger ghl_sync_jobs_require_consent before insert or update of request_id, kind on public.ghl_sync_jobs
   for each row execute function app_private.ghl_sync_jobs_require_consent();
 
 -- RLS enabled and forced (S0 SEC-1); explicit grants (S0 SEC-17).

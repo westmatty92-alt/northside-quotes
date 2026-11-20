@@ -36,6 +36,27 @@ select throws_ok($$ insert into public.ghl_sync_jobs (request_id, kind, target_s
 select lives_ok($$ update public.ghl_sync_jobs set last_error_class = 'rejected' where request_id = 'c0000000-0000-4000-8000-000000000001' $$,
   'rejected is a known error class (GHL 400, 404, 422)');
 
+-- S0 SEC-23: the consent trigger also fires on update of request_id and kind, for every role.
+select throws_ok($$ update public.ghl_sync_jobs set request_id = 'c0000000-0000-4000-8000-000000000002' where request_id = 'c0000000-0000-4000-8000-000000000001' $$,
+  '23514', 'no offers consent: nothing is sent to GoHighLevel for this request',
+  'SEC-23: a job cannot be repointed to a request without offers consent, even by the table owner');
+-- A pending request may still change its offers choice (start_quote_request updates it), so a job
+-- queued while it was ticked can end up on an unticked request; changing its kind must be refused.
+insert into public.quote_requests
+  (id, submission_key, state, name, phone, email, address, problem, urgency, marketing_consent)
+values
+  ('c0000000-0000-4000-8000-000000000003', gen_random_uuid(), 'pending', 'Lee Moreau', '9055550144',
+   'lee@example.com', '16 Barton St W, Hamilton ON', 'Basement drain backs up', 'flexible', true);
+insert into public.ghl_sync_jobs (request_id, kind) values ('c0000000-0000-4000-8000-000000000003', 'contact_copy');
+update public.quote_requests set marketing_consent = false where id = 'c0000000-0000-4000-8000-000000000003';
+select throws_ok($$ update public.ghl_sync_jobs set kind = 'stage_tag', target_status = 'won' where request_id = 'c0000000-0000-4000-8000-000000000003' $$,
+  '23514', 'no offers consent: nothing is sent to GoHighLevel for this request',
+  'SEC-23: a job cannot change kind while its request has no offers consent');
+select lives_ok($$ update public.ghl_sync_jobs set state = 'failed' where request_id = 'c0000000-0000-4000-8000-000000000003' $$,
+  'SEC-23: updates that leave request_id and kind alone do not run the consent check (the runner can still settle the job)');
+delete from public.ghl_sync_jobs where request_id = 'c0000000-0000-4000-8000-000000000003';
+delete from public.quote_requests where id = 'c0000000-0000-4000-8000-000000000003';
+
 set local "request.jwt.claims" to '{"sub":"a0000000-0000-4000-8000-000000000001","role":"authenticated","session_id":"b0000000-0000-4000-8000-000000000001"}';
 set local "request.jwt.claim.sub" to 'a0000000-0000-4000-8000-000000000001';
 set local role authenticated;

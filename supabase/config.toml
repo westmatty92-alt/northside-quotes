@@ -1,0 +1,51 @@
+# supabase/config.toml: settings for the LOCAL Supabase stack only (`npx --no-install supabase start`,
+# local `supabase test db`). Hosted projects (staging, production) are configured in the dashboard
+# (docs/ops/account-setup.md, docs/runbook.md); nothing here is pushed to them.
+# Ports are moved off the CLI defaults (5432x) so this stack can run next to other local Supabase projects.
+project_id = "northside-quotes"
+
+[api]
+enabled = true
+port = 61421
+
+[db]
+port = 61422
+shadow_port = 61420
+major_version = 17
+
+[db.pooler]
+enabled = false
+port = 61429
+
+[db.seed]
+enabled = false
+
+[realtime]
+enabled = false
+
+[studio]
+enabled = false
+port = 61423
+
+[local_smtp]
+enabled = false
+port = 61424
+
+[analytics]
+enabled = false
+port = 61427
+
+[edge_runtime]
+enabled = false
+
+[storage]
+enabled = true
+file_size_limit = "5MiB"
+
+[auth]
+enabled = true
+site_url = "http://localhost:3000"
+# No public sign-up: Baseleap creates the two staff accounts (NG-4, SECURITY_MODEL).
+enable_signup = false
+enable_anonymous_sign_ins = false
+minimum_password_length = 12
