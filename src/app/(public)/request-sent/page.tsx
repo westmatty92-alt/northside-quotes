@@ -4,7 +4,7 @@
 import type { Metadata } from 'next';
 import { connection } from 'next/server';
 import { RequestSent } from '@/components/request/request-sent';
-import { PublicPage } from '@/components/site/public-page';
+import { PublicPage } from '@/components/ui/site/public-page';
 
 export const metadata: Metadata = { title: 'Request sent' };
 

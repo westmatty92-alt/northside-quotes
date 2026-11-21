@@ -72,3 +72,39 @@ Console errors: 0. axe (WCAG 2.2 AA tags, phone width): 0 violations on all four
 - The footer "Staff sign-in" link goes to `/sign-in` with `prefetch={false}` (prefetching a page that does not exist yet would be a failed request).
 - Copy for messages the design does not give (name, address field errors; "Copied.") is mine, in `copy.ts`: please have the designer confirm.
 - Behind-the-scenes choice to confirm: `react-hook-form` is used with a hand-written resolver over the generated Zod schema, plus a phone check mirroring the contract's written 10-digit rule.
+
+## Pass 2: owned paths: 2026-11-20
+**Status:** done. Four files moved under `src/components/ui/` so every FE1 file sits in an owned path. No git, no `rm`, so the old files could not be deleted; they are emptied and listed below for the orchestrator to remove.
+
+**File moves** (content unchanged except the import paths):
+| Old path | New path |
+|---|---|
+| `src/components/providers/app-providers.tsx` | `src/components/ui/app-providers.tsx` |
+| `src/components/site/public-page.tsx` | `src/components/ui/site/public-page.tsx` |
+| `src/components/site/site-chrome.tsx` | `src/components/ui/site/site-chrome.tsx` |
+| `src/components/site/wordmark.tsx` | `src/components/ui/site/wordmark.tsx` |
+
+**Imports updated:**
+- `src/app/(public)/page.tsx` and `src/app/(public)/request-sent/page.tsx`: `PublicPage` from `@/components/ui/site/public-page`.
+- `src/components/ui/site/public-page.tsx`: `AppProviders` from `@/components/ui/app-providers`, `SiteChrome` from `@/components/ui/site/site-chrome`.
+- `src/components/ui/site/site-chrome.tsx`: `Wordmark` from `@/components/ui/site/wordmark`.
+- A search of the lane's source, config and scripts found no other reference to the old paths.
+
+**Leftover files for the orchestrator to delete** (each now holds only `export {};`, not zero bytes, because an empty `.tsx` file is not a module and I did not want to risk the `isolatedModules` typecheck; nothing imports them):
+- `src/components/providers/app-providers.tsx`
+- `src/components/site/public-page.tsx`
+- `src/components/site/site-chrome.tsx`
+- `src/components/site/wordmark.tsx`
+- `.baseleap/reports/FE1/verify.env`: emptied to zero bytes (it only held a comment, no values).
+The folders `src/components/providers/` and `src/components/site/` are left empty of real code and can be removed with the files.
+
+**Commands run** (each with the `cd <lane> &&` prefix; one command per call, so exit codes are from each call finishing without an error):
+- `npm run typecheck` -> exit 0.
+- `npm run lint` -> exit 0 (0 errors, the same 2 warnings in `scripts/`, not mine).
+- `npx vitest run src/components/request --passWithNoTests=false` -> exit 0, 4 files, 63 tests.
+- `npm run build` -> exit 0; `/` and `/request-sent` still dynamic.
+- `node scripts/check-code-guards.mjs generated` -> exit 0 ("OK").
+- `node scripts/verify-ui.mjs http://localhost:3201 --step FE1 --serve "npm run start -- -p 3201" --env NEXT_PUBLIC_API_MOCKING=on --env APP_SIGNING_SECRET=<dummy local value> SCR-01=/ SCR-01--errors=/?mockScenario=errors SCR-01--send-failed=/?mockScenario=send-failed SCR-02=/request-sent?mockScenario=sent --allow-request "SCR-01--send-failed=/api/"` -> exit 0 ("no console errors, failed requests or axe violations"; 8 views of 4 screens). Screenshots and `verify-ui.json` in `.baseleap/reports/FE1/` were regenerated. Local build, not a Vercel preview.
+
+**Could not do:** delete files (no `rm`, no git); the notes under "Could not do / unverified" in Attempt 3 still stand (gzip size, Vercel preview).
+**CONTRACT QUESTION:** none. The architect requests from Attempt 3 stand unchanged.

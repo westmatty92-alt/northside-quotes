@@ -5,7 +5,7 @@
 import type { Metadata } from 'next';
 import { connection } from 'next/server';
 import { RequestForm } from '@/components/request/request-form';
-import { PublicPage } from '@/components/site/public-page';
+import { PublicPage } from '@/components/ui/site/public-page';
 import { issueFormToken } from '@/lib/server/form-token';
 
 export const metadata: Metadata = { title: 'Request a quote' };
