@@ -22,6 +22,15 @@ export function publicSupabaseEnv(): { url: string; anonKey: string } {
   return { url, anonKey };
 }
 
+/**
+ * The attributes of the Supabase session cookies (contract, signIn: "httpOnly false so the browser client can read the
+ * access token; Secure; SameSite Lax"). Used by the sign-in route and by the proxy's session refresh, so both write the same
+ * cookie. `Secure` is on everywhere except `next dev`, where the app is served over plain http.
+ */
+export function authCookieOptions(): { path: string; sameSite: 'lax'; httpOnly: false; secure: boolean } {
+  return { path: '/', sameSite: 'lax', httpOnly: false, secure: process.env.NODE_ENV !== 'development' };
+}
+
 /** A Supabase client that acts as the user who owns `accessToken` (RLS applies). One per request. */
 export function createUserClient(accessToken: string): SupabaseClient<Database> {
   const { url, anonKey } = publicSupabaseEnv();

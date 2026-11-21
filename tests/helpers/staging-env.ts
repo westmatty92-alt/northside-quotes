@@ -23,7 +23,13 @@ export const REQUIRED_STAGING_ENV = [
 /** Optional guards (the same names supabase/scripts/db.mjs reads): require the staging ref, refuse production. */
 export const GUARD_ENV = ['SUPABASE_STAGING_REF', 'SUPABASE_PROD_PROJECT_REF', 'SUPABASE_PRODUCTION_REF', 'SUPABASE_PRODUCTION_DB_URL'] as const;
 
-const KEPT_FROM_FILE: readonly string[] = [...REQUIRED_STAGING_ENV, ...GUARD_ENV];
+/**
+ * The two staging staff accounts' passwords (BE2 and later). The accounts themselves, owner@northside.test and
+ * helper@northside.test, are not secret; only these passwords are. They are read by the tests that sign in for real.
+ */
+export const STAFF_PASSWORD_ENV = ['QA_OWNER_PASSWORD', 'QA_HELPER_PASSWORD'] as const;
+
+const KEPT_FROM_FILE: readonly string[] = [...REQUIRED_STAGING_ENV, ...GUARD_ENV, ...STAFF_PASSWORD_ENV];
 
 /** The rehearsal's main checkout, used only when git cannot find it. */
 const KNOWN_MAIN_CHECKOUT = '/home/admin/baseleap/rehearsal/northside-quotes';
@@ -72,6 +78,47 @@ export function loadStagingEnv(files: readonly string[] = envFileCandidates()): 
     }
   }
   return missingStagingEnv();
+}
+
+/** The staff password names that are absent or empty. Names only. */
+export function missingStaffEnv(env: Env = process.env): string[] {
+  return STAFF_PASSWORD_ENV.filter((name) => !env[name]);
+}
+
+/** Like loadStagingEnv, for the two staff passwords: fills the missing ones from the first env file that has them. Returns the names still missing. */
+export function loadStaffEnv(files: readonly string[] = envFileCandidates()): string[] {
+  if (missingStaffEnv().length === 0) return [];
+  for (const name of STAFF_PASSWORD_ENV) if (process.env[name] === '') delete process.env[name];
+  for (const file of files) {
+    if (missingStaffEnv().length === 0) break;
+    if (!existsSync(file)) continue;
+    const before = new Set(Object.keys(process.env));
+    try {
+      process.loadEnvFile(file);
+    } catch {
+      continue;
+    }
+    for (const key of Object.keys(process.env)) {
+      if (!before.has(key) && !KEPT_FROM_FILE.includes(key)) delete process.env[key];
+    }
+  }
+  return missingStaffEnv();
+}
+
+/** Why the staff sign-in tests cannot run (names only), or undefined. They fail with this message; they never skip. */
+export function staffEnvProblem(env: Env = process.env): string | undefined {
+  const missing = missingStaffEnv(env);
+  return missing.length === 0
+    ? undefined
+    : `The staff sign-in tests need ${missing.join(', ')}, which ${missing.length === 1 ? 'is' : 'are'} missing or empty in the process and in .env.local (this checkout and the main checkout). They fail rather than skip.`;
+}
+
+/** The staging staff accounts. Read at call time, after loadStaffEnv(). The passwords are never printed or logged. */
+export function staffAccounts(env: Env = process.env): Record<'owner' | 'helper', { email: string; password: string }> {
+  return {
+    owner: { email: 'owner@northside.test', password: env.QA_OWNER_PASSWORD ?? '' },
+    helper: { email: 'helper@northside.test', password: env.QA_HELPER_PASSWORD ?? '' },
+  };
 }
 
 /**
