@@ -1,18 +1,17 @@
 import 'server-only';
 
-// =====================================================================================================
-// STUB, BE1 REPLACES. Written by the A2 scaffold (bl-architect) so the frontend lane can render SCR-01
-// before BE1 lands. The backend lane (BE1) owns this file and replaces the body. The exported names
-// and signatures below are what other lanes code against: keep them, or raise a contract question.
-// =====================================================================================================
-//
 // src/lib/server/env.ts: the ONLY reader of APP_SIGNING_SECRET and CRON_SECRET (docs/SECURITY_MODEL.md
-// invariant 15, docs/architecture.md "Environment variables"). Values are read lazily, on each call, so
-// `next build` needs no secrets. Unset or shorter than 32 characters → EnvConfigError; nothing falls back
-// to a default or empty key (S0 SEC-4). The error names the variable, never its value.
+// invariant 15, docs/architecture.md "Environment variables").
 //
-// Callers map EnvConfigError to: GET / fails, the formToken routes and POST /api/auth/sign-in answer 503
-// service_unavailable, /api/jobs/* answer 401 (invariant 15).
+// Values are read lazily, on each call, so `next build` needs no secrets and a changed variable is seen at once.
+// Unset or shorter than 32 characters means EnvConfigError: nothing falls back to a default or an empty key
+// (S0 SEC-4). The error names the variable, never its value.
+//
+// What callers do with EnvConfigError (invariant 15):
+//   - GET /, the two formToken routes and POST /api/auth/sign-in answer 503 service_unavailable
+//     (src/lib/server/http.ts maps it that way);
+//   - /api/jobs/* answer 401 (isCronRequest below never throws, it just says no).
+import { createHmac, timingSafeEqual } from 'node:crypto';
 
 export const MIN_SECRET_LENGTH = 32;
 
@@ -41,4 +40,32 @@ export function appSigningSecret(): string {
 /** The Bearer secret Vercel cron sends to /api/jobs/*. Throws EnvConfigError when unset or short. */
 export function cronSecret(): string {
   return readSecret('CRON_SECRET');
+}
+
+/**
+ * HMAC-SHA256 of `input` with APP_SIGNING_SECRET, as lower-case hex (64 characters). The inputs are
+ * domain-separated by their caller (`ip|v1|...`, `email|v1|...`). Throws EnvConfigError without a valid secret.
+ */
+export function hmacHex(input: string): string {
+  return createHmac('sha256', appSigningSecret()).update(input).digest('hex');
+}
+
+/**
+ * Is this `Authorization` header exactly `Bearer <CRON_SECRET>`? (invariant 12). Never throws: an unset or short
+ * secret matches nothing, so `Bearer undefined`, `Bearer ` and no header are all false. Buffers of different
+ * lengths are rejected without being compared; equal-length buffers use a constant-time compare.
+ */
+export function isCronRequest(authorization: string | null | undefined): boolean {
+  let secret: string;
+  try {
+    secret = cronSecret();
+  } catch {
+    return false;
+  }
+  const prefix = 'Bearer ';
+  if (typeof authorization !== 'string' || !authorization.startsWith(prefix)) return false;
+  const presented = Buffer.from(authorization.slice(prefix.length), 'utf8');
+  const expected = Buffer.from(secret, 'utf8');
+  if (presented.length !== expected.length) return false;
+  return timingSafeEqual(presented, expected);
 }
