@@ -1,0 +1,154 @@
+# .github/workflows/ci.yml (owned by bl-devops). The outside witness: the same checks the agents ran, on a clean machine.
+# Required status checks on `main` (docs/runbook.md "Platform settings"): verify, api-tests, security, workflows.
+# Rules for every workflow here: least-privilege `permissions`, actions pinned to a full commit SHA, no privileged PR
+# trigger, no untrusted input inside `run:` (it goes through `env:`), secrets only in jobs bound to a GitHub environment.
+name: ci
+
+on:
+  push:
+    branches: [staging, "lane/**"]
+  pull_request:
+    branches: [staging, main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+defaults:
+  run:
+    shell: bash # adds pipefail
+
+env:
+  # Placeholders so `next build` and the offline tests run without any real project. Not secrets.
+  NEXT_PUBLIC_SUPABASE_URL: https://ci-placeholder.supabase.co
+  NEXT_PUBLIC_SUPABASE_ANON_KEY: ci-placeholder-anon-key
+
+jobs:
+  verify:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck
+      - run: npm run lint
+      - run: npm run test:offline
+      - name: Environment manifest matches the code and .env.example (names only)
+        run: node scripts/env-check.mjs --manifest-only
+      - name: Generated API code matches the contract; the service-role key stays server-side
+        run: |
+          node scripts/check-code-guards.mjs generated
+          node scripts/check-code-guards.mjs service-role
+      - run: npm run build
+
+  api-tests:
+    # Backend tests against the staging Supabase project. Skipped for PRs from forks (they get no secrets).
+    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    environment: staging
+    env:
+      # The tests read the app's own names and the staging names; both come from the staging environment.
+      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_STAGING_URL }}
+      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_STAGING_ANON_KEY }}
+      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_STAGING_SERVICE_ROLE_KEY }}
+      SUPABASE_STAGING_URL: ${{ secrets.SUPABASE_STAGING_URL }}
+      SUPABASE_STAGING_ANON_KEY: ${{ secrets.SUPABASE_STAGING_ANON_KEY }}
+      SUPABASE_STAGING_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_STAGING_SERVICE_ROLE_KEY }}
+      SUPABASE_STAGING_REF: ${{ vars.SUPABASE_STAGING_REF }}
+      PRODUCTION_HOSTS: ${{ vars.PRODUCTION_HOSTS }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      # APP_SIGNING_SECRET and CRON_SECRET are deliberately NOT provided here (Vercel only); tests set their own.
+      - run: npm test -- tests/api
+
+  security:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - name: Install the pinned, checksum-verified scanners
+        run: |
+          bash scripts/install-scanners.sh --dest "$RUNNER_TEMP/bin"
+          echo "$RUNNER_TEMP/bin" >> "$GITHUB_PATH"
+      - name: Security scan
+        env:
+          BASE_REF: ${{ github.base_ref || 'main' }}
+        run: |
+          git fetch --no-tags origin "$BASE_REF"
+          if [ -f scripts/security-scan.sh ]; then
+            # bl-security's scan: opengrep rules, gitleaks config, osv-scanner, npm audit, as run on Matthew's machine.
+            bash scripts/security-scan.sh "origin/$BASE_REF" HEAD ci
+          else
+            # scripts/security-scan.sh is bl-security's and has not landed yet: run the baseline scanners directly
+            # rather than skipping the scan. Once the script exists the branch above takes over by itself.
+            echo "::warning::scripts/security-scan.sh is not in the repo yet; running the baseline scanners."
+            gitleaks detect --source . --redact --no-banner
+            osv-scanner scan source --lockfile package-lock.json
+            npm audit --audit-level=high
+          fi
+      - if: always()
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: security-scan
+          path: .baseleap/reviews/ci/
+          if-no-files-found: ignore
+          retention-days: 14
+
+  workflows:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Install the pinned, checksum-verified actionlint
+        run: bash scripts/install-scanners.sh --dest "$RUNNER_TEMP/bin" actionlint
+      - name: actionlint
+        run: |
+          "$RUNNER_TEMP/bin/actionlint" -color
+      - name: Policy (actions pinned to a full SHA, permissions declared, no privileged trigger)
+        run: |
+          fail=0
+          if grep -rEn 'pull_request_targe[t]|workflow_ru[n]:' .github/workflows; then
+            echo "::error::A privileged trigger is not allowed in these workflows."
+            fail=1
+          fi
+          unpinned=$(grep -rEn '^[[:space:]-]*uses:' .github/workflows | grep -Ev 'uses: [^@[:space:]]+@[0-9a-f]{40}([[:space:]]|$)' || true)
+          if [ -n "$unpinned" ]; then
+            echo "$unpinned"
+            echo "::error::Every action must be pinned to a full 40-character commit SHA."
+            fail=1
+          fi
+          no_permissions=$(grep -rL '^permissions:' .github/workflows || true)
+          if [ -n "$no_permissions" ]; then
+            echo "$no_permissions"
+            echo "::error::Every workflow needs a top-level permissions block."
+            fail=1
+          fi
+          exit "$fail"
