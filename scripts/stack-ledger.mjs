@@ -190,6 +190,16 @@ async function main() {
       if (!r.allow) process.exitCode = 3;
       return;
     }
+    case 'lane': {
+      // Orchestrator only: merge/delete operations specialists can't run. Never touches main.
+      const [sub, lane, ...rest] = pos;
+      const root = process.cwd();
+      if (sub === 'sync') out(L.laneSync(root, lane, flags.from ?? 'main'));
+      else if (sub === 'merge') out(L.laneMerge(root, lane, { push: !flags['no-push'] }));
+      else if (sub === 'rm') out(L.laneRemove(root, lane, rest));
+      else throw new L.LedgerError('usage: lane sync <frontend|backend> [--from main|staging] | lane merge <lane> [--no-push] | lane rm <lane> <path…>', 2);
+      break;
+    }
     case 'close':
       await L.closeRun(db, L.currentPlanId(), { summary: flags.summary ?? '' });
       out({ ok: true, next: 'Propose catalog graduation to Matthew (human-promoted, never automatic). Update the Console SOP.' });

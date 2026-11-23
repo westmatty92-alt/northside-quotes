@@ -1,0 +1,10 @@
+{
+  "400": { "statusCode": 400, "message": "simulated bad request", "error": "Bad Request" },
+  "400-duplicate": { "statusCode": 400, "message": "simulated: this location does not allow duplicated contacts", "error": "Bad Request" },
+  "401": { "statusCode": 401, "message": "simulated invalid token", "error": "Unauthorized" },
+  "403": { "statusCode": 403, "message": "simulated: the token cannot use this location or scope", "error": "Forbidden" },
+  "404": { "statusCode": 404, "message": "simulated: contact not found", "error": "Not Found" },
+  "422": { "statusCode": 422, "message": "simulated: a value was refused", "error": "Unprocessable Entity" },
+  "429": { "statusCode": 429, "message": "simulated: rate limit", "error": "Too Many Requests" },
+  "500": { "statusCode": 500, "message": "simulated server error", "error": "Internal Server Error" }
+}

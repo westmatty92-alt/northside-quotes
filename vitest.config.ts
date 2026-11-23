@@ -1,5 +1,8 @@
-// vitest.config.ts: scaffold-owned (A2). `npm test` runs every lane's tests; `npm run test:offline`
-// runs only the folders that need no database (src/, tests/unit/, tests/integrations/).
+// vitest.config.ts: scaffold-owned (A2). `npm test` runs every lane's tests, including the staging-database
+// tests (tests/integrations/**/db.test.ts), which fail by design without the staging env. `npm run test:offline`
+// runs only what needs no database: src/, tests/unit/ and tests/integrations/ minus every `db.test.ts` there
+// (excluded with `--exclude` in the package.json script). CI's offline job runs `npm run test:offline`; the full
+// `npm test` belongs in a job that has the staging env.
 // Component tests opt into the DOM with a `// @vitest-environment jsdom` comment at the top of the file.
 import { fileURLToPath } from 'node:url';
 import react from '@vitejs/plugin-react';
