@@ -1,0 +1,17 @@
+{
+  "$schema": "https://openapi.vercel.sh/vercel.json",
+  "framework": "nextjs",
+  "regions": ["yul1"],
+  "git": {
+    "deploymentEnabled": {
+      "main": false
+    }
+  },
+  "crons": [
+    { "path": "/api/jobs/ghl-sync", "schedule": "0 0 * * *" },
+    { "path": "/api/jobs/ghl-sync", "schedule": "0 6 * * *" },
+    { "path": "/api/jobs/ghl-sync", "schedule": "0 12 * * *" },
+    { "path": "/api/jobs/ghl-sync", "schedule": "0 18 * * *" },
+    { "path": "/api/jobs/housekeeping", "schedule": "30 7 * * *" }
+  ]
+}

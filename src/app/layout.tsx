@@ -5,9 +5,16 @@
 // own origin, so CSP `font-src 'self'` holds (SECURITY_MODEL invariant 13). Never a font CDN.
 // The CSS variables below are read by src/app/globals.css, which points theme.css's --font-* tokens at them.
 //
-// No `dynamic = 'force-static'`, `revalidate` or "use cache" here: `/` must render per request (S0 SEC-2, SEC-15).
+// Every page renders per request. src/proxy.ts sets a fresh CSP nonce on each request (SECURITY_MODEL invariant 13),
+// and Next.js can only stamp that nonce onto its scripts during a request-time render; a page prerendered at build
+// time carries no nonce, so the CSP would block its inline scripts. `await connection()` in the root layout opts every
+// route under it out of prerendering ("To use a nonce, your page must be dynamically rendered",
+// https://nextjs.org/docs/app/guides/content-security-policy; https://nextjs.org/docs/app/api-reference/functions/connection,
+// both read 2026-11-20). This project does not enable Cache Components, so no <Suspense> boundary is needed here.
+// Never add `dynamic = 'force-static'`, `revalidate` or "use cache" to a page or layout (S0 SEC-2, SEC-15).
 import type { Metadata } from 'next';
 import localFont from 'next/font/local';
+import { connection } from 'next/server';
 import './globals.css';
 
 const barlowSemiCondensed = localFont({
@@ -52,7 +59,8 @@ export const metadata: Metadata = {
   title: { default: 'Northside quote requests', template: '%s | Northside' },
 };
 
-export default function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+export default async function RootLayout({ children }: Readonly<{ children: React.ReactNode }>) {
+  await connection(); // request-time render for every page: the CSP nonce needs it (see header)
   return (
     <html lang="en-CA" className={`${barlowSemiCondensed.variable} ${sourceSans3.variable}`}>
       <body>{children}</body>

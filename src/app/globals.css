@@ -9,9 +9,18 @@
       (set on <html> by src/app/layout.tsx). The block below points every --font-* token at those variables, with
       DESIGN.md's fallbacks (Arial Narrow for headings, system-ui for body). A later @theme definition overrides
       an earlier one.
-   4. Page background and text colour from DESIGN.md tokens. */
+   4. Page background and text colour from DESIGN.md tokens.
+   5. Source scanning: Tailwind v4 scans every non-gitignored file in the project for class names. The agent kit,
+      reports, docs and design mockups mention arbitrary values (e.g. `text-[#00D4A0]`) and Tailwind emitted junk rules
+      for them (FE1). `@source not` drops those folders; paths are relative to this file
+      (https://tailwindcss.com/docs/detecting-classes-in-source-files). */
 @import "tailwindcss";
 @import "./theme.css";
+
+@source not "../../.claude";
+@source not "../../.baseleap";
+@source not "../../docs";
+@source not "../../design";
 
 @theme {
   --font-display: var(--font-barlow-semi-condensed), "Arial Narrow", sans-serif;
