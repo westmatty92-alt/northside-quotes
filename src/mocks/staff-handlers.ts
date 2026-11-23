@@ -122,6 +122,7 @@ export function buildStaffHandlers(scenario: Scenario): RequestHandler[] {
     if (refused) return refused;
     const found = find(params.id);
     if (!found) return NOT_FOUND();
+    if (scenario === 'moving') await delay('infinite'); // SCR-05: the card stays marked "Saving"
     if (scenario === 'save-failed') return BROKEN();
     if (scenario === 'stale') return STALE();
     const parsed = ChangeQuoteRequestStatusBody.safeParse(await request.json().catch(() => null));

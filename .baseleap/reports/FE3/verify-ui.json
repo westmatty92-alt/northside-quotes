@@ -1,0 +1,48 @@
+{
+  "base": "http://localhost:3203",
+  "checked_at": "2026-11-23T21:49:33.064Z",
+  "ok": true,
+  "problems": [],
+  "results": [
+    {
+      "id": "SCR-05",
+      "width": "mobile",
+      "url": "http://localhost:3203/pipeline?mockScenario=signed-in",
+      "screenshot": ".baseleap/reports/FE3/SCR-05-mobile.png",
+      "status": 200,
+      "console": [],
+      "failedRequests": [],
+      "axe": []
+    },
+    {
+      "id": "SCR-05",
+      "width": "desktop",
+      "url": "http://localhost:3203/pipeline?mockScenario=signed-in",
+      "screenshot": ".baseleap/reports/FE3/SCR-05-desktop.png",
+      "status": 200,
+      "console": [],
+      "failedRequests": [],
+      "axe": []
+    },
+    {
+      "id": "SCR-05--save-failed",
+      "width": "mobile",
+      "url": "http://localhost:3203/pipeline?mockScenario=save-failed",
+      "screenshot": ".baseleap/reports/FE3/SCR-05--save-failed-mobile.png",
+      "status": 200,
+      "console": [],
+      "failedRequests": [],
+      "axe": []
+    },
+    {
+      "id": "SCR-05--save-failed",
+      "width": "desktop",
+      "url": "http://localhost:3203/pipeline?mockScenario=save-failed",
+      "screenshot": ".baseleap/reports/FE3/SCR-05--save-failed-desktop.png",
+      "status": 200,
+      "console": [],
+      "failedRequests": [],
+      "axe": []
+    }
+  ]
+}

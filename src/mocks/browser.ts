@@ -9,14 +9,16 @@
 import { FetchInterceptor } from '@mswjs/interceptors/fetch';
 import { defineNetwork, InterceptorSource } from 'msw/experimental';
 import type { FormPreview } from '@/components/request/preview-context';
+import type { PipelinePreview } from '@/components/staff/pipeline/pipeline-preview';
 import type { SignInPreview } from '@/components/staff/sign-in-preview';
 import { buildHandlers } from '@/mocks/handlers';
-import { previewFor, signInPreviewFor } from '@/mocks/previews';
+import { pipelinePreviewFor, previewFor, signInPreviewFor } from '@/mocks/previews';
 import { readScenario } from '@/mocks/scenarios';
 
 export interface MockSeeds {
   form: FormPreview | undefined;
   signIn: SignInPreview | undefined;
+  pipeline: PipelinePreview | undefined;
 }
 
 let started: Promise<MockSeeds> | undefined;
@@ -31,7 +33,7 @@ export function startMocking(): Promise<MockSeeds> {
       onUnhandledFrame: 'bypass',
     });
     await network.enable();
-    return { form: previewFor(scenario), signIn: signInPreviewFor(scenario) };
+    return { form: previewFor(scenario), signIn: signInPreviewFor(scenario), pipeline: pipelinePreviewFor(scenario) };
   })();
   return started;
 }

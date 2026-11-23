@@ -5,6 +5,7 @@
 // form and the sign-in form their seeds through their preview contexts.
 import { useEffect, useState, type ReactNode } from 'react';
 import { FormPreviewContext } from '@/components/request/preview-context';
+import { PipelinePreviewContext } from '@/components/staff/pipeline/pipeline-preview';
 import { SignInPreviewContext } from '@/components/staff/sign-in-preview';
 import type { MockSeeds } from '@/mocks/browser';
 
@@ -40,7 +41,9 @@ export function MockProvider({ enabled, children }: MockProviderProps) {
   if (!boot.ready) return null;
   return (
     <FormPreviewContext value={boot.seeds?.form}>
-      <SignInPreviewContext value={boot.seeds?.signIn}>{children}</SignInPreviewContext>
+      <SignInPreviewContext value={boot.seeds?.signIn}>
+        <PipelinePreviewContext value={boot.seeds?.pipeline}>{children}</PipelinePreviewContext>
+      </SignInPreviewContext>
     </FormPreviewContext>
   );
 }

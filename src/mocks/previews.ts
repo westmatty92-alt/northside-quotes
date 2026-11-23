@@ -4,6 +4,7 @@
 import { saveReceipt } from '@/components/request/session-store';
 import type { FormPreview } from '@/components/request/preview-context';
 import type { FormValues } from '@/components/request/form-values';
+import type { PipelinePreview } from '@/components/staff/pipeline/pipeline-preview';
 import type { SignInPreview } from '@/components/staff/sign-in-preview';
 import type { Scenario } from '@/mocks/scenarios';
 
@@ -63,8 +64,21 @@ export function previewFor(scenario: Scenario): FormPreview | undefined {
     case 'slow':
     case 'stale':
     case 'save-failed':
+    case 'moving':
     case 'paused':
     case 'unavailable':
+      return undefined;
+  }
+}
+
+/** What SCR-05 does on load for a scenario: the move scenarios move one card once the board has loaded. */
+export function pipelinePreviewFor(scenario: Scenario): PipelinePreview | undefined {
+  switch (scenario) {
+    case 'stale':
+    case 'save-failed':
+    case 'moving':
+      return { reference: 'NQ-7K3M9P', to: 'won' };
+    default:
       return undefined;
   }
 }

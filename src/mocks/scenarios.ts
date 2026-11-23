@@ -20,6 +20,12 @@
 //   slow           every staff call takes four seconds (the loading skeletons)
 //   stale          a price save or status change answers 409 stale_version
 //   save-failed    a price save or status change answers 500
+//   moving         a status change never answers (SCR-05: the card stays marked "Saving")
+//
+// The Pipeline tab (SCR-05, /pipeline) with `stale`, `save-failed` and `moving` moves one card once the board has loaded
+// (NQ-7K3M9P, New to Won, as if it had been dragged), so the refusal, the revert and the Saving state are reachable
+// without a click or a drag. With `signed-in`, `empty`, `error` and `slow` the board is the plain list, empty columns,
+// "can't load" and the loading skeleton.
 //   paused         SCR-03: one sign-in is attempted on load and answered 429 sign_in_paused
 //   unavailable    SCR-03: one sign-in is attempted on load and answered 503 sign_in_unavailable
 import { z } from 'zod';
@@ -39,6 +45,7 @@ export const SCENARIOS = [
   'slow',
   'stale',
   'save-failed',
+  'moving',
   'paused',
   'unavailable',
 ] as const;
