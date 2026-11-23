@@ -2,6 +2,21 @@
 
 One root cause blocks the whole run. Evidence below is trimmed; no secret, token or personal data appears.
 
+## Attempt 2 status: BUG-QA1-1 is STILL OPEN
+
+Re-checked on https://northside-quotes-git-staging-baseleap.vercel.app after the Vercel Preview variables were set and `staging` redeployed. `/api/health` is 200 with version `6ae29ebc6bd64342d86ee25048382eaf9f66c1a3` (same commit as attempt 1). `GET /` is still 500 and the form-token route is still 503. The full suite was not run, as instructed.
+
+| Request | Status | Vercel request id |
+|---|---|---|
+| `GET /` | 500 (`__next_error__` page; `data-dpl-id` `dpl_53M55QX5BKRQXEpqEg4ES8FkMQ4j`) | `yul1::yul1::bksgf-1795476107311-f0e78f28b92e` |
+| `POST /api/quote-requests`, made-up `X-Form-Token` | 503 `service_unavailable` (expected 401 `form_token_invalid`) | `yul1::yul1::bksgf-1795476109463-537c652a7160` |
+
+Failing specs (retries off, so no flaky claim): `tests/e2e/platform.both.spec.ts › SEC-2 two GETs of / carry different form-token nonces and Cache-Control no-store` and `› the form-token routes are available: a made-up token is 401 form_token_invalid, not 503`. Trace: `test-results/platform.both-preview-plat-40718--and-Cache-Control-no-store-preview/trace.zip` and `test-results/platform.both-preview-plat-14552--form-token-invalid-not-503-preview/trace.zip` (contain the bypass header; do not share). Passing: health, `/inbox` 404.
+
+Owner still bl-devops. For them to check (names only, QA cannot read Vercel): `APP_SIGNING_SECRET` is present in the Preview environment for the `staging` branch and is at least 32 characters; the deployment behind the staging alias was built after the variable was set and its id matches the `dpl_` id above or is newer (if the id is the old one, the alias was not moved to the redeploy); the Supabase variables and `SITE_URL` are present; `node scripts/env-check.mjs --vercel` lists what is missing. The token route is answered before any database access, so a 503 there still points at the signing secret, as in attempt 1. A runtime log for the request ids above would name the exact cause (bl-devops can read it; QA cannot).
+
+Signature (unchanged): `env: staging Preview environment lacks a valid APP_SIGNING_SECRET (>= 32 chars) → GET / 500, POST /api/quote-requests and POST /api/auth/sign-in 503`. Add `after redeploy, attempt 2` for the ledger.
+
 ### BUG-QA1-1 · Staging preview cannot serve the Request page or sign anyone in: `GET /` is 500 and the form-token and sign-in routes answer 503 (consistent with `APP_SIGNING_SECRET` missing or short in the Preview environment)
 
 | | |
