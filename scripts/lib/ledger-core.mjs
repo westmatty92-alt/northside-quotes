@@ -98,7 +98,9 @@ function writeRunPointer(planId) {
 const nowIso = () => new Date().toISOString();
 
 // ---- step checkouts + file ownership -------------------------------------------------------
-const LANE_OF = { frontend: 'wt-frontend', backend: 'wt-backend' };
+// Integration shares the backend lane (Nov 23 2026): its code is server code (src/lib/server/**, src/app/api/**) and needs
+// the backend's helpers, which never reach main. Steps in one lane run one at a time, so they never collide.
+const LANE_OF = { frontend: 'wt-frontend', backend: 'wt-backend', integration: 'wt-backend' };
 // Paths the orchestrator/ledger write in the main tree while specialists work; never a specialist's stray file.
 const ORCHESTRATOR_PATHS = [/^PLAN\.md$/, /^\.baseleap\//];
 
