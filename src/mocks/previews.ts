@@ -4,6 +4,7 @@
 import { saveReceipt } from '@/components/request/session-store';
 import type { FormPreview } from '@/components/request/preview-context';
 import type { FormValues } from '@/components/request/form-values';
+import type { SignInPreview } from '@/components/staff/sign-in-preview';
 import type { Scenario } from '@/mocks/scenarios';
 
 const MB = 1_048_576;
@@ -54,6 +55,29 @@ export function previewFor(scenario: Scenario): FormPreview | undefined {
       });
       return undefined;
     case 'ok':
+    // the staff scenarios change what the API answers, not what the public form starts with
+    case 'signed-in':
+    case 'empty':
+    case 'error':
+    case 'session-ended':
+    case 'slow':
+    case 'stale':
+    case 'save-failed':
+    case 'paused':
+    case 'unavailable':
+      return undefined;
+  }
+}
+
+/** What SCR-03 starts with for a scenario: the sign-in scenarios press "Sign in" once on load. */
+export function signInPreviewFor(scenario: Scenario): SignInPreview | undefined {
+  switch (scenario) {
+    case 'error':
+      return { email: 'owner@example.com', password: 'not-the-password', autoSubmit: true };
+    case 'paused':
+    case 'unavailable':
+      return { email: 'owner@example.com', password: 'correct-horse-battery-staple', autoSubmit: true };
+    default:
       return undefined;
   }
 }

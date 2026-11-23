@@ -1,5 +1,5 @@
-// The mock API for the public form: the same three calls the real backend and Storage answer, with the contract's
-// statuses and problem+json bodies. The submit call is the generated MSW handler; create and the Storage upload are
+// The mock API: the public form's three calls (below) plus the staff screens' (staff-handlers.ts), the same calls the
+// real backend and Storage answer, with the contract's statuses and problem+json bodies. The submit call is the generated MSW handler; create and the Storage upload are
 // written here because the generated create handler can only answer 200 and Storage is excluded from the generated
 // client. Like the real API, create refuses a missing form token (401), a filled honeypot (400, the one generic
 // body) and answers in 201 for a new pending request.
@@ -8,6 +8,7 @@ import type { Problem, ProblemCode, QuoteRequestStarted } from '@/lib/api/genera
 import { CreateQuoteRequestBody } from '@/lib/api/generated/public-form/public-form.zod';
 import { getSubmitQuoteRequestMockHandler } from '@/lib/api/generated/public-form/public-form.msw';
 import type { Scenario } from '@/mocks/scenarios';
+import { buildStaffHandlers } from '@/mocks/staff-handlers';
 
 const REQUEST_ID = '6f1c2a9e-6c1d-4f0e-9a43-2a1f0c3b9d10';
 const REFERENCE = 'NQ-7K3M9P';
@@ -73,5 +74,5 @@ export function buildHandlers(scenario: Scenario): RequestHandler[] {
     photo_count: plannedPhotos,
   }));
 
-  return [create, upload, submit];
+  return [create, upload, submit, ...buildStaffHandlers(scenario)];
 }

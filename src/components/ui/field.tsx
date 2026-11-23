@@ -14,7 +14,8 @@ export interface FieldAria {
 
 interface FieldProps {
   id: string;
-  label: string;
+  /** Words, or words plus a lighter "(optional)" (SCR-06's price and note). */
+  label: ReactNode;
   hint?: string;
   error?: string;
   children: (aria: FieldAria) => ReactNode;

@@ -1,10 +1,12 @@
 'use client';
 
 // Wraps the app. With mocking off it is transparent and no mock code is loaded. With mocking on it holds the page
-// back until the mock service worker is running (and any scenario seed is in place), then renders it, handing the
-// form its seed through the preview context.
+// back until the mock network is running (and any scenario seed is in place), then renders it, handing the request
+// form and the sign-in form their seeds through their preview contexts.
 import { useEffect, useState, type ReactNode } from 'react';
-import { FormPreviewContext, type FormPreview } from '@/components/request/preview-context';
+import { FormPreviewContext } from '@/components/request/preview-context';
+import { SignInPreviewContext } from '@/components/staff/sign-in-preview';
+import type { MockSeeds } from '@/mocks/browser';
 
 interface MockProviderProps {
   /** Decided on the server (src/mocks/flag.ts) and passed down. */
@@ -12,7 +14,7 @@ interface MockProviderProps {
   children: ReactNode;
 }
 
-type Boot = { ready: false } | { ready: true; preview: FormPreview | undefined };
+type Boot = { ready: false } | { ready: true; seeds: MockSeeds | undefined };
 
 export function MockProvider({ enabled, children }: MockProviderProps) {
   const [boot, setBoot] = useState<Boot>({ ready: false });
@@ -22,12 +24,12 @@ export function MockProvider({ enabled, children }: MockProviderProps) {
     let cancelled = false;
     import('@/mocks/browser')
       .then((mocks) => mocks.startMocking())
-      .then((preview) => {
-        if (!cancelled) setBoot({ ready: true, preview });
+      .then((seeds) => {
+        if (!cancelled) setBoot({ ready: true, seeds });
       })
       .catch((error: unknown) => {
         console.warn('API mocking could not start; the pages run without it.', error);
-        if (!cancelled) setBoot({ ready: true, preview: undefined });
+        if (!cancelled) setBoot({ ready: true, seeds: undefined });
       });
     return () => {
       cancelled = true;
@@ -36,5 +38,9 @@ export function MockProvider({ enabled, children }: MockProviderProps) {
 
   if (!enabled) return <>{children}</>;
   if (!boot.ready) return null;
-  return <FormPreviewContext value={boot.preview}>{children}</FormPreviewContext>;
+  return (
+    <FormPreviewContext value={boot.seeds?.form}>
+      <SignInPreviewContext value={boot.seeds?.signIn}>{children}</SignInPreviewContext>
+    </FormPreviewContext>
+  );
 }

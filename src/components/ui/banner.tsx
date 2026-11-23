@@ -17,16 +17,20 @@ interface BannerProps {
   /** id of the title element, so the banner can be named by it. */
   titleId?: string;
   title: string;
+  /** Another icon from the family than the variant's own (the paused sign-in warning uses the lock). */
+  icon?: IconName;
+  /** Announce at once (`role="alert"`) even though the variant is not an error: a refused sign-in is news she must hear. */
+  urgent?: boolean;
   children?: ReactNode;
   ref?: Ref<HTMLDivElement>;
 }
 
-export function Banner({ variant, titleId, title, children, ref }: BannerProps) {
+export function Banner({ variant, titleId, title, icon, urgent = false, children, ref }: BannerProps) {
   const look = variants[variant];
   return (
     <div
       ref={ref}
-      role={look.role}
+      role={urgent ? 'alert' : look.role}
       tabIndex={-1}
       aria-labelledby={titleId}
       className={cn(
@@ -35,7 +39,7 @@ export function Banner({ variant, titleId, title, children, ref }: BannerProps) 
         look.box,
       )}
     >
-      <Icon name={look.name} className={cn('mt-xs', look.icon)} />
+      <Icon name={icon ?? look.name} className={cn('mt-xs', look.icon)} />
       <div className="grid min-w-0 flex-1 justify-items-start gap-sm">
         <p id={titleId} className={type.label}>
           {title}

@@ -2,7 +2,7 @@
 // border, 44 px), and a paused look for busy or unavailable (Paper with a dashed border, so it still shows on a Fog
 // card). A paused button keeps `aria-disabled` instead of `disabled`, so it keeps keyboard focus and a press does
 // nothing: callers ignore the click while `paused`.
-import type { ButtonHTMLAttributes, ReactNode } from 'react';
+import type { ComponentProps, ReactNode } from 'react';
 import { type } from '@/components/ui/typography';
 import { cn } from '@/lib/utils';
 
@@ -26,7 +26,7 @@ const pausedLook =
 
 export type ButtonVariant = keyof typeof looks;
 
-interface ButtonProps extends Omit<ButtonHTMLAttributes<HTMLButtonElement>, 'disabled'> {
+interface ButtonProps extends Omit<ComponentProps<'button'>, 'disabled'> {
   variant?: ButtonVariant;
   /** Busy or unavailable: looks paused, announces `aria-disabled`, keeps focus. */
   paused?: boolean;
