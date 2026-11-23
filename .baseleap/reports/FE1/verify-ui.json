@@ -1,0 +1,88 @@
+{
+  "base": "http://localhost:3201",
+  "checked_at": "2026-11-23T21:06:35.624Z",
+  "ok": true,
+  "problems": [],
+  "results": [
+    {
+      "id": "SCR-01",
+      "width": "mobile",
+      "url": "http://localhost:3201/",
+      "screenshot": ".baseleap/reports/FE1/SCR-01-mobile.png",
+      "status": 200,
+      "console": [],
+      "failedRequests": [],
+      "axe": []
+    },
+    {
+      "id": "SCR-01",
+      "width": "desktop",
+      "url": "http://localhost:3201/",
+      "screenshot": ".baseleap/reports/FE1/SCR-01-desktop.png",
+      "status": 200,
+      "console": [],
+      "failedRequests": [],
+      "axe": []
+    },
+    {
+      "id": "SCR-01--errors",
+      "width": "mobile",
+      "url": "http://localhost:3201/?mockScenario=errors",
+      "screenshot": ".baseleap/reports/FE1/SCR-01--errors-mobile.png",
+      "status": 200,
+      "console": [],
+      "failedRequests": [],
+      "axe": []
+    },
+    {
+      "id": "SCR-01--errors",
+      "width": "desktop",
+      "url": "http://localhost:3201/?mockScenario=errors",
+      "screenshot": ".baseleap/reports/FE1/SCR-01--errors-desktop.png",
+      "status": 200,
+      "console": [],
+      "failedRequests": [],
+      "axe": []
+    },
+    {
+      "id": "SCR-01--send-failed",
+      "width": "mobile",
+      "url": "http://localhost:3201/?mockScenario=send-failed",
+      "screenshot": ".baseleap/reports/FE1/SCR-01--send-failed-mobile.png",
+      "status": 200,
+      "console": [],
+      "failedRequests": [],
+      "axe": []
+    },
+    {
+      "id": "SCR-01--send-failed",
+      "width": "desktop",
+      "url": "http://localhost:3201/?mockScenario=send-failed",
+      "screenshot": ".baseleap/reports/FE1/SCR-01--send-failed-desktop.png",
+      "status": 200,
+      "console": [],
+      "failedRequests": [],
+      "axe": []
+    },
+    {
+      "id": "SCR-02",
+      "width": "mobile",
+      "url": "http://localhost:3201/request-sent?mockScenario=sent",
+      "screenshot": ".baseleap/reports/FE1/SCR-02-mobile.png",
+      "status": 200,
+      "console": [],
+      "failedRequests": [],
+      "axe": []
+    },
+    {
+      "id": "SCR-02",
+      "width": "desktop",
+      "url": "http://localhost:3201/request-sent?mockScenario=sent",
+      "screenshot": ".baseleap/reports/FE1/SCR-02-desktop.png",
+      "status": 200,
+      "console": [],
+      "failedRequests": [],
+      "axe": []
+    }
+  ]
+}
