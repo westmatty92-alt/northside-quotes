@@ -51,6 +51,8 @@ When you're finished, approve the `account_setup` gate. The DevOps step waiting 
 
    **Tick Production and Preview** for every row that needs both, with the branch on **All Preview Branches**. Lane previews need them too; a Preview copy limited to `staging`, or a Production-only row, fails the release's drift check.
 
+   **Generated secrets (signing, cron and the like).** Make each one in a terminal with `openssl rand -hex 32 | tr -d '\n'; echo`, a different value per secret and per environment. Paste exactly the 64 characters: no space or blank line before or after. Vercel refuses a value with leading or trailing whitespace (`INVALID_CRON_SECRET`), and the app then fails on that environment. Never paste a secret into chat.
+
    **One name, two rows.** A name with different values per environment (like `SITE_URL`) is two separate rows: one ticked Production only, one ticked Preview only. If a row already covers both, edit it down to Production first, then add the Preview row. Vercel refuses a second row whose environments overlap.
 
 3. Check four settings: under **Environment Variables**, *Automatically expose System Environment Variables* is ticked; **Git → Production Branch** is `main`; **Functions → Region** shows Montréal (yul1); **Git → deployment_status Events** is **on** (the staging tests start from it; without it, they never run).
@@ -88,6 +90,13 @@ Go to **Settings → Environments**.
 **Repo variable** (Settings → Secrets and variables → Actions → Variables): `PRODUCTION_URL` = `https://{{PRODUCTION_DOMAIN}}`.
 
 **Protect `main`:** do this after we tell you the first checks have run. Add a branch ruleset on `main` that requires a pull request and the checks `verify`, `security` and `workflows`, blocks force pushes and restricts deletions. Leave the bypass list empty.
+
+## Part 4b: This machine's settings (only if the build's tests need them)
+In a terminal on the orchestrator machine, in the project folder, run the command DevOps fills in below. It asks for each value (nothing shows while you paste) and ends with a check. Don't open `.env.local` in an editor.
+```
+node scripts/set-env.mjs {{LOCAL_ENV_NAMES}}
+```
+You want the last line to say **All requested names present** and **0 broken line(s)**. Staging values only; production keys never go on this machine.
 
 ## Part 5: Checklist, then approve the gate
 
