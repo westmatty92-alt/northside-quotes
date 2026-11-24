@@ -57,14 +57,29 @@ export function PhotoGallery({ requestId, reference, name, photos: initial }: Ph
     return () => window.clearTimeout(timer);
   }, [earliest, refetch]);
 
-  // An image that failed to load asks for fresh URLs once per set of URLs.
-  const asked = useRef('');
-  function onThumbError() {
-    const signature = photos.map((photo) => photo.url ?? '').join('|');
-    if (asked.current === signature) return;
-    asked.current = signature;
-    void refetch();
+  // An image that cannot be loaded (Storage unreachable, a URL that expired) says "Photo unavailable" in its slot at once
+  // (AC-005.7) and asks for fresh URLs, once per photo until it loads, and one request however many fail together. The
+  // slot remembers the URL that failed, so a fresh URL for the same photo is tried, and a photo that fails again stays
+  // "Photo unavailable" without another request (no loop while Storage is down).
+  const [failed, setFailed] = useState<Readonly<Record<number, string>>>({});
+  const retried = useRef(new Set<number>());
+  const refreshing = useRef(false);
+  function onThumbError(photo: Photo) {
+    if (!photo.url) return;
+    const url = photo.url;
+    setFailed((before) => ({ ...before, [photo.position]: url }));
+    if (retried.current.has(photo.position)) return;
+    retried.current.add(photo.position); // this photo's one retry is the request below (or the one already on its way)
+    if (refreshing.current) return;
+    refreshing.current = true;
+    void refetch().finally(() => {
+      refreshing.current = false;
+    });
   }
+  function onThumbLoad(photo: Photo) {
+    retried.current.delete(photo.position);
+  }
+  const unavailable = (photo: Photo) => !photo.url || failed[photo.position] === photo.url;
 
   const total = photos.length;
   return (
@@ -89,7 +104,7 @@ export function PhotoGallery({ requestId, reference, name, photos: initial }: Ph
             <ul className="grid grid-cols-3 gap-sm">
               {photos.map((photo, index) => (
                 <li key={photo.position} className="grid min-w-0">
-                  {photo.url ? (
+                  {!unavailable(photo) && photo.url ? (
                     <button
                       type="button"
                       aria-label={staffCopy.detail.viewPhotoLabel(photo.position, total)}
@@ -109,7 +124,8 @@ export function PhotoGallery({ requestId, reference, name, photos: initial }: Ph
                         alt=""
                         referrerPolicy="no-referrer"
                         decoding="async"
-                        onError={onThumbError}
+                        onLoad={() => onThumbLoad(photo)}
+                        onError={() => onThumbError(photo)}
                         className="size-full object-cover"
                       />
                       <span
@@ -129,7 +145,7 @@ export function PhotoGallery({ requestId, reference, name, photos: initial }: Ph
               ))}
             </ul>
             <p className={type.hint}>
-              {photos.some((photo) => photo.url === null) ? staffCopy.detail.photosUnavailableHint : staffCopy.detail.photosHint}
+              {photos.some(unavailable) ? staffCopy.detail.photosUnavailableHint : staffCopy.detail.photosHint}
             </p>
           </>
         )}

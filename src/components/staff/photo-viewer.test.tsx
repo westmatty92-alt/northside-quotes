@@ -8,7 +8,7 @@ import { http, HttpResponse } from 'msw';
 import { setupServer } from 'msw/node';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { PhotoGallery, refreshDelay } from '@/components/staff/photo-gallery';
-import { expectNoAxeViolations, installDialogStandIn, renderStaff } from '@/components/staff/test-support';
+import { expectLabelsContainVisibleText, expectNoAxeViolations, installDialogStandIn, renderStaff } from '@/components/staff/test-support';
 import type { Photo } from '@/lib/api/generated/model';
 
 vi.mock('next/navigation', () => ({ usePathname: () => '/requests/x', useRouter: () => ({ push: vi.fn(), replace: vi.fn(), refresh: vi.fn() }) }));
@@ -77,11 +77,41 @@ describe('SCR-06 photo thumbnails', () => {
     }
   });
 
-  it('are named "View photo N of 3 at full size" and show "View photo N" on the tile', async () => {
+  // BUG-QA1-5, ledger ruling 2026-11-24: the tile shows "View photo N" and the name is "View photo N of 3 at full size"
+  it('are named "View photo N of 3 at full size" and show "View photo N" on the tile; the name contains the visible words (WCAG 2.5.3)', async () => {
     const { container } = gallery(photos(3));
     expect(thumb(2)).toHaveTextContent('View photo 2');
+    await expectLabelsContainVisibleText(container);
     expect(screen.getByRole('heading', { name: /Photos/ })).toHaveTextContent('Photos (3)');
     await expectNoAxeViolations(container);
+  });
+
+  // BUG-QA1-3 (AC-005.7, SCR-06 Error): the API answers with URLs, the browser cannot fetch the images.
+  it('Storage unreachable: every slot whose image fails says "Photo unavailable", the rest of the request still shows, and fresh URLs are asked for once', async () => {
+    const { container } = gallery(photos(3));
+    for (const image of Array.from(document.querySelectorAll('img'))) fireEvent.error(image);
+    expect(await screen.findAllByText('Photo unavailable')).toHaveLength(3);
+    expect(screen.queryAllByRole('button', { name: /View photo/ })).toHaveLength(0);
+    expect(screen.getByRole('heading', { name: /Photos/ })).toBeInTheDocument();
+    expect(screen.getByText(/The rest of the request is still shown/)).toBeInTheDocument();
+    await expectNoAxeViolations(container);
+
+    // the fresh URLs it asked for are tried, and fail too: still "Photo unavailable", and no new request (no loop)
+    await waitFor(() => expect(photoCalls).toBe(1));
+    await waitFor(() => expect(document.querySelectorAll('img')).toHaveLength(3));
+    for (const image of Array.from(document.querySelectorAll('img'))) fireEvent.error(image);
+    expect(await screen.findAllByText('Photo unavailable')).toHaveLength(3);
+    await new Promise((resolve) => setTimeout(resolve, 50));
+    expect(photoCalls).toBe(1);
+  });
+
+  it('one photo that fails does not take the others with it, and it comes back when a fresh URL loads', async () => {
+    gallery(photos(3));
+    fireEvent.error(document.querySelectorAll('img')[1] as HTMLImageElement);
+    expect(await screen.findAllByText('Photo unavailable')).toHaveLength(1);
+    expect(screen.getAllByRole('button', { name: /View photo/ })).toHaveLength(2);
+    await waitFor(() => expect(document.querySelectorAll('img')).toHaveLength(3)); // the fresh URL replaced the failed one
+    expect(screen.queryByText('Photo unavailable')).toBeNull();
   });
 
   it('a photo whose URL could not be signed says "Photo unavailable" and cannot be opened', () => {
@@ -185,6 +215,70 @@ describe('SCR-08 Photo viewer', () => {
     fireEvent.click(within(dialog()).getByRole('button', { name: 'Next photo' }));
     expect(dialog()).toHaveAccessibleName('Photo 3 of 3');
     expect(viewerImage()).not.toBeNull();
+  });
+
+  // BUG-QA1-4 (SCR-08 Keyboard path): a native modal <dialog> keeps the page behind inert, but its Tab order ends at the
+  // browser's own controls, so past the last button focus leaves the page (document.activeElement is the body). The trap
+  // has to be the viewer's own. jsdom has no Tab key, so `pressTab` plays both halves: the keydown the page sees and, when
+  // the page does not stop it, the browser's move inside the open dialog (past the last control: out of the page).
+  function pressTab(shift = false) {
+    const active = document.activeElement as HTMLElement;
+    const browserMoves = fireEvent.keyDown(active, { key: 'Tab', shiftKey: shift });
+    if (!browserMoves) return;
+    const order = Array.from(dialog().querySelectorAll<HTMLElement>('button, [href], input, select, textarea, [tabindex]')).filter(
+      (element) => !element.hasAttribute('disabled') && element.getAttribute('tabindex') !== '-1',
+    );
+    const next = order[order.indexOf(active) + (shift ? -1 : 1)];
+    if (next) next.focus();
+    else active.blur(); // to the browser's own controls: the page's activeElement becomes the body
+  }
+  const focusedName = () => (document.activeElement as HTMLElement).getAttribute('aria-label') ?? document.activeElement?.textContent?.trim();
+
+  it('Tab keeps focus inside the dialog and cycles Close, Previous photo, Next photo, Close (SCR-08)', () => {
+    gallery(photos(3));
+    fireEvent.click(thumb(2));
+    expect(focusedName()).toBe('Close');
+    const trail: Array<string | undefined> = [];
+    for (let press = 1; press <= 8; press++) {
+      pressTab();
+      expect(dialog().contains(document.activeElement), `Tab ${press} left the dialog: focus trail ${trail.join(' > ')} > ${focusedName()}`).toBe(true);
+      trail.push(focusedName());
+    }
+    expect(trail.slice(0, 4)).toEqual(['Previous photo', 'Next photo', 'Close', 'Previous photo']);
+  });
+
+  it('Shift+Tab from Close goes to the last control, and back, never out of the dialog', () => {
+    gallery(photos(3));
+    fireEvent.click(thumb(2));
+    pressTab(true);
+    expect(focusedName()).toBe('Next photo');
+    pressTab(true);
+    expect(focusedName()).toBe('Previous photo');
+    pressTab(true);
+    expect(focusedName()).toBe('Close');
+    pressTab(true);
+    expect(dialog().contains(document.activeElement)).toBe(true);
+  });
+
+  it('the trap still holds on the last photo, where Next is paused but stays in the Tab order', () => {
+    gallery(photos(3));
+    fireEvent.click(thumb(3));
+    for (let press = 1; press <= 6; press++) {
+      pressTab();
+      expect(dialog().contains(document.activeElement), `Tab ${press} left the dialog`).toBe(true);
+    }
+  });
+
+  it('Escape closes the viewer and puts focus back on the thumbnail that opened it', async () => {
+    gallery(photos(3));
+    const opener = thumb(2);
+    opener.focus();
+    fireEvent.click(opener);
+    pressTab();
+    fireEvent.keyDown(document.activeElement as HTMLElement, { key: 'Escape' });
+    expect(screen.queryByRole('dialog')).toBeNull();
+    await waitFor(() => expect(document.activeElement).toBe(opener));
+    expect(document.documentElement.style.overflow).toBe('');
   });
 
   it('Close closes the dialog and puts focus back on the thumbnail that opened it', async () => {

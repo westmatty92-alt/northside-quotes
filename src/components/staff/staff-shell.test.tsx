@@ -7,6 +7,7 @@ import { setupServer } from 'msw/node';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { expectNoAxeViolations } from '@/components/request/test-support';
 import { StaffShell } from '@/components/staff/staff-shell';
+import { expectLabelsContainVisibleText } from '@/components/staff/test-support';
 import { TabNav, tabForPath } from '@/components/staff/tab-nav';
 import { useStaffRequest } from '@/hooks/use-staff-request';
 import { getCurrentWeeklyCount } from '@/lib/api/generated/weekly-count/weekly-count';
@@ -82,6 +83,17 @@ describe('the staff frame', () => {
     expect(await screen.findByText('content')).toBeInTheDocument();
     expect(await screen.findByText('Signed in as Owner')).toBeInTheDocument();
     expect(seen.find((call) => call.url === '/api/staff/me')?.authorization).toBe('Bearer token-1');
+  });
+
+  // BUG-QA1-2: the logo link's aria-label replaced the wordmark's words, so axe failed label-content-name-mismatch (WCAG 2.5.3).
+  it('the header logo link is named with its visible wordmark text first, and the frame has no axe violation (WCAG 2.5.3)', async () => {
+    const { container } = render(<StaffShell mocking={true}>{<p>content</p>}</StaffShell>);
+    await screen.findByText('Signed in as Owner');
+    await expectLabelsContainVisibleText(container);
+    const link = within(screen.getByRole('banner')).getByRole('link', { name: /Northside Plumbing/ });
+    expect(link).toHaveAttribute('href', '/requests');
+    expect(link).toHaveAccessibleName(/^Northside Plumbing, Hamilton/); // starts with the words it shows
+    expect(link).toHaveAccessibleName(/Requests/); // and still says where it goes
   });
 
   it('reads the CURRENT token on every call: a refreshed token is used by the next call without a re-render', async () => {

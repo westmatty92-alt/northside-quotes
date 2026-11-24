@@ -59,7 +59,28 @@ export function PhotoViewer({ reference, name, photos, index, onIndexChange, onC
   const state = !photo?.url ? 'failed' : outcome?.key === key ? outcome.state : 'loading';
 
   function onKeyDown(event: KeyboardEvent<HTMLDialogElement>) {
-    if (event.key === 'ArrowLeft' && index > 0) {
+    if (event.key === 'Tab') {
+      // A modal <dialog> makes the page behind inert, but its Tab order still ends at the browser's own controls: after
+      // the last button focus would leave the page. So the viewer wraps focus itself (SCR-08: "trapped inside"). A paused
+      // button (aria-disabled, not disabled) stays in the order, so it is counted.
+      const controls = Array.from(event.currentTarget.querySelectorAll<HTMLElement>('button:not([disabled]), [href], input:not([disabled]), select, textarea, [tabindex]:not([tabindex="-1"])'));
+      const first = controls[0];
+      const last = controls[controls.length - 1];
+      if (first && last) {
+        if (event.shiftKey && (document.activeElement === first || !event.currentTarget.contains(document.activeElement))) {
+          event.preventDefault();
+          last.focus();
+        } else if (!event.shiftKey && (document.activeElement === last || !event.currentTarget.contains(document.activeElement))) {
+          event.preventDefault();
+          first.focus();
+        }
+      }
+    } else if (event.key === 'Escape') {
+      // the browser does this itself; stated here so Escape works the same wherever <dialog> behaves differently, and
+      // closing always runs through the one path that hands focus back to the thumbnail
+      event.preventDefault();
+      dialog.current?.close();
+    } else if (event.key === 'ArrowLeft' && index > 0) {
       event.preventDefault();
       onIndexChange(index - 1);
     } else if (event.key === 'ArrowRight' && index < total - 1) {
