@@ -184,3 +184,73 @@ None created: nothing was submitted. Future runs tag requests `QA-E2E <run id>` 
 **CONTRACT QUESTION:** none. Spec questions SQ-8 (refused photo rows), SQ-9 (finger drag) and SQ-10 (accessible wording) are in `docs/test-plan.md`.
 **BLOCKED:** none.
 **Notes for the next step:** after bl-frontend fixes BUG-QA1-2, -3, -4 (and -5 if the app wording stays, tell QA to change the two design-wording tests), reopen QA1 and run `npx playwright test tests/e2e --grep-invert @probe` (about 20 minutes); expect axe to show any violations that BUG-QA1-2 hid. Do not run it from two machines at once, and run QA2's lockout probes only after QA1's full run.
+
+## Attempt 4 — Re-run after FE2 fixes — 2026-11-24
+**Status:** done. 130 of 130 passed in each of two full runs on `0dff609`; BUG-QA1-2 to BUG-QA1-5 resolved; BUG-QA1-6 open (monitor), did not recur. Verdict PASS for what this suite reaches (`docs/qa-reports/latest-run.md`).
+
+**Target:** https://northside-quotes-git-staging-baseleap.vercel.app at commit `0dff609`.
+
+**Preflight: PASSED.** The first `/api/health` check, a few minutes after the brief, still showed `e966fbc`; the next check (retrying inside the 10-minute allowance) showed a version containing `0dff609`, status `ok`. `GET /` 200 (nonces differ, `no-store`), made-up form token 401, `/inbox` 404. Asserted by `platform.both.spec.ts` (4 of 4, run alone and at the start of each full run). The retry used the `health` test with an optional `QA_WAIT_BUILD_MS` poll; the helper `tests/e2e/support/wait-for-build.mjs` was written but not run (`node` on it needs approval here).
+
+**Counts** (`npx playwright test tests/e2e --grep-invert @probe`, twice):
+
+| Run | Passed | Failed | Flaky | Skipped | Duration |
+|---|---|---|---|---|---|
+| 1 (id `kr232`, list output only, see "Could not do") | 130 | 0 | 0 | 0 | 10.9 min |
+| 2 (id `lai62`, JSON and HTML reports kept) | 130 | 0 | 0 | 0 | 16.0 min |
+
+Run 2's JSON stats: expected 130, unexpected 0, flaky 0, skipped 0. Tests that create requests run with retries off, so I would have flagged any failure as FLAKY by hand; there was none.
+
+**Done spine: passed in both runs** (18.6 s, 18.3 s): all six steps, including the weekly Won count within 2 s. Stable across 2 runs; two runs cannot prove BUG-QA1-6 is gone.
+
+**Bugs**
+
+| Ticket | Status | Evidence |
+|---|---|---|
+| BUG-QA1-2 (Critical, axe label-in-name on the staff header link) | **RESOLVED** | The 7 tests that failed on their last axe line pass in both runs: `auth.desktop › AC-004.1`, `requests › AC-005.10 AC-016.19` (both viewports), `board › AC-016.1 AC-016.8`, `pipeline.phone › AC-016.17`, `detail › AC-005.3 AC-016.5` (both), `screens › AC-016.16 AC-005.10` (both). No other axe violation showed |
+| BUG-QA1-3 (no "Photo unavailable") | **RESOLVED** (browser-side path) | `detail › AC-005.7`, phone and desktop, both runs. The server-side `url: null` path stays unverified |
+| BUG-QA1-4 (viewer focus escapes on Tab 3) | **RESOLVED** | `detail › design: focus is trapped inside the open photo viewer`, phone and desktop, both runs |
+| BUG-QA1-5 (two accessible names) | **RESOLVED** by ruling | `detail › design wording (SQ-10)` and `requests › design wording (SQ-10)`, both viewports, both runs, asserting the ruled names |
+| BUG-QA1-6 (TLS errors on Supabase uploads) | **OPEN (monitor)** | 0 recurrences in 2 full runs (6 photo-uploading test executions: spine, double-tap 3 x 5 MB, upload-drop, in each of 2 runs; the guard fails a test on any `net::ERR_`). Attempt 3 saw it in about 2 of 6 runs, so 0 of 2 does not close it (about 44 percent chance of this if the rate were one in three). For devops: storage host `ckhkiarvfrfiwkvspduu.supabase.co`, path `/storage/v1/object/quote-photos/<request id>/photo-N`; attempt 3 failures 2026-11-23 about 20:30 to 21:00 local; this attempt's clean runs 2026-11-24 about 10:51 to 11:22 UTC |
+| New | none | no failure in either run |
+
+**AC-002.7 timings (SQ-2: QA's 4G profile, 9 Mbps and 170 ms, is the reference):** run 2 **19 387 ms** (limit 20 000, margin 0.6 s); run 1 passed, so under 20 000 ms, value not recorded (the test prints it from now on: `[qa] AC-002.7 confirm-ms=…`); attempt 3 had 20 173 ms once.
+
+**Rulings applied (corrections, no assertion weakened):** photo tile "View photo N" / name "View photo N of 3 at full size" and Move to name "Move to another status, NQ-…" are now the only accepted names (the either-or locators are gone); `[data-grip]` touch drag at 1280 px (the grip is asserted visible first) and no visible grip at 375 px with Move to used there; spine does Move to at 390 px; `docs/test-plan.md` SQ-2, SQ-9, SQ-10 marked ruled, the AC-016.2 row and an "attempt 4" change list updated.
+
+**Unverified**
+- Live GoHighLevel (US-009, US-010, US-014 except AC-014.4, US-017): offline simulator tests only.
+- AC-002.4 "is not stored" (SQ-8); AC-005.7 server-side path; AC-001.13, AC-002.9, AC-007.7, FR-21 (SQ-1, SQ-3); AC-005.5, AC-016.10 (SQ-6).
+- AC-002.7 on any 4G profile other than QA's; the margin is 0.6 s.
+- Whether BUG-QA1-6 is gone; whether `vercel.live` loads on production.
+- Permission probes, fuzz, lockout and abuse (QA2): not run, as instructed.
+
+**Test data on staging:** 16 requests this attempt, all named `QA-E2E kr232 …` (8) or `QA-E2E lai62 …` (8); references are listed in `docs/qa-reports/latest-run.md` ("Test data left on staging"). Baseleap removes them by name prefix (NG-7: no delete API).
+
+**Files changed** (all inside the owned paths)
+- `tests/e2e/support/ui.ts`: `photoThumbs`, `photoThumb`, `moveButton` match the ruled names only; new `grip`, `visibleGrips`; `touchDrag` presses the card's `[data-grip]`
+- `tests/e2e/detail.both.spec.ts`, `tests/e2e/requests.both.spec.ts`: the two design-wording tests assert the ruled names and visible text
+- `tests/e2e/pipeline.desktop.spec.ts`: touch-drag test renamed `AC-016.2 SQ-9 … by the grip at 1280 px`
+- `tests/e2e/pipeline.phone.spec.ts`: asserts no visible grip at 375 px
+- `tests/e2e/platform.both.spec.ts`: default expected commit `0dff609`; optional `QA_WAIT_BUILD_MS` poll (default 0, assertion unchanged)
+- `tests/e2e/submissions.phone.spec.ts`: prints the AC-002.7 timing to the run output as well as attaching it
+- `tests/e2e/support/wait-for-build.mjs`: new, unused (see above)
+- `docs/test-plan.md`: SQ-2, SQ-9, SQ-10, the AC-016.2 row, "Changes made in attempt 4"
+- `docs/qa-reports/latest-run.md` (overwritten; the attempt 3 version is in git), `docs/qa-reports/playwright-results.json`, `docs/qa-reports/qa-e2e-created.ndjson` (run 2), `playwright-report/`: generated
+- `.baseleap/reports/QA1.md` (this section), `.baseleap/reports/QA1-errors.md` (status of every ticket)
+- `playwright.config.ts`: unchanged.
+
+**Commands run**
+- `npx playwright test tests/e2e/platform.both.spec.ts --project=preview --retries=0 --reporter=list` → exit 1 first (version still `e966fbc`), exit 0 on the retry and the check after it (4 passed)
+- `npx playwright test tests/e2e --grep-invert @probe --reporter=list` → exit 0, 130 passed, 10.9 min
+- `npx playwright test tests/e2e --grep-invert @probe` → exit 0, 130 passed, 16.0 min; 0 flaky
+- `npx tsc --noEmit` → exit 0; `npx eslint tests/e2e playwright.config.ts` → exit 0
+
+**Could not do**
+- `node --env-file=.env.local node_modules/.bin/playwright test …` and `node tests/e2e/support/*.mjs`: need approval here; the config loads `.env.local` itself, so the suite is the same.
+- Run 1 was started with `--reporter=list` (my mistake, it replaces the config's JSON and HTML reporters) and I could not stop it, so it ran to the end without a JSON file; I repeated the full run to get the evidence files. The cost was 8 more test requests on staging.
+- AC-002.7 for run 1 (the value was not printed then).
+
+**CONTRACT QUESTION:** none.
+**BLOCKED:** none.
+**Notes for the next step:** QA1 can close once BUG-QA1-6 is accepted as monitor-only. QA2 (probes and fuzz) may start; run its lockout probes on unknown emails or after the sign-in pause, not on the owner or helper account while QA1 may still be re-run.

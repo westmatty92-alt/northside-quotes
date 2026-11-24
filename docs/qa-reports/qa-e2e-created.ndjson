@@ -1,12 +1,8 @@
-{"at":"2026-11-24T01:40:38.954Z","reference":"NQ-EP2KQ3","name":"QA-E2E 12g6v Spine Dana Whitfield","note":"done spine: 3 photos, offers unticked"}
-{"at":"2026-11-24T01:40:55.875Z","reference":"NQ-9ZW5JN","name":"QA-E2E 12g6v Zoë O'Brien <script>alert(1)</script>","note":"ticked offers, XSS name, no photos"}
-{"at":"2026-11-24T01:41:03.317Z","reference":"NQ-EA2Q8B","name":"QA-E2E 12g6v Back-resend A Alex Morgan","note":"back-and-resend A"}
-{"at":"2026-11-24T01:48:28.848Z","reference":"NQ-77B8TA","name":"QA-E2E 12g6v Back-resend B Alex Morgan","note":"back-and-resend B"}
-{"at":"2026-11-24T01:51:08.012Z","reference":"NQ-J5ND75","name":"QA-E2E 12g6v Double-tap Sam Patel","note":"double tap, 3 x 5,242,880 byte photos"}
-{"at":"2026-11-24T02:00:12.798Z","reference":"NQ-EFB42B","name":"QA-E2E 12g6v Upload-drop Robin Singh","note":"photo 2 upload dropped, then resent"}
-{"at":"2026-11-24T02:00:17.608Z","reference":"NQ-PVC9F9","name":"QA-E2E 12g6v Consent missing Pat Lee","note":"direct call, offers value missing"}
-{"at":"2026-11-24T02:00:21.581Z","reference":"NQ-ENB89N","name":"QA-E2E 12g6v Consent maybe Pat Lee","note":"direct call, offers value maybe"}
-{"at":"2026-11-24T02:01:39.201Z","reference":"NQ-WD4Q8A","name":"QA-E2E 1tm73 Zoë O'Brien <script>alert(1)</script>","note":"ticked offers, XSS name, no photos"}
-{"at":"2026-11-24T02:01:48.185Z","reference":"NQ-D5ZYF5","name":"QA-E2E 1tm73 Back-resend A Alex Morgan","note":"back-and-resend A"}
-{"at":"2026-11-24T02:10:23.230Z","reference":"NQ-KDB8XE","name":"QA-E2E 1tm73 Back-resend B Alex Morgan","note":"back-and-resend B"}
-{"at":"2026-11-24T02:10:57.817Z","reference":"NQ-SA69WW","name":"QA-E2E 1tm73 Double-tap Sam Patel","note":"double tap, 3 x 5,242,880 byte photos"}
+{"at":"2026-11-24T11:06:49.362Z","reference":"NQ-RHMC2X","name":"QA-E2E lai62 Spine Dana Whitfield","note":"done spine: 3 photos, offers unticked"}
+{"at":"2026-11-24T11:07:05.129Z","reference":"NQ-ARZR2U","name":"QA-E2E lai62 Zoë O'Brien <script>alert(1)</script>","note":"ticked offers, XSS name, no photos"}
+{"at":"2026-11-24T11:12:09.130Z","reference":"NQ-H77AU6","name":"QA-E2E lai62 Back-resend A Alex Morgan","note":"back-and-resend A"}
+{"at":"2026-11-24T11:12:24.516Z","reference":"NQ-W23D5Z","name":"QA-E2E lai62 Back-resend B Alex Morgan","note":"back-and-resend B"}
+{"at":"2026-11-24T11:12:50.934Z","reference":"NQ-BR7R8X","name":"QA-E2E lai62 Double-tap Sam Patel","note":"double tap, 3 x 5,242,880 byte photos"}
+{"at":"2026-11-24T11:17:56.240Z","reference":"NQ-WX88D9","name":"QA-E2E lai62 Upload-drop Robin Singh","note":"photo 2 upload dropped, then resent"}
+{"at":"2026-11-24T11:18:01.116Z","reference":"NQ-ZEMX6H","name":"QA-E2E lai62 Consent missing Pat Lee","note":"direct call, offers value missing"}
+{"at":"2026-11-24T11:22:27.707Z","reference":"NQ-W2UZ5E","name":"QA-E2E lai62 Consent maybe Pat Lee","note":"direct call, offers value maybe"}

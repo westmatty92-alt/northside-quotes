@@ -4,7 +4,7 @@ import { test, expect } from './support/fixtures';
 import { statePath } from './support/env';
 import { pathIs } from './support/paths';
 import { pick, pickAt } from './support/pool';
-import { REF_RE, columnOf, expectCount, hasHorizontalScroll, photoThumbs, tabLink, tapMoveTo, weeklyStrip } from './support/ui';
+import { REF_RE, columnOf, expectCount, hasHorizontalScroll, photoThumbs, tabLink, tapMoveTo, visibleGrips, weeklyStrip } from './support/ui';
 
 test.use({ storageState: statePath('owner'), viewport: { width: 375, height: 812 } });
 
@@ -17,6 +17,8 @@ test('@smoke AC-016.17 on a 375 px phone a card moves with taps only and the pag
   expect(await hasHorizontalScroll(page), 'the board scrolls sideways').toBe(false);
   await expect(tabLink(page, 'Pipeline')).toHaveAttribute('aria-current', 'page');
   await expect(weeklyStrip(page)).toBeVisible();
+  // Ruling of 2026-11-24 (SQ-9): the grip is shown only from 1280 px; a phone moves cards with Move to.
+  await expect(visibleGrips(page), 'no drag grip below 1280 px').toHaveCount(0);
 
   await tapMoveTo(page, request.reference, 'won');
   await expect.poll(() => columnOf(page, request.reference), { message: 'the card is in Won' }).toBe('Won');
