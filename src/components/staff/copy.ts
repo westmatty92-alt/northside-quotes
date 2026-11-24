@@ -20,7 +20,8 @@ export const staffCopy = {
     signOut: 'Sign out',
     signedInAs: (name: string) => `Signed in as ${name}`,
     skip: 'Skip to main content',
-    home: 'Northside Plumbing, Requests',
+    // starts with the words the wordmark shows (WCAG 2.5.3 Label in Name) and then says where the link goes
+    home: 'Northside Plumbing, Hamilton: Requests',
   },
 
   signIn: {
@@ -72,7 +73,10 @@ export const staffCopy = {
     listHeading: 'Quote requests, newest first',
     columns: ['Reference', 'Name', 'Urgency', 'Status', 'Submitted'] as const,
     moveTo: 'Move to',
-    // starts with the visible words "Move to" (WCAG 2.5.3) and carries the reference (the design's rule for repeated buttons)
+    // Starts with the visible words "Move to" (WCAG 2.5.3 Label in Name) and carries the reference (the design's rule for
+    // repeated buttons). NOT the wording of design-specs ("Move NQ-7K3M9P to another status"): its words "Move" and "to" are
+    // not together, so axe's label-content-name-mismatch fails it against the visible "Move to" (negative control in
+    // tmp-debug.test.tsx). The spec needs the change, not this label.
     moveLabel: (reference: string) => `Move to another status, ${reference}`,
     moveMenu: (reference: string) => `Move ${reference} to`,
     loading: 'Loading requests',
@@ -115,8 +119,10 @@ export const staffCopy = {
     photosHint: 'Tap a photo to see it at full size. Only signed-in staff can open photos.',
     photosUnavailableHint: 'The rest of the request is still shown. Reload the page to try the photos again.',
     photoUnavailable: 'Photo unavailable',
-    viewPhoto: (position: number) => `View photo ${position}`,
-    viewPhotoLabel: (position: number, total: number) => `View photo ${position} of ${total} at full size`,
+    // design-specs "PhotoThumb" and the SCR-06 mockup: the tile shows "Photo 2" and the button is named "Open photo 2 of 3
+    // at full size", which contains the visible words (WCAG 2.5.3 Label in Name)
+    viewPhoto: (position: number) => `Photo ${position}`,
+    viewPhotoLabel: (position: number, total: number) => `Open photo ${position} of ${total} at full size`,
     quote: 'Your quote',
     quoteEmpty: 'No price or note yet. Both are optional, and you can save either one alone.',
     price: 'Price quoted, in Canadian dollars',
