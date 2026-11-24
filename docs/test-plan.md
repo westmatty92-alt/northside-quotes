@@ -247,6 +247,29 @@ All permission rows are `@probe` tests in `tests/e2e/api/permissions.spec.ts`, w
 | SQ-5 | Empty-state and "no Lost requests" criteria cannot be met on a shared project | A dedicated empty staging branch for QA, or move these to frontend component tests |
 | SQ-6 | 51-request criteria | `bl-backend` seeds 51 tagged requests (51 Quoted) in `supabase/seed.sql` for staging |
 | SQ-7 | The submission limit (5 per 10 minutes per address) makes a full run take about 12 minutes of waiting at worst | Accepted; the suite paces itself and orders its projects to overlap the wait. No bypass of the limit is requested |
+| SQ-8 | AC-002.4 says a PDF or renamed text file is "refused with 'Photos must be JPEG, PNG or WebP' and is not stored". The deployed form keeps the refused file's row on screen with the message inside it (like AC-002.3, "refused next to that photo") | PM or designer confirm the row may stay. Attempt 3 changed `form › AC-002.4` to assert the message in the file's own row (the earlier "row disappears" assertion over-read the AC). The "not stored" half needs a send with a refused file on screen (one submission slot): **unverified**, QA can add it once the row behaviour is confirmed |
+| SQ-9 | AC-016.2 says "drags"; FR-23 gives the Move to menu as the tap path. `docs/design-specs.md` open question 8 leaves a finger drag undecided. `board › AC-016.2 … touch pointer` asserts a finger drag moves a card and fails on staging (the card stays in New) | PM or designer decide. If a finger drag is not required, QA changes that test to assert the Move to menu path on a touch screen (already covered by `pipeline.phone › AC-016.17`) and removes the touch-drag test. Until then it stays red and is **not** a product ticket |
+| SQ-10 | `docs/design-specs.md` names two accessible labels ("Open photo 2 of 3 at full size", "Move NQ-7K3M9P to another status") that the deployed app words differently ("View photo 2 of 3 at full size", "Move to another status, NQ-7K3M9P") | Designer or frontend choose which wording is right. Two `design wording` tests hold the design text and stay red until then (BUG-QA1-5, Minor); every behaviour test accepts either form |
+
+## Changes made in attempt 3 (QA1)
+
+| Change | Why |
+|---|---|
+| `support/ui.ts`: radios and the offers box are chosen by tapping their label, then asserted `checked` | The inputs are visually hidden inside a styled label, which intercepts `check()`; a person taps the label. Same assertion on the result |
+| `support/ui.ts`: the 3-second form wait starts once the page has loaded | FR-8 stamps the form token when the server renders; timing from before `goto` could leave under 3 s after a slow first byte and the send got a 400 |
+| `support/ui.ts`: `photoThumbs`, `photoThumb`, `moveButton` accept both label wordings | See SQ-10; the strict design wording has its own tests (`detail › design wording`, `requests › design wording`) |
+| `detail › AC-005.7`: attaches the photo region's structure (URLs removed) | Evidence for BUG-QA1-3 |
+| `detail › AC-012.1 AC-012.2`: the focus-trap loop moved to its own test, `detail › design: focus is trapped inside the open photo viewer` | The trap check failed first and stopped the test before its Escape, focus-return and scroll checks ran |
+| `form › AC-001.2`: the urgency group is found as `group "How urgent is it?"` | The deployed group has role `group`, not `radiogroup` |
+| `form › AC-002.4`, `late › AC-002.6`: the message is looked for in the file's own list item alert | See SQ-8 |
+| `requests › AC-013`: the search box is the textbox "Search by reference, name or phone" plus its Search button | My locator matched the surrounding section |
+| `requests › AC-007.2 AC-007.3 AC-007.5 AC-008.5`: the list order is recorded after the rows have loaded | It was recorded while the list was still empty |
+| `board › AC-016.3`: "focus stays on that card" checks the focused control belongs to the moved card | The first check took the nearest `div`, which is not the card |
+| `submissions › AC-002.7`: waits up to 60 s for the confirmation page, then asserts `< 20 s` | The page wait was 10 s, shorter than the AC's 20 s |
+| `spine`: `vercel.live` (Vercel's preview toolbar) is allowed as a contacted host; every other third-party host still fails | The toolbar is injected by the platform on previews only |
+| `spine`, `detail`: "$450.00 CAD" is matched across inline elements inside the "Your quote" form | The price and "CAD" are separate elements |
+| `platform › health`: the default expected commit is `e966fbc` (`QA_EXPECTED_SHA` still overrides) | Commit under test |
+| `support/fixtures.ts`: a console error names its resource (host and path, no query) | So a ticket can point at the failing request |
 
 ## Test-data cleanup
 

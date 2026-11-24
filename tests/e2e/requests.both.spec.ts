@@ -137,13 +137,18 @@ test.describe('the Requests list (US-005, US-011, US-013)', () => {
     const api = await staffApi('owner');
     const request = await pick(api, (d) => /Whitfield|Morgan|Patel|Lee/.test(d.name), 'a tagged request with a searchable name');
     await page.goto('/requests');
-    const search = page.getByRole('searchbox').or(page.getByLabel(/search/i)).first();
-    await search.fill(request.reference.toLowerCase());
+    // The control is a textbox "Search by reference, name or phone" with its own Search button (attempt 3 snapshot).
+    const search = page.getByRole('textbox', { name: /Search by reference, name or phone/i });
+    const searchFor = async (text: string) => {
+      await search.fill(text);
+      await page.getByRole('button', { name: 'Search', exact: true }).click();
+    };
+    await searchFor(request.reference.toLowerCase());
     await expect(page.getByRole('link', { name: request.reference }).first()).toBeVisible();
     const part = (request.name.split(' ').at(-1) ?? '').slice(0, 4).toLowerCase();
-    await search.fill(part);
+    await searchFor(part);
     await expect(page.getByRole('link', { name: request.reference }).first(), `partial name "${part}" finds it`).toBeVisible();
-    await search.fill('zzzqaxyz');
+    await searchFor('zzzqaxyz');
     await expect(page.getByText('No matching requests')).toBeVisible();
   });
 });
@@ -180,7 +185,9 @@ test.describe('status from the list (US-007) and the weekly count (US-008)', () 
     const api = await staffApi('owner');
     const request = await pickAt(api, 'new', () => true, 'available');
     await page.goto('/requests');
+    await expect(page.getByRole('link', { name: request.reference }).first(), 'the list has loaded before its order is recorded').toBeVisible();
     const orderBefore = [...new Set((await page.locator('main').innerText()).match(REF_RE_GLOBAL) ?? [])];
+    expect(orderBefore.length, 'the order recorded is not empty').toBeGreaterThan(1);
 
     await moveTo(page, request.reference, 'quoted');
     await expect.poll(async () => (await api.get(request.id)).status).toBe('quoted');
@@ -210,6 +217,13 @@ test.describe('status from the list (US-007) and the weekly count (US-008)', () 
     await expect(menuItem(page, 'lost')).toBeVisible();
     await expect(menuItem(page, 'quoted'), 'the current status is not offered').toHaveCount(0);
     await page.keyboard.press('Escape');
+  });
+
+  test('@regression design wording: each Move to button is named "Move NQ-... to another status" (design-specs, Screen readers)', async ({ page, staffApi }) => {
+    const api = await staffApi('owner');
+    const request = await pickAt(api, 'quoted', () => true, 'available');
+    await page.goto('/requests');
+    await expect(page.getByRole('button', { name: `Move ${request.reference} to another status` })).toHaveCount(1);
   });
 
   test('@regression AC-007.6 when a status save fails the request keeps its status and says "Couldn\'t save. Try again."', async ({ page, staffApi, guard }) => {

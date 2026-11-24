@@ -10,7 +10,7 @@ import { test, expect } from './support/fixtures';
 import { credentials, stagingHost } from './support/env';
 import { pathIs, pathMatches } from './support/paths';
 import { jpeg, MB } from './support/files';
-import { RequestForm, REF_RE, columnOf, expectCount, moveTo, refLink, tabLink, validHomeowner } from './support/ui';
+import { RequestForm, REF_RE, columnOf, expectCount, moveTo, photoThumbs, refLink, tabLink, validHomeowner } from './support/ui';
 import { recordCreated } from './support/budget';
 
 test.describe('done spine', () => {
@@ -55,8 +55,12 @@ test.describe('done spine', () => {
     await testInfo.attach('reference', { body: reference, contentType: 'text/plain' });
 
     // AC-003.1, AC-003.6, AC-001.12: no puzzle, no third-party widget, no email or SMS service was called.
-    const allowed = (h: string) => h === stagingHost() || /\.supabase\.co$/.test(h);
-    expect([...hosts].filter((h) => !allowed(h)), 'hosts contacted other than the preview and Supabase').toEqual([]);
+    // vercel.live is Vercel's own preview toolbar, injected by the platform on preview deployments only (attempt 3:
+    // it was the only extra host). It is not the app's code and does not exist on the production domain; named
+    // exactly so that any other third-party host still fails the test.
+    const allowed = (h: string) => h === stagingHost() || /\.supabase\.co$/.test(h) || h === 'vercel.live';
+    await testInfo.attach('hosts-contacted', { body: [...hosts].sort().join('\n'), contentType: 'text/plain' });
+    expect([...hosts].filter((h) => !allowed(h)), 'hosts contacted other than the preview, Supabase and the Vercel preview toolbar').toEqual([]);
     await guard.axe('request-sent');
 
     // ---- 3: the owner signs in (the real sign-in page) and sees it first ------------------------------------------
@@ -76,13 +80,15 @@ test.describe('done spine', () => {
     // ---- 4: price and note ---------------------------------------------------------------------------------------
     await refLink(owner, reference).click();
     await expect(owner).toHaveURL(pathMatches(/^\/requests\/[0-9a-f-]{36}$/));
-    await expect(owner.getByRole('button', { name: /^Open photo \d of 3 at full size$/ }), 'all 3 photos are on the request (AC-002.1)').toHaveCount(3);
+    await expect(photoThumbs(owner, 3), 'all 3 photos are on the request (AC-002.1)').toHaveCount(3);
     await owner.getByLabel(/^Price/).fill('450.00');
     await owner.getByLabel(/^Note/).fill('Replace cartridge, 2 hours, can come Thursday');
     await owner.getByRole('button', { name: /Save price and note|Try saving again/ }).click();
     await expect(owner.getByText(/Saved\./)).toBeVisible();
     await owner.reload();
-    await expect(owner.getByText('$450.00 CAD').first(), 'AC-006.1 the price survives a reload').toBeVisible();
+    // "$450.00 CAD" may be split over inline elements, so match the form's text, not one text node.
+    await expect(owner.getByRole('form', { name: 'Your quote' }), 'AC-006.1 the price survives a reload').toContainText(/\$\s*450\.00\s*CAD/);
+    await expect(owner.getByLabel(/^Price/), 'the price field holds the stored value').toHaveValue('450.00');
     await expect(owner.getByLabel(/^Note/)).toHaveValue('Replace cartridge, 2 hours, can come Thursday');
 
     const id = owner.url().split('/').pop() as string;

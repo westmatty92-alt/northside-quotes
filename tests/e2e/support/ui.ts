@@ -35,10 +35,12 @@ export class RequestForm {
   constructor(readonly page: Page) {}
 
   async open() {
-    // FR-8: the form refuses a send in the first 3 seconds after the page was rendered, so note when we asked for it.
-    this.openedAt = Date.now();
+    // FR-8: the form refuses a send in the first 3 seconds after the page was rendered. The server stamps the form
+    // token when it renders, which is after the request starts, so the clock starts once the page has arrived
+    // (attempt 3: timing from before goto left less than 3 s after a slow first byte, and the send got a 400).
     await this.page.goto('/');
     await expect(this.page.getByRole('heading', { level: 1, name: 'Request a quote' })).toBeVisible();
+    this.openedAt = Date.now();
   }
 
   get name() { return this.page.getByLabel('Your name'); }
@@ -57,13 +59,28 @@ export class RequestForm {
     await this.email.fill(d.email);
     await this.address.fill(d.address);
     await this.problem.fill(d.problem);
-    await this.urgency(d.urgency).check();
+    await this.pick(this.urgency(d.urgency));
     if (d.photos?.length) await this.attach(d.photos);
-    if (d.tickOffers) await this.offers.check();
+    if (d.tickOffers) await this.pick(this.offers);
+  }
+
+  /**
+   * The radios and the offers box are visually hidden inputs inside a styled label; a person taps the label.
+   * `check()` on the hidden input is intercepted by that label (QA1 attempt 3), so tap the label and then
+   * assert the input really became checked.
+   */
+  private async pick(input: Locator) {
+    await input.locator('xpath=ancestor::label[1]').click();
+    await expect(input).toBeChecked();
   }
 
   async attach(photos: Photo[]) {
     await this.fileInput.setInputFiles(photos.map((p) => ({ name: p.name, mimeType: p.mimeType, buffer: p.buffer })));
+  }
+
+  /** Start the human-speed clock again: call it after a navigation that renders the form anew (Back, reload). */
+  restartClock() {
+    this.openedAt = Date.now();
   }
 
   /** Be a person, not a bot: at least 3.5 s after the page was rendered. This honours FR-8, it is not a sleep to hide slowness. */
@@ -80,8 +97,8 @@ export class RequestForm {
   }
 
   /** After a successful send: the reference shown on SCR-02. */
-  async confirmedReference(): Promise<string> {
-    await expect(this.page).toHaveURL(/\/request-sent/);
+  async confirmedReference(waitMs = 10_000): Promise<string> {
+    await expect(this.page).toHaveURL(/\/request-sent/, { timeout: waitMs });
     await expect(this.page.getByRole('heading', { level: 1 })).toContainText(/Northside has your request/i);
     const text = await this.page.locator('main').innerText();
     const ref = text.match(REF_RE)?.[0];
@@ -113,6 +130,22 @@ export async function submitAndConfirm(form: RequestForm, d: Homeowner, testInfo
 }
 
 // ---------------------------------------------------------------------------------------------
+// Photo thumbnails on the request detail
+
+/**
+ * The thumbnail buttons of a request. docs/design-specs.md names them "Open photo 2 of 3 at full size"; the deployed
+ * app says "View photo 2 of 3 at full size" (BUG-QA1-2, Minor, copy). The behaviour tests accept either verb so that
+ * the wording does not hide the viewer behaviour; `detail.both.spec.ts › design wording` keeps the exact design text
+ * and stays red until the copy or the spec is corrected.
+ */
+export function photoThumbs(page: Page, of: number | string = '\\d'): Locator {
+  return page.getByRole('button', { name: new RegExp(`^(?:Open|View) photo \\d of ${of} at full size$`) });
+}
+export function photoThumb(page: Page, n: number, of: number | string = '\\d'): Locator {
+  return page.getByRole('button', { name: new RegExp(`^(?:Open|View) photo ${n} of ${of} at full size$`) });
+}
+
+// ---------------------------------------------------------------------------------------------
 // Staff tabs
 
 export function mainNav(page: Page) {
@@ -129,7 +162,9 @@ export function refLink(page: Page, ref: string): Locator {
 
 /** The Move to button of one request (its name carries the reference, design-specs "Accessibility notes"). */
 export function moveButton(page: Page, ref: string): Locator {
-  return page.getByRole('button', { name: new RegExp(`Move ${ref}`) });
+  // docs/design-specs.md: "Move NQ-7K3M9P to another status". Deployed: "Move to another status, NQ-7K3M9P"
+  // (BUG-QA1-2, Minor, copy). Both carry the reference; the exact design wording has its own test in requests.both.spec.ts.
+  return page.getByRole('button', { name: new RegExp(`^Move (?:to another status, )?${ref}(?: to another status)?$`) });
 }
 
 export function menuItem(page: Page, status: Status): Locator {

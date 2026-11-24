@@ -16,7 +16,7 @@ test.describe('preview platform', () => {
     const body = (await res.json()) as { status?: string; version?: string };
     expect(body.status).toBe('ok');
     await testInfo.attach('health', { body: JSON.stringify(body), contentType: 'application/json' });
-    const expected = process.env.QA_EXPECTED_SHA ?? '6ae29eb';
+    const expected = process.env.QA_EXPECTED_SHA ?? 'e966fbc';
     expect(String(body.version ?? ''), 'deployed commit').toContain(expected);
     await anon.dispose();
   });

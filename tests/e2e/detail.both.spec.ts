@@ -7,7 +7,7 @@ import { describe } from './support/api';
 import { statePath } from './support/env';
 import { pathIs } from './support/paths';
 import { clearQuote, pick, pickAt } from './support/pool';
-import { REF_RE } from './support/ui';
+import { REF_RE, photoThumb, photoThumbs } from './support/ui';
 import type { Page } from '@playwright/test';
 
 test.use({ storageState: statePath('owner') });
@@ -58,7 +58,7 @@ test.describe('price and note (US-006)', () => {
     await expect(page.getByText(/Saved\./).first()).toBeVisible();
     await price(page).fill('475.00');
     await saveButton(page).click();
-    await expect(page.getByText('$475.00 CAD').first()).toBeVisible();
+    await expect(page.getByRole('form', { name: 'Your quote' })).toContainText(/\$\s*475\.00\s*CAD/);
     await expect(page.locator('main'), 'the previous price is shown nowhere').not.toContainText('450.00');
     expect((await api.get(request.id)).price_cents).toBe(47_500);
   });
@@ -136,7 +136,7 @@ test.describe('price and note (US-006)', () => {
     await saveButton(page).click();
     await expect(page.getByText(/Saved\./).first()).toBeVisible();
     await page.reload();
-    await expect(page.getByText('$450.00 CAD').first()).toBeVisible();
+    await expect(page.getByRole('form', { name: 'Your quote' })).toContainText(/\$\s*450\.00\s*CAD/);
     await expect(note(page)).toHaveValue('Replace cartridge, 2 hours, can come Thursday');
     await expect(page.getByText(/Last updated by Owner at/)).toBeVisible();
   });
@@ -161,21 +161,37 @@ test.describe('the detail screen (US-005, US-007, US-010)', () => {
     await expect(page.locator('main')).toContainText(/Emergency|Soon|Flexible/i);
     await expect(page.locator('a[href^="tel:"]').first()).toBeVisible();
     await expect(page.locator('a[href^="mailto:"]').first()).toHaveAttribute('href', `mailto:${request.email}`);
-    await expect(page.getByRole('button', { name: /^Open photo \d of 3 at full size$/ })).toHaveCount(3);
+    await expect(photoThumbs(page, 3)).toHaveCount(3);
     await guard.axe('request-detail-with-photos');
+  });
+
+  test('@regression design wording: each photo button is named "Open photo N of 3 at full size" (design-specs, PhotoThumb and Screen readers)', async ({
+    page,
+    staffApi,
+  }) => {
+    const api = await staffApi('owner');
+    const request = await pick(api, (d) => d.photo_count === 3, 'one with 3 photos');
+    await page.goto(`/requests/${request.id}`);
+    await expect(page.getByRole('button', { name: /^Open photo \d of 3 at full size$/ })).toHaveCount(3);
   });
 
   test('@regression AC-005.7 when photo storage cannot be reached each photo slot says "Photo unavailable" and the rest of the request is shown', async ({
     page,
     staffApi,
     guard,
-  }) => {
+  }, testInfo) => {
     // Simulated at the network edge: every request for the stored photo files fails. The server-side case (a URL that could not be signed) is the API's `url: null`.
     guard.allowAbort(/\/storage\/v1\/object\//);
     const api = await staffApi('owner');
     const request = await pick(api, (d) => d.photo_count === 3, 'one with 3 photos');
     await page.route(/\/storage\/v1\/object\//, (route) => route.abort('failed'));
     await page.goto(`/requests/${request.id}`);
+    await expect(page.getByRole('region', { name: /^Photos/ })).toBeVisible();
+    // Evidence for the ticket: the photo region's structure with every URL and token removed.
+    const structure = await page.getByRole('region', { name: /^Photos/ }).evaluate((el) =>
+      el.innerHTML.replace(/(src|srcset|href)="[^"]*"/g, '$1="<removed>"').replace(/\s+class="[^"]*"/g, ''),
+    );
+    await testInfo.attach('photo-region-structure', { body: structure, contentType: 'text/html' });
     await expect(page.getByText('Photo unavailable')).toHaveCount(3);
     await expect(page.getByRole('heading', { level: 1 })).toContainText(request.name);
     await expect(page.locator('main')).toContainText(request.problem);
@@ -252,7 +268,7 @@ test.describe('photo viewer (US-012, SCR-08)', () => {
     const api = await staffApi('owner');
     const request = await pick(api, (d) => d.photo_count === 3, 'one with 3 photos');
     await page.goto(`/requests/${request.id}`);
-    const thumbs = page.getByRole('button', { name: /^Open photo \d of 3 at full size$/ });
+    const thumbs = photoThumbs(page, 3);
     const second = thumbs.nth(1);
     await second.scrollIntoViewIfNeeded();
     const scrollBefore = await page.evaluate(() => window.scrollY);
@@ -274,11 +290,6 @@ test.describe('photo viewer (US-012, SCR-08)', () => {
     await expect(dialog.getByText('Photo 1 of 3')).toBeVisible();
     await expect(dialog.getByRole('button', { name: 'Previous photo' }), 'Previous is paused on the first photo').toBeDisabled();
 
-    for (let i = 0; i < 8; i++) {
-      await page.keyboard.press('Tab');
-      expect(await dialog.locator(':focus').count(), `Tab ${i + 1} keeps focus inside the dialog`).toBe(1);
-    }
-
     await page.keyboard.press('Escape');
     await expect(dialog).toBeHidden();
     await expect(page.getByRole('heading', { level: 1 })).toContainText(request.name);
@@ -286,11 +297,36 @@ test.describe('photo viewer (US-012, SCR-08)', () => {
     expect(Math.abs((await page.evaluate(() => window.scrollY)) - scrollBefore), 'same scroll position').toBeLessThanOrEqual(2);
   });
 
+  // Split out of the test above in attempt 3: the trap check failed first and stopped that test before its Escape,
+  // focus-return and scroll-position checks ran. Same assertion as before, now on its own.
+  test('@regression design: focus is trapped inside the open photo viewer (design-specs SCR-08 "Keyboard path")', async ({ page, staffApi }) => {
+    const api = await staffApi('owner');
+    const request = await pick(api, (d) => d.photo_count === 3, 'one with 3 photos');
+    await page.goto(`/requests/${request.id}`);
+    await photoThumb(page, 2, 3).click();
+    const dialog = page.getByRole('dialog');
+    await expect(dialog).toBeVisible();
+    await expect(dialog.getByRole('button', { name: 'Close' }), 'focus moves to Close on open').toBeFocused();
+    const focusedNow = () =>
+      page.evaluate(() => {
+        const el = document.activeElement as HTMLElement | null;
+        if (!el) return 'nothing';
+        const label = el.getAttribute('aria-label') ?? (el.tagName === 'BODY' ? '(page body)' : (el.textContent?.trim().slice(0, 40) ?? ''));
+        return `<${el.tagName.toLowerCase()}> "${label}" inside dialog: ${!!el.closest('dialog, [role="dialog"]')}`;
+      });
+    const trail: string[] = [];
+    for (let i = 0; i < 8; i++) {
+      await page.keyboard.press('Tab');
+      trail.push(`Tab ${i + 1}: ${await focusedNow()}`);
+      expect(await dialog.locator(':focus').count(), `Tab ${i + 1} keeps focus inside the dialog. Focus trail: ${trail.join(' | ')}`).toBe(1);
+    }
+  });
+
   test('@regression AC-012.2 the Close button closes the viewer and focus goes back to the thumbnail that opened it', async ({ page, staffApi }) => {
     const api = await staffApi('owner');
     const request = await pick(api, (d) => d.photo_count >= 2, 'one with at least 2 photos');
     await page.goto(`/requests/${request.id}`);
-    const thumb = page.getByRole('button', { name: /^Open photo 2 of \d at full size$/ });
+    const thumb = photoThumb(page, 2);
     await thumb.click();
     await page.getByRole('dialog').getByRole('button', { name: 'Close' }).click();
     await expect(page.getByRole('dialog')).toBeHidden();

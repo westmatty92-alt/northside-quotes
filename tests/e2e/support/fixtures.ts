@@ -146,7 +146,15 @@ export const test = base.extend<Fixtures>({
             if (failedLoad[1] && statusAllowed(url, Number(failedLoad[1]))) return;
             if (failedLoad[2] && (abortAllowed(url) || failedLoad[2] === 'ERR_ABORTED')) return;
           }
-          consoleErrors.push(text.slice(0, 400));
+          // Name the resource (host and path only, never the query: it can hold a signed token) so a ticket can point at it.
+          let where = '';
+          try {
+            const u = new URL(m.location().url);
+            where = ` [${u.host}${u.pathname}]`;
+          } catch {
+            where = '';
+          }
+          consoleErrors.push(`${text.slice(0, 400)}${where}`);
         });
         p.on('pageerror', (e) => consoleErrors.push(`pageerror: ${e.message.slice(0, 400)}`));
         p.on('requestfailed', (r: Request) => {

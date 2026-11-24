@@ -72,6 +72,9 @@ test.describe('accepted submissions', () => {
 
     await page.goBack();
     await expect(form.name).toBeVisible();
+    // Back renders the form anew with a new token; FR-8 counts 3 s from that render, so the clock starts again here
+    // (attempt 3: with the old clock the resend went out under 3 s later and got a 400 the first time).
+    form.restartClock();
     await form.fill(b);
     await form.submit(testInfo);
     // S0: two requests with two references, or one 409 then a success with a fresh token; never a merge.
@@ -131,7 +134,8 @@ test.describe('accepted submissions', () => {
     await form.waitForHumanSpeed();
     const tapped = Date.now();
     await form.send.dblclick({ delay: 40 }); // two taps inside one second
-    const reference = await form.confirmedReference();
+    // Wait longer than the AC's 20 s so a slow send is reported as the 20 s failure below, not as a missing page.
+    const reference = await form.confirmedReference(60_000);
     const elapsed = Date.now() - tapped;
     await cdp.send('Network.emulateNetworkConditions', { offline: false, latency: 0, downloadThroughput: -1, uploadThroughput: -1 });
     recordCreated({ reference, name, note: 'double tap, 3 x 5,242,880 byte photos' });

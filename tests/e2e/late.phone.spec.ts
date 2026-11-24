@@ -30,8 +30,9 @@ test.describe('late submissions', () => {
     await page.route(/\/storage\/v1\/object\/quote-photos\/[^/]+\/photo-2/, (route) => (drop ? route.abort('failed') : route.continue()));
 
     await form.submit(testInfo);
-    const row = page.locator('li, div').filter({ hasText: 'p2.jpg' }).last();
-    await expect(row, 'the error is next to photo 2').toContainText(/couldn.t|could not|failed|try again|didn.t upload/i);
+    // A photo's row is a list item; its message is an alert inside that same item (as for the refused PDF, AC-002.4).
+    const row = page.getByRole('listitem').filter({ hasText: 'p2.jpg' });
+    await expect(row.getByRole('alert'), 'the error is next to photo 2').toContainText(/couldn.t|could not|failed|try again|didn.t upload/i);
     await expect(page).toHaveURL(/\/$/);
     await expect(page.getByText(REF_RE), 'no reference number').toHaveCount(0);
     await expect(form.name, 'the form is kept').toHaveValue(name);

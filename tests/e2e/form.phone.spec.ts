@@ -30,7 +30,7 @@ test.describe('Request a quote: validation (AC-001.2 to AC-001.4, AC-001.16)', (
       await expect(field, `${label} is marked invalid`).toHaveAttribute('aria-invalid', 'true');
       await expect(field, `${label} has its message next to it`).toHaveAccessibleDescription(/\S+/);
     }
-    await expect(page.getByRole('radiogroup').first(), 'urgency shows its own message').toHaveAccessibleDescription(/\S+/);
+    await expect(page.getByRole('group', { name: 'How urgent is it?' }), 'urgency shows its own message').toHaveAccessibleDescription(/\S+/);
     await expect(page.getByText(/^NQ-/), 'no reference number is shown').toHaveCount(0);
     await guard.axe('request-page-errors');
   });
@@ -235,10 +235,15 @@ test.describe('Request a quote: photo rules (AC-002.2 to AC-002.4)', () => {
   test('@regression AC-002.4 a PDF and a text file renamed leak.jpg are refused with "Photos must be JPEG, PNG or WebP"', async ({ page }) => {
     const form = await openForm(page);
     await form.attach([pdf('quote.pdf')]);
-    await expect(page.getByText('Photos must be JPEG, PNG or WebP').first()).toBeVisible();
-    await expect(page.getByRole('button', { name: /^Remove photo quote\.pdf|^Remove quote\.pdf/ }), 'the PDF is not kept').toHaveCount(0);
+    // The app keeps a refused file's row on screen with the message beside it (same pattern as AC-002.3, "refused next to
+    // that photo"); the AC does not say the row disappears. Attempt 3 first asserted it did: that over-read the AC. The
+    // message must sit in that file's own row. The "is not stored" half needs a send and is listed as unverified (SQ-8).
+    const row = (file: string) => page.getByRole('listitem').filter({ hasText: file });
+    await expect(row('quote.pdf').getByRole('alert').filter({ hasText: 'Photos must be JPEG, PNG or WebP' }), 'the PDF is refused beside itself').toBeVisible();
     await form.attach([fakeJpeg('leak.jpg')]);
-    await expect(page.getByText('Photos must be JPEG, PNG or WebP').first(), 'a renamed text file is caught by its content').toBeVisible();
-    await expect(page.getByRole('button', { name: /^Remove photo leak\.jpg|^Remove leak\.jpg/ }), 'the renamed text file is not kept').toHaveCount(0);
+    await expect(
+      row('leak.jpg').getByRole('alert').filter({ hasText: 'Photos must be JPEG, PNG or WebP' }),
+      'a renamed text file is caught by its content and refused beside itself',
+    ).toBeVisible();
   });
 });

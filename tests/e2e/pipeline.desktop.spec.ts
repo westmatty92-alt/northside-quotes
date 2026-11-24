@@ -160,9 +160,23 @@ test.describe('moving a card (AC-016.2, AC-016.3, AC-016.6, AC-016.7)', () => {
     await keyboardMove(page, request.reference, 'quoted');
     await expect.poll(() => columnOf(page, request.reference), { message: 'the card is in Quoted' }).toBe('Quoted');
     await expect(page.getByText(`${request.reference} moved to Quoted`), 'announced to screen readers').toBeAttached();
+    const focusNow = await page.evaluate(() => {
+      const el = document.activeElement as HTMLElement | null;
+      if (!el) return 'nothing';
+      return `<${el.tagName.toLowerCase()}> "${el.getAttribute('aria-label') ?? el.textContent?.trim().slice(0, 40) ?? ''}"`;
+    });
+    // "Focus stays on that card": the focused element is one of the moved card's own controls (its label names the
+    // reference) or sits inside the card's list item / article. (The first version of this check took the nearest <div>,
+    // which is not the card; it failed with focus on the card's own Move to button.)
     expect(
-      await page.evaluate(() => !!document.activeElement?.closest('li, article, [role="listitem"], [data-card], div')?.querySelector('a[href*="/pipeline/"], a[href*="/requests/"]')),
-      'focus stays on that card',
+      await page.evaluate((ref) => {
+        const el = document.activeElement as HTMLElement | null;
+        if (!el) return false;
+        if ((el.getAttribute('aria-label') ?? '').includes(ref)) return true;
+        const card = el.closest('li, article, [role="listitem"]');
+        return !!card && (card.textContent ?? '').includes(ref);
+      }, request.reference),
+      `focus stays on the card of ${request.reference} (focus is on ${focusNow})`,
     ).toBe(true);
     await expect.poll(async () => (await api.get(request.id)).status).toBe('quoted');
     expect((await api.weekly()).won, 'Quoted does not touch the Won count').toBe(before.won);

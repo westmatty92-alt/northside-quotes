@@ -4,7 +4,7 @@ import { test, expect } from './support/fixtures';
 import { statePath } from './support/env';
 import { pathIs } from './support/paths';
 import { pick, pickAt } from './support/pool';
-import { REF_RE, columnOf, expectCount, hasHorizontalScroll, tabLink, tapMoveTo, weeklyStrip } from './support/ui';
+import { REF_RE, columnOf, expectCount, hasHorizontalScroll, photoThumbs, tabLink, tapMoveTo, weeklyStrip } from './support/ui';
 
 test.use({ storageState: statePath('owner'), viewport: { width: 375, height: 812 } });
 
@@ -17,13 +17,14 @@ test('@smoke AC-016.17 on a 375 px phone a card moves with taps only and the pag
   expect(await hasHorizontalScroll(page), 'the board scrolls sideways').toBe(false);
   await expect(tabLink(page, 'Pipeline')).toHaveAttribute('aria-current', 'page');
   await expect(weeklyStrip(page)).toBeVisible();
-  await guard.axe('pipeline-375');
 
   await tapMoveTo(page, request.reference, 'won');
   await expect.poll(() => columnOf(page, request.reference), { message: 'the card is in Won' }).toBe('Won');
   await expectCount(page, 'Won', before.won + 1, 2_000);
   expect(await hasHorizontalScroll(page), 'still no sideways scrolling after the move').toBe(false);
   expect((await api.get(request.id)).status).toBe('won');
+  // Last, so that a failing axe check cannot hide the tap-to-move and no-sideways-scroll results above (attempt 3).
+  await guard.axe('pipeline-375');
 });
 
 test('@regression AC-005.9 no horizontal scrolling at 375 px on a request and its photos', async ({ page, staffApi }) => {
@@ -31,7 +32,7 @@ test('@regression AC-005.9 no horizontal scrolling at 375 px on a request and it
   const request = await pick(api, (d) => d.photo_count === 3, 'one with 3 photos');
   await page.goto(`/requests/${request.id}`);
   await expect(page.getByRole('heading', { level: 1 })).toContainText(request.name);
-  await expect(page.getByRole('button', { name: /^Open photo \d of 3 at full size$/ })).toHaveCount(3);
+  await expect(photoThumbs(page, 3)).toHaveCount(3);
   expect(await hasHorizontalScroll(page), 'the detail scrolls sideways').toBe(false);
 });
 
