@@ -119,10 +119,11 @@ export const staffCopy = {
     photosHint: 'Tap a photo to see it at full size. Only signed-in staff can open photos.',
     photosUnavailableHint: 'The rest of the request is still shown. Reload the page to try the photos again.',
     photoUnavailable: 'Photo unavailable',
-    // design-specs "PhotoThumb" and the SCR-06 mockup: the tile shows "Photo 2" and the button is named "Open photo 2 of 3
-    // at full size", which contains the visible words (WCAG 2.5.3 Label in Name)
-    viewPhoto: (position: number) => `Photo ${position}`,
-    viewPhotoLabel: (position: number, total: number) => `Open photo ${position} of ${total} at full size`,
+    // Ledger ruling 2026-11-24 (matches the plan-approved check, FE1 and the spec being updated): the tile shows "View photo 2"
+    // and the button is named "View photo 2 of 3 at full size". The visible words come first, so the name contains them
+    // (WCAG 2.5.3 Label in Name)
+    viewPhoto: (position: number) => `View photo ${position}`,
+    viewPhotoLabel: (position: number, total: number) => `View photo ${position} of ${total} at full size`,
     quote: 'Your quote',
     quoteEmpty: 'No price or note yet. Both are optional, and you can save either one alone.',
     price: 'Price quoted, in Canadian dollars',

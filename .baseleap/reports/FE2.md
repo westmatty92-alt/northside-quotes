@@ -155,3 +155,23 @@ Exact result: `12 view(s) of 6 screen(s)`, 4 problems, all `console error: verif
 - The designer: Move to wording in the spec (above); QA: the touch-drag test must start on the grip, and the photo design-wording test now matches.
 - FE3: grip display below 1280 px (above), only if finger drag is wanted on phones and tablets.
 - `CONTRACT QUESTION` 1 from attempt 1 (proxy in mock mode) is now the live blocker for `verify-ui` on SCR-04 and SCR-06. No new contract question.
+
+## Attempt 2b: View photo wording (2026-11-24)
+**Status:** done. Per the ledger ruling of 2026-11-24: the photo tile shows "View photo N" and its accessible name is "View photo N of 3 at full size" (visible words first, so label-in-name holds). The Move to button keeps "Move to another status, NQ-...". The photo viewer dialog title ("Photo N of 3") is unchanged. Nothing committed by me (no git).
+
+**Files changed**
+- `src/components/staff/copy.ts`: `detail.viewPhoto` now `View photo N`; `detail.viewPhotoLabel` now `View photo N of T at full size`; comment updated.
+- `src/components/staff/photo-viewer.test.tsx`: thumb lookup, the tile wording test, and the `/Open photo/` queries now use `View photo`.
+- `src/components/staff/request-detail.test.tsx`: the three-tile assertion now matches `/^View photo \d of 3 at full size$/`.
+- `src/components/staff/label-in-name.test.tsx`: the photo case keeps both checks (new wording passes; the old "Open photo" name against "View photo 2" text still fails), retitled.
+- `src/components/staff/photo-gallery.tsx` needed no change (it reads both strings from copy).
+
+**Commands run (each with the `cd <lane> &&` prefix)**
+- `npm run typecheck` -> exit 0.
+- `npm run lint` -> exit 0 (0 errors; the same 2 warnings in `scripts/`, not mine).
+- `npx vitest run src/components/staff --passWithNoTests=false` -> exit 0, 11 files, 184 tests (label-in-name and axe tests included).
+- `npm run build` -> exit 0.
+- `node scripts/check-code-guards.mjs generated` -> exit 0 ("OK").
+- `verify-ui` not run, as instructed. Staff-screen visual evidence comes from QA on the staging preview (FE2V).
+
+**Not mine:** QA e2e tests in `tests/e2e/**` that look for "Open photo" or "Photo N" tiles, if any, need the new wording (not searched, outside my paths).

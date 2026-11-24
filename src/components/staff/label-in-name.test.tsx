@@ -39,7 +39,7 @@ describe('label in name check (WCAG 2.5.3)', () => {
     await expectLabelsContainVisibleText(container);
   });
 
-  it('passes on a photo thumbnail named as design-specs words it, and fails on the old tile text against it', async () => {
+  it('passes on a photo thumbnail named "View photo N of 3 at full size", and fails on the old "Open photo" name against the tile text', async () => {
     const good = render(<button aria-label={staffCopy.detail.viewPhotoLabel(2, 3)}>{staffCopy.detail.viewPhoto(2)}</button>);
     await expectLabelsContainVisibleText(good.container);
     good.unmount();

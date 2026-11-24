@@ -1,6 +1,6 @@
 {
   "base": "http://localhost:3202",
-  "checked_at": "2026-11-24T02:24:33.382Z",
+  "checked_at": "2026-11-24T02:28:12.653Z",
   "ok": false,
   "problems": [
     "SCR-06 @ mobile: console error: verify-ui: locator.click: Timeout 10000ms exceeded.",

@@ -60,7 +60,7 @@ function gallery(list: Photo[]) {
   return renderStaff(<PhotoGallery requestId="req" reference="NQ-7K3M9P" name="Dana Whitfield" photos={list} />);
 }
 
-const thumb = (n: number) => screen.getByRole('button', { name: `Open photo ${n} of 3 at full size` });
+const thumb = (n: number) => screen.getByRole('button', { name: `View photo ${n} of 3 at full size` });
 const dialog = () => screen.getByRole('dialog');
 const viewerImage = () => within(dialog()).queryByRole('img') as HTMLImageElement | null;
 
@@ -77,10 +77,10 @@ describe('SCR-06 photo thumbnails', () => {
     }
   });
 
-  // BUG-QA1-5: the wording of design-specs "PhotoThumb" ("Open photo 2 of 3 at full size") and of the SCR-06 mockup tile ("Photo 2")
-  it('are named "Open photo N of 3 at full size" and show "Photo N" on the tile; the name contains the visible words (WCAG 2.5.3)', async () => {
+  // BUG-QA1-5, ledger ruling 2026-11-24: the tile shows "View photo N" and the name is "View photo N of 3 at full size"
+  it('are named "View photo N of 3 at full size" and show "View photo N" on the tile; the name contains the visible words (WCAG 2.5.3)', async () => {
     const { container } = gallery(photos(3));
-    expect(thumb(2)).toHaveTextContent('Photo 2');
+    expect(thumb(2)).toHaveTextContent('View photo 2');
     await expectLabelsContainVisibleText(container);
     expect(screen.getByRole('heading', { name: /Photos/ })).toHaveTextContent('Photos (3)');
     await expectNoAxeViolations(container);
@@ -91,7 +91,7 @@ describe('SCR-06 photo thumbnails', () => {
     const { container } = gallery(photos(3));
     for (const image of Array.from(document.querySelectorAll('img'))) fireEvent.error(image);
     expect(await screen.findAllByText('Photo unavailable')).toHaveLength(3);
-    expect(screen.queryAllByRole('button', { name: /Open photo/ })).toHaveLength(0);
+    expect(screen.queryAllByRole('button', { name: /View photo/ })).toHaveLength(0);
     expect(screen.getByRole('heading', { name: /Photos/ })).toBeInTheDocument();
     expect(screen.getByText(/The rest of the request is still shown/)).toBeInTheDocument();
     await expectNoAxeViolations(container);
@@ -109,14 +109,14 @@ describe('SCR-06 photo thumbnails', () => {
     gallery(photos(3));
     fireEvent.error(document.querySelectorAll('img')[1] as HTMLImageElement);
     expect(await screen.findAllByText('Photo unavailable')).toHaveLength(1);
-    expect(screen.getAllByRole('button', { name: /Open photo/ })).toHaveLength(2);
+    expect(screen.getAllByRole('button', { name: /View photo/ })).toHaveLength(2);
     await waitFor(() => expect(document.querySelectorAll('img')).toHaveLength(3)); // the fresh URL replaced the failed one
     expect(screen.queryByText('Photo unavailable')).toBeNull();
   });
 
   it('a photo whose URL could not be signed says "Photo unavailable" and cannot be opened', () => {
     gallery([...photos(2), { position: 3, content_type: 'image/jpeg', url: null, expires_at: null }]);
-    expect(screen.getAllByRole('button', { name: /Open photo/ })).toHaveLength(2);
+    expect(screen.getAllByRole('button', { name: /View photo/ })).toHaveLength(2);
     expect(screen.getByText('Photo unavailable')).toBeInTheDocument();
   });
 });
@@ -209,7 +209,7 @@ describe('SCR-08 Photo viewer', () => {
 
   it('a photo with no URL opens straight to "Photo unavailable", and the others still work', () => {
     gallery([photos(3)[0] as Photo, { position: 2, content_type: 'image/jpeg', url: null, expires_at: null }, photos(3)[2] as Photo]);
-    fireEvent.click(screen.getAllByRole('button', { name: /Open photo/ })[0] as HTMLElement);
+    fireEvent.click(screen.getAllByRole('button', { name: /View photo/ })[0] as HTMLElement);
     fireEvent.click(within(dialog()).getByRole('button', { name: 'Next photo' }));
     expect(within(dialog()).getByRole('alert')).toHaveTextContent('Photo unavailable');
     fireEvent.click(within(dialog()).getByRole('button', { name: 'Next photo' }));

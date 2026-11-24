@@ -88,7 +88,7 @@ describe('SCR-06 Request detail', () => {
       expect(screen.getByText('Within the next few days')).toBeInTheDocument();
       expect(screen.getByText('Kitchen tap drips constantly and the cabinet under it is wet')).toBeInTheDocument();
       expect(screen.getByText('Not updated yet')).toBeInTheDocument();
-      expect(screen.getAllByRole('button', { name: /^Open photo \d of 3 at full size$/ })).toHaveLength(3);
+      expect(screen.getAllByRole('button', { name: /^View photo \d of 3 at full size$/ })).toHaveLength(3);
       expect(screen.getByRole('button', { name: 'Save price and note' })).toBeInTheDocument();
       await expectNoAxeViolations(container);
     });
