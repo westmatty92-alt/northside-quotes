@@ -219,6 +219,57 @@ test.describe('staff write boundaries and stored script text @probe', () => {
     await expectNone(testInfo, failures, 'invalid text in staff inputs');
   });
 
+  test('@probe PRB-45 BUG-QA2-4 a huge version (above the 32-bit integer limit) on a quote save or a status change is 409 stale_version or 422 naming version, never a 5xx, and changes nothing', async ({ playwright }, testInfo) => {
+    const owner = await appApi(playwright, await staffToken(playwright, 'owner'));
+    const items = await probeRequests(owner);
+    const target = items[4] ?? items[0];
+    if (!target) throw new Error('no QA-PROBE request exists: 40-public-form must run first');
+    const failures: string[] = [];
+    // Written as raw JSON text: the last two are beyond what a JavaScript number holds exactly, and must still arrive as sent.
+    const hugeVersions = ['2147483647', '2147483648', '10000000001', '367499305219', '9007199254740991', '1687381385382380550179543211573248'];
+    try {
+      const before = await detailOf(owner, target.id);
+      const otherStatus = before.status === 'won' ? 'lost' : 'won';
+      const requests: Array<[string, string]> = [
+        ['an existing request', target.id],
+        ['an unknown request id', newUuid()],
+      ];
+      for (const [whose, id] of requests) {
+        const allowed = whose === 'an existing request' ? [409, 422] : [404, 409, 422];
+        for (const version of hugeVersions) {
+          const calls: Array<[string, string, string, string]> = [
+            ['PUT quote', 'PUT', `/api/quote-requests/${id}/quote`, `{"price_cents":6895,"note":"","version":${version}}`],
+            ['POST status change', 'POST', `/api/quote-requests/${id}/status-changes`, `{"to_status":"${otherStatus}","version":${version}}`],
+          ];
+          for (const [name, method, path, raw] of calls) {
+            const label = `${name} on ${whose} [version ${version}]`;
+            const res = await owner.fetch(path, { method, headers: { 'content-type': 'application/json' }, data: Buffer.from(raw) });
+            if (!allowed.includes(res.status())) {
+              failures.push(`${await lineWithBody(label, res)} expected ${allowed.join(' or ')}`);
+              continue;
+            }
+            if (!isProblemJson(res)) failures.push(`${line(label, res)} not problem+json`);
+            const leak = await leaks(res);
+            if (leak) failures.push(`${line(label, res)} leaks "${leak}"`);
+            if (res.status() === 422) {
+              const problem = await problemOf(res);
+              if (!problem?.errors?.some((e) => /version/.test(e.field))) failures.push(`${line(label, res)} 422 does not name version in errors[]`);
+            }
+          }
+        }
+      }
+      const after = await detailOf(owner, target.id);
+      if (after.version !== before.version || after.status !== before.status || after.price_cents !== before.price_cents || after.note !== before.note) {
+        failures.push('a refused huge-version write changed the request (version, status, price or note)');
+      }
+      testInfo.annotations.push({ type: 'cases', description: `${requests.length * hugeVersions.length * 2} requests (2 request ids x ${hugeVersions.length} versions x 2 writes)` });
+    } finally {
+      await reset(owner, target.id);
+    }
+    await owner.dispose();
+    await expectNone(testInfo, failures, 'huge version numbers on staff writes');
+  });
+
   test('@probe PRB-43 AC-001.5 script text a homeowner sent (and one a staff member saved) shows as plain text on the list, the board and the detail, on a phone and a desktop, and never runs', async ({ playwright, browser, guard }, testInfo) => {
     const owner = await appApi(playwright, await staffToken(playwright, 'owner'));
     const items = await probeRequests(owner);

@@ -449,6 +449,16 @@ test.describe('photo bucket and create-route input @probe', () => {
     const edgy: Array<[string, Record<string, unknown>]> = [
       ['name with a NUL character', good({ name: 'Zo\u0000e Probe' })],
       ['problem with a NUL character', good({ problem: 'The tap drips\u0000 and the cabinet is wet' })],
+      // Added after the first fuzz run (QA2): the same two kinds of text in every other string field of the create body.
+      ['address with a NUL character', good({ address: '12 Main St\u0000, Hamilton' })],
+      ['address with a lone surrogate', good({ address: '12 Main St \udc00, Hamilton' })],
+      ['phone with a NUL character', good({ phone: '905-555\u00000142' })],
+      ['phone with a lone surrogate', good({ phone: '905-555-\ud8000142' })],
+      ['email with a NUL character', good({ email: 'dana\u0000@example.com' })],
+      ['email with a lone surrogate', good({ email: 'dana\ud800@example.com' })],
+      ['website (honeypot) with a NUL character', good({ website: 'x\u0000y' })],
+      ['website (honeypot) with a lone surrogate', good({ website: 'x\ud800y' })],
+      ['photo content type with a NUL character', good({ photos: [{ position: 1, content_type: 'image/jpeg\u0000', size_bytes: 1000 }] })],
       ['name that is all emoji', good({ name: '🙂🙂🙂🙂' })],
       ['SQL-looking name', good({ name: "Robert'); DROP TABLE quote_requests;--" })],
       ['PostgREST-looking problem', good({ problem: 'q=eq.1&select=*&or=(id.not.is.null) kitchen tap drips' })],

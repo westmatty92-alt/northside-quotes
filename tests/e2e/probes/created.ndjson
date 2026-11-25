@@ -22,3 +22,11 @@
 {"at":"2026-11-25T02:44:09.936Z","run":"ida17","reference":"NQ-4SGXNZ","name":"QA-PROBE ida17 storage B","note":"storage probe B: oversize, wrong type and a text file named photo-1 were refused first"}
 {"at":"2026-11-25T02:44:11.028Z","run":"ida17","reference":"NQ-NV5AKT","name":"QA-PROBE ida17 storage A","note":"storage probe A: three photos, bucket attack attempts"}
 {"at":"2026-11-25T02:44:20.969Z","run":"ida17","reference":null,"name":"QA-PROBE ida17 boundary","note":"pending only: never submitted, invisible to staff, purged by housekeeping after 24 hours"}
+{"at":"2026-11-25T02:55:56.047Z","run":"iwpi5","reference":"NQ-KQWKP9","name":"QA-PROBE iwpi5 07 <img src=x onerror=window.__xss=1>","note":"burst of 20 parallel creates; script text in name, address and problem; offers value \"maybe\""}
+{"at":"2026-11-25T02:55:56.244Z","run":"iwpi5","reference":"NQ-89CGXX","name":"QA-PROBE iwpi5 08 <img src=x onerror=window.__xss=1>","note":"burst of 20 parallel creates; script text in name, address and problem; offers value \"maybe\""}
+{"at":"2026-11-25T02:55:56.442Z","run":"iwpi5","reference":"NQ-B9DQ3W","name":"QA-PROBE iwpi5 09 <img src=x onerror=window.__xss=1>","note":"burst of 20 parallel creates; script text in name, address and problem; offers value \"maybe\""}
+{"at":"2026-11-25T02:55:56.740Z","run":"iwpi5","reference":"NQ-EHVUBZ","name":"QA-PROBE iwpi5 11 <img src=x onerror=window.__xss=1>","note":"burst of 20 parallel creates; script text in name, address and problem; offers value \"maybe\""}
+{"at":"2026-11-25T02:55:57.205Z","run":"iwpi5","reference":"NQ-9B579B","name":"QA-PROBE iwpi5 17 <img src=x onerror=window.__xss=1>","note":"burst of 20 parallel creates; script text in name, address and problem; offers value \"maybe\""}
+{"at":"2026-11-25T03:06:28.289Z","run":"iwpi5","reference":"NQ-V7PEGQ","name":"QA-PROBE iwpi5 storage B","note":"storage probe B: oversize, wrong type and a text file named photo-1 were refused first"}
+{"at":"2026-11-25T03:06:29.836Z","run":"iwpi5","reference":"NQ-244TKQ","name":"QA-PROBE iwpi5 storage A","note":"storage probe A: three photos, bucket attack attempts"}
+{"at":"2026-11-25T03:06:39.329Z","run":"iwpi5","reference":null,"name":"QA-PROBE iwpi5 boundary","note":"pending only: never submitted, invisible to staff, purged by housekeeping after 24 hours"}

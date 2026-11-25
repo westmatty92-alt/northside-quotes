@@ -1,6 +1,6 @@
 # QA2 run report: permission probes, API boundaries and fuzz on the staging preview
 
-**Verdict at `bb54c17`: the probes PASS (54 of 54), all three earlier bugs are fixed, no permission boundary was crossed, no new defect. The Schemathesis fuzz run has NOT run yet, so the step is not complete: there is no fuzz result and no fuzz pass.** The fuzz script is changed and ready; it is unverified until the ledger's verify (outside this session's approval prompts) executes it.
+**Verdict at `bb54c17`: FAIL on the fuzz, PASS on the probes. The probes passed 54 of 54, all three earlier bugs are fixed, no permission boundary was crossed. The first Schemathesis run (ledger, `bash tests/fuzz/run.sh`, exit 1) found one product defect (BUG-QA2-4: a 500 on a large `version`), three contract questions, and a lot of fuzz-configuration noise that is now fixed in `tests/fuzz/run.mjs`. The fuzz has not been re-run since the configuration change, so the step stays open. A new regression probe, PRB-45, was added for BUG-QA2-4 (55 probes now; it is red until the fix) and nothing was run after it was written except `--list`, `tsc` and `eslint`.** See the "Fuzz" section.
 
 **Target:** https://northside-quotes-git-staging-baseleap.vercel.app (the Vercel preview of `staging`) · **Commit under test:** `bb54c17d2ea4d9d873f2f9f77d0af70dbcce2875` (`bb54c17`, read from `/api/health` by `PRB-00`, status `ok`) · **Step:** QA2, re-run after the backend fixes · **Date:** 2026-11-24 evening local (2026-11-25 UTC) · **Run type:** full probe run, once, then one probe run alone.
 
@@ -53,9 +53,63 @@ Retries are off for the `probes` project, so nothing can be "flaky": a failure i
 
 All rows pass at `bb54c17`, including the one that failed on the status code at `42208a4`: **Passwords: no change or reset route** (PRB-06, 06b, 26) now answers 404 everywhere. Rows: `quote_requests` (anonymous creates a pending request only through the API; staff read submitted rows only and write only through the RPCs), `quote_photos` and the `quote-photos` bucket, status changes, GHL sync jobs, events, staff, the four counter tables, staff routes with no or a non-staff session, form-token routes, sign-in limit, job routes, health. **No boundary was crossed; no Critical finding.**
 
-## Fuzz (Schemathesis): setup changed, NOT RUN, no counts
+## Fuzz (Schemathesis 4.0.0)
 
-Per the ruling (ledger 2026-11-24), `tests/fuzz/run.sh` now installs Schemathesis itself when it is missing:
+**Target:** https://northside-quotes-git-staging-baseleap.vercel.app/api · **Commit:** `bb54c17` · **Run:** the ledger's `bash tests/fuzz/run.sh`, 2026-11-25T03:07Z (22:07 local on the 24th), exit 1, output in `tests/fuzz/last-run.txt`, junit in `.baseleap/tools/fuzz-reports/` (git-ignored). Not re-run by QA after the triage below (venv and pip need approval in this session).
+
+**Result of that run:** anonymous 28 failures, staff 17, jobs 0 (2 of 2 passed). Of the 45 failures: **2 are product failures (one root cause, BUG-QA2-4), 1 is a contract question about `cursor` (CQ-QA2-2), and 42 are configuration noise or platform behaviour**: 10 TRACE, 11 missing header, and 21 failure entries on the 12 cases where the platform answered a plain-text 400 (anonymous: 5 content type, 5 status code, 7 positive data; staff: 2 content type, 2 positive data).
+
+### Counts per operation (each failure is one check on one case; a case can fail two checks)
+
+| Operation | Anonymous run | Staff run |
+|---|---|---|
+| `GET /quote-requests` | 2: TRACE, plain-text 400 (content type) | 1: **positive data rejected (cursor, CQ-QA2-2)** |
+| `POST /quote-requests` | 3: missing header, plain-text 400 (positive data, content type) | 3: missing header, plain-text 400 (positive data, content type) |
+| `GET /quote-requests/{request_id}` | 3: TRACE, plain-text 400 (positive data, status code) | 1: missing header |
+| `POST /quote-requests/{request_id}/submission` | 3: missing header, plain-text 400 (positive data, content type) | 3: missing header, plain-text 400 (positive data, content type) |
+| `GET /quote-requests/{request_id}/photos` | 3: TRACE, plain-text 400 (positive data, status code) | 1: missing header |
+| `PUT /quote-requests/{request_id}/quote` | 3: TRACE, plain-text 400 (positive data, content type) | 2: missing header, **server error 500 (BUG-QA2-4)** |
+| `POST /quote-requests/{request_id}/status-changes` | 3: TRACE, plain-text 400 (positive data, content type) | 2: missing header, **server error 500 (BUG-QA2-4)** |
+| `POST /quote-requests/{request_id}/ghl-copy-retries` | 3: TRACE, plain-text 400 (positive data, status code) | 1: missing header |
+| `GET /weekly-counts/current` | 2: TRACE, plain-text 400 (status code) | 1: missing header (a 200 with the owner's counts, see below) |
+| `GET /staff/me` | 2: TRACE, plain-text 400 (status code) | 1: missing header (a 200, see below) |
+| `GET /health` | 1: TRACE | 1: TRACE |
+| **Total** | **28** | **17** |
+| `GET /jobs/ghl-sync`, `GET /jobs/housekeeping` (jobs run, 1 case each, no secret) | 0 failures, both answered the documented 401 | not run |
+
+By check, from Schemathesis's own summary: anonymous: unsupported method 9, rejected positive data 7, undocumented content type 5, undocumented status code 5, missing header 2. Staff: missing header 9, rejected positive data 3, undocumented content type 2, server error 2, unsupported method 1. **Server-error check: 2 findings, both BUG-QA2-4. No other 5xx.**
+
+### Triage
+
+| Finding | Class | Disposition |
+|---|---|---|
+| Server error on `PUT .../quote` and `POST .../status-changes` with a `version` above 2,147,483,647 | **product defect** | **BUG-QA2-4**, Important, bl-backend. Regression probe `PRB-45` (red until fixed). |
+| Rejected positive data on `GET /quote-requests` (a 200-character cursor of zeros answers 400 `bad_request`) | **contract gap** | CQ-QA2-2 for bl-architect. The 400 is documented and right; the schema calls any string valid. Check left on. |
+| `version` has no `maximum` | **contract gap** | CQ-QA2-1 for bl-architect. |
+| TRACE answered by Vercel with plain text and no `Allow` (10 cases) | platform behaviour | CQ-QA2-3 (wording, Minor). Check `unsupported_method` off; `PRB-05` covers the app's own 405 on 16 methods. |
+| Plain-text `400 Bad Request` (12 cases: anonymous 10, staff 2), reported as undocumented content type, undocumented status code, rejected positive data | fuzz configuration | Every case has a header value Schemathesis made up (random `Authorization`, random `X-Form-Token`, random header names with non-ASCII bytes); the platform refuses those before the app runs. The identity headers are now fixed. **Inference:** Schemathesis hides the generated values, so this is read from the pattern (the staff run, with a fixed `Authorization`, has none on routes without `X-Form-Token`; the app's own 400 is `problem+json`). The next run tests it: a plain-text 400 with the fixed headers is a product finding. |
+| "Missing header not rejected" (anonymous 2, staff 9) | fuzz configuration | Anonymous: the missing `X-Form-Token` answers the documented 401, the check expects 406. Staff: the check removes `Authorization`, but the fixed `--header` is sent again, so `GET /staff/me` and `GET /weekly-counts/current` returned the owner's own data (200). **Not an open route:** `PRB-01` sends no `Authorization` to all 9 staff routes and gets 401 on each (passing at `bb54c17`). Check `missing_required_header` off. |
+| "Missing authentication" and "Missing test data" warnings | by design, no failure | The anonymous and jobs runs are meant to get 401. Staff run: create and submission get the documented 401 for a form token the fuzzer cannot sign; the five `{request_id}` routes get 404 for random uuids. |
+
+NUL characters and unpaired surrogates: this fuzz run produced **no** 5xx for them. The fuzzer's text contained only well-formed surrogate pairs in the staff note and no unpaired ones anywhere, and it cannot reach the create route's body (401 on the form token first). So the create route and the staff note are covered by probes only: `PRB-44` (note), `PRB-74b` (name, problem, address). I added to `PRB-74b` the same two kinds of text in `address`, `phone`, `email`, `website` and a photo `content_type` (9 cases, unrun; they take no submission slot because they reuse the pending request's token). They must not be a 5xx.
+
+### Configuration changes (`tests/fuzz/run.mjs`; `run.sh` is unchanged)
+
+1. **Identity headers fixed per run**, so Schemathesis stops inventing them: `anonymous` sends `Authorization: Bearer fuzz-run-not-a-valid-token`; `staff` sends the owner's token as before; `jobs` sends `Authorization: Bearer fuzz-run-wrong-cron-secret`; all three send `X-Form-Token: v1.0.00000000-0000-4000-8000-000000000000.fuzz-run-unsigned-token` (well-formed, unsigned, so the answer is the documented 401, and it takes no submission slot). None is a secret. **Cost:** the anonymous run no longer sends a request with no `Authorization` at all (PRB-01 does), and the create body is still not fuzzed (it never was: every create got a 401 first).
+2. **`--exclude-checks unsupported_method,missing_required_header`** and nothing else. Why: see the triage rows. `not_a_server_error` is on for every operation and every run, `status_code_conformance`, `content_type_conformance`, `response_schema_conformance`, `response_headers_conformance`, `positive_data_acceptance` and `negative_data_rejection` are still on, and the script refuses to start (exit 2) if `not_a_server_error` is ever added to `EXCLUDED_CHECKS`. The exclusions are named by check, not by operation, so they cannot hide a 5xx.
+3. **HAR report added** (`--report junit,har`): after each run the script prints every 5xx with its Vercel request id and request body, so the next ticket has an id. (Schemathesis prints none for a 500, and the junit report holds none.) Unverified: that 4.0.0 accepts `junit,har` and names the file `*.har` or `*.har.json`. If it refuses the flag the run exits 2 ("usage error"), not a pass; changing it back to `junit` is one word.
+4. **Report files counted by this run only** (by modification time). Before, a second run would have added the first run's junit numbers to its own.
+5. The header comment of `run.mjs` records all of the above.
+
+**Unverified:** that `--exclude-checks` and the check names `unsupported_method` and `missing_required_header` are accepted by 4.0.0 as written (taken from the v4 documentation; this session cannot run Schemathesis). A wrong name makes Schemathesis exit 2 and the script reports "NOT PROVEN", never a pass. `npx tsc --noEmit` and `npx eslint tests/fuzz tests/e2e/probes` pass; `npx playwright test tests/e2e/probes --list` shows 55 tests.
+
+### What the next run should show
+
+Anonymous: only 401 on staff routes, documented 401 on create and submission, no plain-text 400. Staff: one failure on `GET /quote-requests` (CQ-QA2-2) until the architect rules, and the 500s on `PUT .../quote` and `POST .../status-changes` until BUG-QA2-4 is fixed. Jobs: 2 of 2 passed. Anything else is new.
+
+### Setup history (how the script installs Schemathesis)
+
+Per the ruling (ledger 2026-11-24), `tests/fuzz/run.sh` installs Schemathesis itself when it is missing:
 
 - **Pinned version: `schemathesis==4.0.0`** (the 4.0 release; the lowest 4.x, chosen because I am certain it exists and has the v4 command line the flags were written for. I could not look up newer ones: `pip index` is refused here. Raising the pin is one line, `SCHEMATHESIS_VERSION` at the top of `run.sh`, and should be noted here when done).
 - **Where:** `python3 -m venv .baseleap/tools/venv` (git-ignored: `.baseleap/tools/` is in `.gitignore`), then `.baseleap/tools/venv/bin/python -m pip install schemathesis==4.0.0`. Nothing outside the venv is touched. If the venv holds a different version it is replaced by the pinned one. `schemathesis` on `PATH`, `uvx` and `pipx` are no longer used, so every run uses the same version.
@@ -79,7 +133,8 @@ Other traces on the shared staging project: `spam_submission_blocked` events (on
 
 ## Not run, or not proven (unverified)
 
-- **The Schemathesis fuzz run: no result at all.** See above.
+- **The Schemathesis fuzz run with the changed configuration:** not run by QA (venv and pip need approval here); the ledger re-runs it. The first run's result is in the "Fuzz" section.
+- **`PRB-45` and the 9 new `PRB-74b` cases:** written after the probe run above and not executed (only `--list`, `tsc` and `eslint`). The probe run of record is still 54 of 54 at `bb54c17`; the suite is now 55 tests, and `PRB-45` is expected to fail until BUG-QA2-4 is fixed.
 - **Per-address sign-in limit (AC-004.11):** not driven (20 failures would pause this address for 15 minutes for every agent on the shared preview).
 - **AC-004.5 with the real account** and AC-004.12's "same message for a real account": not run (no failed sign-ins for the owner or helper). Unknown email only.
 - **AC-004.13 and AC-003.5** (counters unreadable): cannot be induced from outside. **AC-003.8** (1,000 events a day): not run.
