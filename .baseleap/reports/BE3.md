@@ -93,3 +93,40 @@ The first four are index-served with no sort, as the architecture's key-query ta
 - **INT2:** `retryGhlCopy` can reuse `requireStaff`, `withApi`, `dbProblem` the same way; for the detail's `ghl.copy` mapping, `mapGhlState` is exported from `src/lib/server/services/quote-requests.ts` if the retry result needs the same words. `runGhlJobs({ requestId })` is called after a real status change only when a `stage_tag` job is `pending` or `waiting`.
 - **FE:** a list `cursor` is opaque, at most 200 characters; send it back unchanged. A `q` of 3 or more digits also searches phone numbers. A 500 from the weekly count is "Count unavailable". Photo `url` and `expires_at` are both `null` when a photo could not be signed.
 - **QA:** the stale-version, one-event, no-GHL-call-without-consent and sign-in-session rules above are proven at the API level against staging; what is not proven here is the browser flow and the real `after()` in a running server.
+
+## Attempt 2: QA2 fix (2026-11-24)
+
+**Status:** done. Fixes BUG-QA2-4 (class impl). The contract, migrations and generated code are untouched.
+
+**Root cause (confirmed, not guessed):** the 32-bit integer overflow. `quote_requests.version` is `integer` (`supabase/migrations/20261120000300_quote_requests.sql:55`), and the `p_expected_version` argument of both `save_quote_request_quote()` and `change_quote_request_status()` is `integer` (`20261120000600_functions.sql:441` and `:505`). The contract says `version: integer, minimum: 1` with no `maximum` (CQ-QA2-1, deferred). The request schemas in the service used the generated `zod.int().min(1)`, and in zod 4 `int()` only means "a safe JavaScript integer", up to 9,007,199,254,740,991. So any version above 2,147,483,647 passed validation, was sent to the database as the RPC argument and was refused there. The reproducing test's log lines for the 500s show `error_class: postgrest, code: 22003` (numeric_value_out_of_range). `dbProblem` has no case for that code, so it became the generic 500 `internal_error`. It happened before the not-found answer because the function casts its arguments before it looks the request up. The same schema lets such a value through for an unknown id and for an existing one.
+Which values were affected: only those that are whole numbers above 2,147,483,647 and at most 9,007,199,254,740,991, in any spelling (`2147483648`, `10000000001`, `367499305219`, `1e10`, `2147483648.0`, `9007199254740991`). The others in the same class (a float, text, null, zero, negatives of any size, `9007199254740993` and above, `1e400`, a 34-digit number) were already 422 from zod, and the new test pins that down as well.
+
+**Reproducing test (written first, red before the fix):** `tests/api/inbox/version-range.test.ts`, run against the staging project. For both routes it sends 24 `version` values as raw JSON text (as QA's PRB-45 does), to an existing request and to an unknown uuid, plus the boundary and a positive case:
+- every refused value must be 422 `validation_failed` with `errors` naming exactly `version`, as `application/problem+json`, with no database wording in the body;
+- the log must hold no `postgrest` or `22003` line;
+- for the existing request, no fetch to `/rpc/save_quote_request_quote`, `/rpc/change_quote_request_status` or `/quote_requests` is made, so no database call is reached after the staff check, and the stored row is unchanged (version 1, nothing in the status history);
+- an unknown id gives the same 422 (the 422 comes before the 404);
+- the top of the range, `2147483647`, is accepted by validation: 409 `stale_version` for an existing request, 404 for an unknown one, nothing stored;
+- `1.0` is the whole number 1 and is accepted (200 or 201).
+Red result before the fix: `Tests 24 failed | 334 passed (358)`, every failure "expected 500 to be 422" and every log line `code":"22003"`. The 24 are 6 whole-number values x 2 routes x 2 request kinds.
+
+**Fix:** `src/lib/server/services/quote-requests.ts` only. One shared schema, `const Version = z.int().min(1).max(2_147_483_647)`, replaces the generated `version` field in the two request schemas: `SaveSchema = SaveQuoteBody.extend({ note, version: Version })` and `StatusSchema = ChangeQuoteRequestStatusBody.extend({ version: Version })`, both still `.strict()`. The existing error mapping (`validationErrors`) names `version` with the existing message ("Reload the request and try again"), so there is no new status code, no new field and no handler change. The check runs in the service before any `db.rpc`, so it never reaches the database. The generated schemas and `docs/openapi.yaml` are not edited; the missing `maximum` stays CQ-QA2-1.
+Not touched, for the record: a request whose stored version is already 2,147,483,647 could not be saved or moved (`version + 1` would overflow inside the function). That needs two billion saves of one request and is not reachable; no test, no change.
+
+**Commands (each with the `cd` prefix, one command per call):**
+- `npm run typecheck` -> exit 0 (`next typegen && tsc --noEmit`, no errors)
+- `npm run lint` -> exit 0 (0 errors; the 2 warnings are the existing ones in `scripts/lib/yaml-lite.mjs` and `scripts/sync-agent-permissions.mjs`, not mine)
+- `node --env-file-if-exists=.env.local node_modules/.bin/vitest run tests/api/inbox --passWithNoTests=false` -> refused by the permission layer ("multiple operations ... require approval"), so the fallback below was used, as the brief allowed. It was refused on every try, before and after the fix.
+- `npx vitest run tests/api/inbox --passWithNoTests=false` -> before the fix: exit 1, 24 failed | 334 passed (358). After the fix: exit 0, 8 files passed, 358 tests passed (358), against the hosted staging project (not a local stack).
+- `npm run build` -> exit 0 (Next.js 16.4.6 Turbopack, compiled, all routes listed, including the quote and status-changes routes)
+- `node scripts/check-code-guards.mjs service-role` -> exit 0 (`check-code-guards service-role: OK`)
+
+**Files changed:**
+- `src/lib/server/services/quote-requests.ts` (modified): the `Version` schema and its use in `SaveSchema` and `StatusSchema`.
+- `tests/api/inbox/version-range.test.ts` (new): the reproducing and regression test above.
+- `.baseleap/reports/BE3.md` (this section).
+No temporary files were created. QA's probes (`tests/e2e/**`, PRB-45) were not touched and not run; the preview needs this code first. Unverified: PRB-45 itself on the staging preview, which sends the same values over HTTP; the 6th value there (34 digits) is 422 by the same path as before.
+
+**Could not do:** nothing.
+**CONTRACT QUESTION:** none new. CQ-QA2-1 (a `maximum: 2147483647` on `version` in `QuoteSave`, `StatusChangeCreate` and the three response schemas) stays as QA recorded it. With the code now answering 422 for these values, the contract should say so, so the fuzzer treats them as invalid input.
+**BLOCKED:** none.

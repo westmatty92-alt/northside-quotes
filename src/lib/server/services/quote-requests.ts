@@ -364,7 +364,16 @@ export function getQuoteRequest(db: Db, requestId: string): Promise<QuoteRequest
 
 // ---- price and note ----------------------------------------------------------------------------------------------------
 
-const SaveSchema = SaveQuoteBody.extend({ note: z.string().nullable() }).strict();
+/**
+ * `version` as the database can hold it. quote_requests.version and the p_expected_version argument of both write functions
+ * are 32-bit integers; the generated schema stops at a safe JavaScript integer, so a number above 2,147,483,647 used to reach
+ * the database, fail there with SQLSTATE 22003 and answer 500 (BUG-QA2-4). Anything outside 1 to 2,147,483,647 is a 422
+ * naming `version`, before any database call. (docs/openapi.yaml has no `maximum` yet: deferred contract question CQ-QA2-1.)
+ */
+const INT32_MAX = 2_147_483_647;
+const Version = z.int().min(1).max(INT32_MAX);
+
+const SaveSchema = SaveQuoteBody.extend({ note: z.string().nullable(), version: Version }).strict();
 
 /**
  * saveQuote: validate (422 naming the field), then save_quote_request_quote() in one transaction: a stale version is 409
@@ -395,7 +404,7 @@ export async function saveQuote(db: Db, requestId: string, body: unknown): Promi
 
 // ---- status ------------------------------------------------------------------------------------------------------------
 
-const StatusSchema = ChangeQuoteRequestStatusBody.strict();
+const StatusSchema = ChangeQuoteRequestStatusBody.extend({ version: Version }).strict();
 
 const StatusRpcResult = z.object({
   changed: z.boolean(),
