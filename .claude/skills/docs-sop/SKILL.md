@@ -27,6 +27,22 @@ One page that answers "what does this client run, and how does it connect?" so t
 - **System of record:** which system owns which records (contacts, orders, invoices…).
 - **Must not change** without a gate: the locked decisions and accepted risks that constrain later work, each linked to its decision.
 - **Last updated:** the release, commit and date it describes.
+- **Nodes and connections, machine-readable** (the CRM draws the client's System map from this; Matthew, Nov 24 2026). End the page with one fenced `yaml` block:
+  ```yaml
+  nodes:   # one per system, app feature and integration
+    - id: app.quotes          # stable: never renamed once published
+      kind: app | feature | database | website | platform | integration | agent
+      label: Quote requests
+      parent: app             # features sit inside their app
+      status: live | building | planned
+      added_by: <build plan id>/<step>
+  edges:
+    - from: website.forms
+      to: app.quotes
+      flow: new quote request  # what moves, in plain words
+      direction: one-way | both
+  ```
+  A new feature is a new node under its app; a new integration is a new node with its edges. Nothing is deleted: a retired node gets `status: retired`.
 
 ## 4. Changelog (every SOP and `docs/sops/changelog.md`)
 `YYYY-MM-DD — what changed — why (step or run that changed it)`, newest first. A change to a procedure updates the SOP **and** adds a changelog line; Gate 3 reads `docs/sops/changelog.md`.
