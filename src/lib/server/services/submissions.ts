@@ -86,6 +86,14 @@ function validationErrors(error: z.ZodError): FieldError[] {
   return [...seen.values()];
 }
 
+/** Every free-text string the create body takes (urgency and the photo plan are enums, website is the honeypot: all refused by their own checks). */
+const FREE_TEXT_FIELDS = ['name', 'phone', 'email', 'address', 'problem'] as const;
+
+/** Text Postgres cannot store: a NUL character, or an unpaired UTF-16 surrogate (not well-formed Unicode). */
+function unstorable(text: string): boolean {
+  return text.includes('\u0000') || !text.isWellFormed();
+}
+
 /** Phone as typed: remove spaces, dashes, dots, brackets and a leading +1, then exactly 10 digits. */
 function normalizePhone(typed: string): string | undefined {
   const phone = typed.replace(/[\s\-.()]/g, '').replace(/^\+1/, '');
@@ -112,9 +120,11 @@ function parseCreateBody(body: Record<string, unknown>): ParsedCreate {
   if (typeof input.phone === 'string' && phone === undefined && !errors.some((e) => e.field === 'phone')) {
     errors.push({ field: 'phone', message: MESSAGES.phone ?? 'Enter a 10-digit phone number' });
   }
-  // Postgres text cannot hold a NUL character: refuse it here as a field error instead of letting it reach the database as a 500.
-  for (const field of ['name', 'email', 'address', 'problem']) {
-    if (typeof input[field] === 'string' && input[field].includes('\u0000') && !errors.some((e) => e.field === field)) {
+  // Postgres text cannot hold a NUL character or an unpaired surrogate: refuse either here as a field error instead of letting
+  // it reach the database as a 500 (BUG-QA2-2: JSON.parse turns "\ud800" into such text, PostgREST refuses the call with PGRST102).
+  for (const field of FREE_TEXT_FIELDS) {
+    const value = input[field];
+    if (typeof value === 'string' && unstorable(value) && !errors.some((e) => e.field === field)) {
       errors.push({ field, message: MESSAGES[field] ?? 'Check this answer' });
     }
   }

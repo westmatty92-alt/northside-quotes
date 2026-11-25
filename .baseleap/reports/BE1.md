@@ -99,3 +99,39 @@ Key query plans (be-data §5): BE1 adds **no list or search query**. `EXPLAIN` w
 **Could not do:** `supabase/seed.sql` (not in this step's description); `EXPLAIN` of the housekeeping statements (no direct psql here).
 **CONTRACT QUESTION:** none blocking. Two soft observations for the architect: (a) `createQuoteRequest` lists only `SubmissionRefused` for 400, but a non-JSON body needs a 400; I answered `bad_request` (a code in the Problem enum) rather than invent anything; consider listing `BadRequest` on that operation. (b) The Problem schema has no `request_id`, so 500 bodies carry it only in the `x-request-id` header.
 **BLOCKED:** none.
+
+## Attempt 2: QA2 fix (2026-11-24)
+**Ticket:** BUG-QA2-2 (probe PRB-74b): `POST /api/quote-requests` answered 500 when `name`, `problem` or `address` held an unpaired UTF-16 surrogate.
+**Status:** done.
+
+### Root cause (found before changing anything)
+The source is none of the first three guesses; it is the call to PostgREST. Shown on staging by calling `start_quote_request` directly and by the route's own log line:
+1. `JSON.parse('"Zo\ud800e"')` succeeds. The result is a JS string that is not well-formed Unicode (`isWellFormed()` is false). So JSON parsing does not fail.
+2. The generated zod schema only checks length, so it accepts the string. Zod does not fail.
+3. supabase-js re-serialises the argument as JSON with the escape `\ud800` and sends it. PostgREST cannot decode a lone surrogate and refuses the whole call with `PGRST102` ("Empty or invalid json"). The request never reaches Postgres, so this is not a Postgres encoding error.
+4. `dbProblem()` had no mapping for `PGRST102`, so the default branch answered 500 `internal_error`. The log line showed `error_class: postgrest, code: PGRST102`.
+Why only three fields: `email` and `phone` were already refused as 422 by their own shape checks (zod email, 10-digit phone). The NUL check I wrote in attempt 1 covered the same four text fields but did not test for surrogates.
+
+### Reproducing test, then the fix
+- Test first: `tests/api/submission/unpaired-surrogates.test.ts` (new, staging-backed, in-process, cleans up its rows). Before the fix: **20 of 36 failed, all with 500 / PGRST102** (name, address, problem on the create path and the update path, plus the combined, single-field and log cases). After the fix: **36 of 36 pass**.
+- What it covers: five bad shapes per field (lone high, lone low, high then ordinary character, reversed pair, high at the end) for `name`, `address`, `problem`, `email`, `phone`, sent as raw JSON text with the six-character `\ud800` escape typed out like QA's curl; each is a 422 problem+json naming only that field, and no row is stored. Also: several bad fields named together; a surrogate plus another fault on one field names it once; the 422 body and the log line contain none of the submitted text; an emoji (a valid pair) is still accepted and stored exactly; the update path (same token, changed answers) is a 422 for `name`, `address`, `problem` and the pending request is unchanged; `urgency`, a photo `content_type`, an unknown key and an unknown key's value holding a surrogate are 422, not 500; a honeypot holding one is the generic 400 refusal; the submit route's only string, the request id, is 404. One case documents the root cause by calling the database RPC directly and expecting `PGRST102`.
+- Fix: `src/lib/server/services/submissions.ts` only. A `FREE_TEXT_FIELDS` list (`name`, `phone`, `email`, `address`, `problem`) and an `unstorable()` check (NUL, or `!isWellFormed()`) replace the old NUL-only loop in `parseCreateBody`. The result is the same 422 with `errors[] = [{ field, message }]` using the field's own message, one entry per field. It runs before any database call, so create and update (same code path) are both covered. `submitQuoteRequest` takes no body and no free text; its request id is checked against a UUID pattern and is 404 otherwise.
+- Not changed, on purpose: `dbProblem()` still maps an unknown PostgREST code, `PGRST102` included, to 500. A 422 there would need a field name the service cannot know; the input check is the right place.
+
+### Commands run (each as `cd <lane> && ...`)
+- `npm run typecheck` -> exit 0.
+- `npm run lint` -> exit 0 (0 errors; 2 existing warnings in `scripts/lib/yaml-lite.mjs` and `scripts/sync-agent-permissions.mjs`, not mine).
+- `node --env-file-if-exists=.env.local node_modules/.bin/vitest run tests/api/submission tests/api/housekeeping tests/api/health tests/unit/env --passWithNoTests=false` -> **refused** by the permission system. Ran the allowed fallback `npx vitest run tests/api/submission tests/api/housekeeping tests/api/health tests/unit/env --passWithNoTests=false` -> exit 0, 14 files, 221 tests passed (staging-backed; the env came from the main checkout's `.env.local` through `tests/helpers/staging-env.ts`).
+- `npm run build` -> exit 0.
+- `node scripts/check-code-guards.mjs service-role` -> exit 0 ("OK").
+
+### Changed files
+- `src/lib/server/services/submissions.ts`: the fix (above).
+- `tests/api/submission/unpaired-surrogates.test.ts`: new, the reproducing test.
+- `tests/api/submission/zz-diagnose.test.ts`: **to be deleted**. I created it for the diagnosis and cannot remove files (no rm). It now holds one network-free check so it is a valid test file until you delete it. It is not needed.
+
+### Notes
+- `src/lib/server/services/quote-requests.ts` (staff side, BE3's) already has a private `unstorable()` with the same rule; I left it alone and did not share one helper, to keep this diff to a single owned function. A shared helper is a tidy-up for later.
+- Other public text routes were not probed by me. QA reports PRB-44 (staff note, search) passes.
+- Verified against the staging project only; the hosted PostgREST behaviour (PGRST102) is what the tests exercise. Nothing run against production.
+**CONTRACT QUESTION:** none. **BLOCKED:** none. **NEW SETTING:** none.
