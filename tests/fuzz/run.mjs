@@ -53,19 +53,50 @@
 //
 // Schemathesis itself: only the pinned one in .baseleap/tools/venv, which tests/fuzz/run.sh installs (exact version,
 // exit 3 if the install fails) and passes in as $SCHEMATHESIS_BIN. This file never installs anything. Run it through
-// run.sh. Secrets are never printed: every value is replaced by its variable name in the output, and the raw reports
+// run.sh.
+//
+// Environment (SEC-25): Schemathesis and its unhashed dependencies run with an allow-list environment only (PATH, HOME,
+// LANG, LC_ALL, TMPDIR when set, plus NO_COLOR), built in tests/fuzz/child-env.mjs. .env.local is parsed here for the
+// ten names listed in WRAPPER_NAMES and is never loaded into process.env or passed on. The staff token is minted here;
+// Schemathesis gets the token and the bypass value as --header arguments, never the password or any service key. A guard
+// exits 2 if the child environment holds a name matching /SERVICE|SECRET_KEY|DB_URL|LEDGER|PASSWORD/i (the bypass name
+// excepted) or any name outside the allow-list. Secrets are never printed: every value is replaced by its variable name in the output, and the raw reports
 // stay in .baseleap/tools/fuzz-reports (git-ignored).
 import { spawn, spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
 import { fileURLToPath } from 'node:url';
+import { parseEnv } from 'node:util';
+import { buildChildEnv, offendingNames } from './child-env.mjs';
 
 const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '../..');
 process.chdir(ROOT);
+
+// SEC-25. .env.local is read here, in Node, for the names this wrapper itself uses and nothing else. It is NOT loaded
+// into process.env, and nothing from it reaches Schemathesis: the child gets the allow-listed environment of
+// tests/fuzz/child-env.mjs (PATH, HOME, LANG, LC_ALL, TMPDIR, NO_COLOR) and receives the bypass value and the staff
+// token as --header arguments. A name already in the real environment wins over the file, as it did before.
+const WRAPPER_NAMES = [
+  'STAGING_URL',
+  'PRODUCTION_HOSTS',
+  'VERCEL_AUTOMATION_BYPASS_SECRET',
+  'SUPABASE_STAGING_URL',
+  'NEXT_PUBLIC_SUPABASE_URL',
+  'SUPABASE_STAGING_ANON_KEY',
+  'NEXT_PUBLIC_SUPABASE_ANON_KEY',
+  'QA_OWNER_EMAIL',
+  'QA_OWNER_PASSWORD',
+  'SUPABASE_PROD_PROJECT_REF',
+];
+let fileEnv = {};
 try {
-  process.loadEnvFile(path.join(ROOT, '.env.local'));
+  fileEnv = parseEnv(fs.readFileSync(path.join(ROOT, '.env.local'), 'utf8'));
 } catch {
   // no .env.local: the variables must already be in the environment
+}
+function setting(name) {
+  if (!WRAPPER_NAMES.includes(name)) throw new Error(`${name} is not one of the names this wrapper may read from .env.local`);
+  return process.env[name] ?? fileEnv[name];
 }
 
 const VENV_BIN = path.join(ROOT, '.baseleap/tools/venv/bin/schemathesis');
@@ -79,8 +110,15 @@ function stop(code, message) {
   process.exit(code);
 }
 
+// The one environment every child process gets, checked before anything else starts (including the version probe).
+// Exit 2 if it holds a name that looks like a credential (SERVICE, SECRET_KEY, DB_URL, LEDGER, PASSWORD; only the
+// Vercel bypass name is exempt) or any name outside the allow-list. Names are printed, values never.
+const CHILD_ENV = buildChildEnv(process.env);
+const offending = offendingNames(CHILD_ENV);
+if (offending.length > 0) stop(2, `Refusing to start: the child environment would contain ${offending.join(', ')}. Nothing but the allow-list in tests/fuzz/child-env.mjs may reach Schemathesis (SEC-25).`);
+
 // ---- 1. target: the staging preview only ------------------------------------------------------------------------
-const rawUrl = process.env.STAGING_URL;
+const rawUrl = setting('STAGING_URL');
 if (!rawUrl) stop(2, 'STAGING_URL is not set (set it in .env.local; its value is never printed).');
 let target;
 try {
@@ -88,18 +126,18 @@ try {
 } catch {
   stop(2, 'STAGING_URL is not a valid URL.');
 }
-const production = (process.env.PRODUCTION_HOSTS ?? '').split(',').map((h) => h.trim()).filter(Boolean);
+const production = (setting('PRODUCTION_HOSTS') ?? '').split(',').map((h) => h.trim()).filter(Boolean);
 if (target.protocol !== 'https:') stop(2, 'Refusing to fuzz: STAGING_URL must be https.');
 if (production.includes(target.host)) stop(2, `Refusing to fuzz production (${target.host}).`);
 if (!/^[a-z0-9][a-z0-9-]*-git-staging-[a-z0-9-]+\.vercel\.app$/.test(target.host)) stop(2, `Refusing to fuzz ${target.host}: not a staging preview host (<project>-git-staging-<team>.vercel.app).`);
 const base = `${target.origin}/api`;
 
-const bypass = process.env.VERCEL_AUTOMATION_BYPASS_SECRET;
+const bypass = setting('VERCEL_AUTOMATION_BYPASS_SECRET');
 if (!bypass) stop(2, 'VERCEL_AUTOMATION_BYPASS_SECRET is not set (the preview is protected).');
 
 // ---- 2. Schemathesis ----------------------------------------------------------------------------------------------
 const schemathesisBin = process.env.SCHEMATHESIS_BIN || VENV_BIN;
-const probe = fs.existsSync(schemathesisBin) ? spawnSync(schemathesisBin, ['--version'], { encoding: 'utf8' }) : null;
+const probe = fs.existsSync(schemathesisBin) ? spawnSync(schemathesisBin, ['--version'], { encoding: 'utf8', env: CHILD_ENV }) : null;
 if (!probe || probe.status !== 0) {
   stop(3, 'NOT RUN: the pinned Schemathesis is not installed in .baseleap/tools/venv. No fuzz result exists. This is not a pass.\nRun it through tests/fuzz/run.sh, which installs it.');
 }
@@ -111,14 +149,15 @@ console.log(`Schemathesis version in use: ${stVersion}${pinned ? ` (pinned ${pin
 
 // ---- 3. a staff token, got the way a browser client gets one ---------------------------------------------------------
 async function staffToken() {
-  const url = process.env.SUPABASE_STAGING_URL || process.env.NEXT_PUBLIC_SUPABASE_URL;
-  const anon = process.env.SUPABASE_STAGING_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  const email = process.env.QA_OWNER_EMAIL;
-  const password = process.env.QA_OWNER_PASSWORD;
+  // The password is used here, in Node, to get the token; Schemathesis only ever gets the token.
+  const url = setting('SUPABASE_STAGING_URL') || setting('NEXT_PUBLIC_SUPABASE_URL');
+  const anon = setting('SUPABASE_STAGING_ANON_KEY') || setting('NEXT_PUBLIC_SUPABASE_ANON_KEY');
+  const email = setting('QA_OWNER_EMAIL');
+  const password = setting('QA_OWNER_PASSWORD');
   if (!url || !anon || !email || !password) stop(2, 'Need SUPABASE_STAGING_URL, SUPABASE_STAGING_ANON_KEY, QA_OWNER_EMAIL and QA_OWNER_PASSWORD (names only; values are never printed).');
   const host = new URL(url).host;
   if (!host.endsWith('.supabase.co')) stop(2, 'The Supabase URL is not a *.supabase.co project.');
-  if (process.env.SUPABASE_PROD_PROJECT_REF && host.startsWith(`${process.env.SUPABASE_PROD_PROJECT_REF}.`)) stop(2, 'Refusing to use the production Supabase project.');
+  if (setting('SUPABASE_PROD_PROJECT_REF') && host.startsWith(`${setting('SUPABASE_PROD_PROJECT_REF')}.`)) stop(2, 'Refusing to use the production Supabase project.');
   const res = await fetch(`${new URL(url).origin}/auth/v1/token?grant_type=password`, {
     method: 'POST',
     headers: { apikey: anon, 'content-type': 'application/json' },
@@ -135,8 +174,8 @@ const token = await staffToken();
 const secrets = [
   ['VERCEL_AUTOMATION_BYPASS_SECRET', bypass],
   ['STAFF_ACCESS_TOKEN', token],
-  ['QA_OWNER_PASSWORD', process.env.QA_OWNER_PASSWORD],
-  ['SUPABASE_STAGING_ANON_KEY', process.env.SUPABASE_STAGING_ANON_KEY || process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY],
+  ['QA_OWNER_PASSWORD', setting('QA_OWNER_PASSWORD')],
+  ['SUPABASE_STAGING_ANON_KEY', setting('SUPABASE_STAGING_ANON_KEY') || setting('NEXT_PUBLIC_SUPABASE_ANON_KEY')],
 ].filter(([, v]) => typeof v === 'string' && v.length >= 8);
 const redact = (text) => secrets.reduce((acc, [name, value]) => acc.split(value).join(`$${name}`), text);
 
@@ -213,7 +252,7 @@ function runOne(run) {
     const args = [...pre, '--config-file', CONFIG, 'run', 'docs/openapi.yaml', ...run.args, ...extra, '--report', 'junit,har', '--report-dir', dir];
     const since = Date.now() - 1_000;
     echo(`\n## run: ${run.name}`);
-    const child = spawn(cmd, args, { stdio: ['ignore', 'pipe', 'pipe'], env: { ...process.env, NO_COLOR: '1' } });
+    const child = spawn(cmd, args, { stdio: ['ignore', 'pipe', 'pipe'], env: CHILD_ENV });
     let pending = '';
     const feed = (chunk) => {
       pending += chunk.toString('utf8');
