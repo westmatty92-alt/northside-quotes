@@ -13,9 +13,10 @@ on:
 permissions:
   contents: read
 
-concurrency:
-  group: ci-${{ github.ref }}
-  cancel-in-progress: true
+# Concurrency is declared per job, not for the whole workflow (REV-3): a workflow-level `cancel-in-progress` would kill an
+# `api-tests` run halfway (before its cleanup) when a newer push arrives. Jobs that do not touch the staging database keep a
+# per-ref group (own name per job, so the jobs of one run never queue behind each other); `api-tests` takes the one global
+# `staging-db` group, shared with qa-smoke.yml, and is never cancelled while running.
 
 defaults:
   run:
@@ -28,6 +29,9 @@ env:
 
 jobs:
   verify:
+    concurrency:
+      group: ci-verify-${{ github.ref }}
+      cancel-in-progress: true
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     steps:
@@ -53,6 +57,11 @@ jobs:
   api-tests:
     # Backend tests against the staging Supabase project. Skipped for PRs from forks (they get no secrets).
     if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
+    # One run at a time against the one shared staging database, across every branch and workflow (REV-3). Never cancelled
+    # while running, so its cleanup always happens. (GitHub keeps one running and one waiting run per group.)
+    concurrency:
+      group: staging-db
+      cancel-in-progress: false
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     environment: staging
@@ -76,9 +85,15 @@ jobs:
           cache: npm
       - run: npm ci
       # APP_SIGNING_SECRET and CRON_SECRET are deliberately NOT provided here (Vercel only); tests set their own.
-      - run: npm test -- tests/api
+      # test:offline excludes tests/integrations/**/db.test.ts (they need the staging database), so those run here, named
+      # explicitly. A filter that matches no file is harmless while another one matches (the routes file lands from the
+      # backend lane).
+      - run: npm test -- tests/api tests/integrations/ghl/db.test.ts tests/integrations/routes/db.test.ts
 
   security:
+    concurrency:
+      group: ci-security-${{ github.ref }}
+      cancel-in-progress: true
     runs-on: ubuntu-24.04
     timeout-minutes: 25
     steps:
@@ -121,6 +136,9 @@ jobs:
           retention-days: 14
 
   workflows:
+    concurrency:
+      group: ci-workflows-${{ github.ref }}
+      cancel-in-progress: true
     runs-on: ubuntu-24.04
     timeout-minutes: 5
     steps:
