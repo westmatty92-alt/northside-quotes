@@ -10,13 +10,29 @@ test.describe('preview platform', () => {
 
   test('@smoke health answers ok and reports the commit under test', async ({ playwright }, testInfo) => {
     loadEnv();
+    const expected = process.env.QA_EXPECTED_SHA ?? '0dff609';
+    // QA_WAIT_BUILD_MS (optional): a new build may take minutes to land, so poll for that long. The assertion
+    // itself is unchanged: the version must start with the commit under test.
+    const waitMs = Number(process.env.QA_WAIT_BUILD_MS ?? 0);
+    if (waitMs > 0) test.setTimeout(waitMs + 60_000);
     const anon = await newApi(playwright);
-    const res = await anon.get('/api/health');
-    expect(res.status(), await describe(res)).toBe(200);
-    const body = (await res.json()) as { status?: string; version?: string };
+    const read = async () => {
+      const res = await anon.get('/api/health');
+      expect(res.status(), await describe(res)).toBe(200);
+      return (await res.json()) as { status?: string; version?: string };
+    };
+    let body = await read();
+    if (waitMs > 0) {
+      await expect
+        .poll(async () => String((body = await read()).version ?? '').startsWith(expected), {
+          timeout: waitMs,
+          intervals: [15_000],
+          message: `deployed commit never started with ${expected}`,
+        })
+        .toBe(true);
+    }
     expect(body.status).toBe('ok');
     await testInfo.attach('health', { body: JSON.stringify(body), contentType: 'application/json' });
-    const expected = process.env.QA_EXPECTED_SHA ?? 'e966fbc';
     expect(String(body.version ?? ''), 'deployed commit').toContain(expected);
     await anon.dispose();
   });

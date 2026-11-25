@@ -1,0 +1,17 @@
+{
+  "id": "SCR-04-requests",
+  "width": 390,
+  "path": "/requests",
+  "title": "Requests | Northside",
+  "screenshot": "390/SCR-04-requests.png",
+  "axe": {
+    "serious_or_critical": [],
+    "minor_or_moderate": []
+  },
+  "console_errors": [],
+  "failed_requests": [],
+  "designed_error_responses": [],
+  "aborted_by_navigation": 0,
+  "requests_in_api_first_page": 50,
+  "top_screenshot": "390/SCR-04-requests-top.png"
+}

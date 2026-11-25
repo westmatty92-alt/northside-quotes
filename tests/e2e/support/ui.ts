@@ -133,16 +133,14 @@ export async function submitAndConfirm(form: RequestForm, d: Homeowner, testInfo
 // Photo thumbnails on the request detail
 
 /**
- * The thumbnail buttons of a request. docs/design-specs.md names them "Open photo 2 of 3 at full size"; the deployed
- * app says "View photo 2 of 3 at full size" (BUG-QA1-2, Minor, copy). The behaviour tests accept either verb so that
- * the wording does not hide the viewer behaviour; `detail.both.spec.ts › design wording` keeps the exact design text
- * and stays red until the copy or the spec is corrected.
+ * The thumbnail buttons of a request. Ruling of 2026-11-24 (docs/design-specs.md, PhotoThumb): the visible text is
+ * "View photo N" and the accessible name is "View photo N of 3 at full size" (the visible words start the name).
  */
 export function photoThumbs(page: Page, of: number | string = '\\d'): Locator {
-  return page.getByRole('button', { name: new RegExp(`^(?:Open|View) photo \\d of ${of} at full size$`) });
+  return page.getByRole('button', { name: new RegExp(`^View photo \\d of ${of} at full size$`) });
 }
 export function photoThumb(page: Page, n: number, of: number | string = '\\d'): Locator {
-  return page.getByRole('button', { name: new RegExp(`^(?:Open|View) photo ${n} of ${of} at full size$`) });
+  return page.getByRole('button', { name: new RegExp(`^View photo ${n} of ${of} at full size$`) });
 }
 
 // ---------------------------------------------------------------------------------------------
@@ -162,9 +160,9 @@ export function refLink(page: Page, ref: string): Locator {
 
 /** The Move to button of one request (its name carries the reference, design-specs "Accessibility notes"). */
 export function moveButton(page: Page, ref: string): Locator {
-  // docs/design-specs.md: "Move NQ-7K3M9P to another status". Deployed: "Move to another status, NQ-7K3M9P"
-  // (BUG-QA1-2, Minor, copy). Both carry the reference; the exact design wording has its own test in requests.both.spec.ts.
-  return page.getByRole('button', { name: new RegExp(`^Move (?:to another status, )?${ref}(?: to another status)?$`) });
+  // Ruling of 2026-11-24 (docs/design-specs.md, MoveToMenu): visible text "Move to", accessible name
+  // "Move to another status, NQ-7K3M9P" (and "..., saving" while the change is being saved).
+  return page.getByRole('button', { name: new RegExp(`^Move to another status, ${ref}(?:, saving)?$`) });
 }
 
 export function menuItem(page: Page, status: Status): Locator {
@@ -280,9 +278,21 @@ export async function mouseDrag(page: Page, ref: string, status: Status) {
   await page.mouse.up();
 }
 
-/** A touch drag: press and hold, move in steps, release. Uses Chromium's touch input events. */
+/** The drag grip of one card (`[data-grip]`). Ruling of 2026-11-24 (SQ-9): touch drag works by the grip, shown only from 1280 px. */
+export function grip(page: Page, ref: string): Locator {
+  return card(page, ref).locator('[data-grip]').first();
+}
+
+/** Every drag grip on the page that a user can see. At 390 px this must be none (phones use Move to). */
+export function visibleGrips(page: Page): Locator {
+  return page.locator('[data-grip]').filter({ visible: true });
+}
+
+/** A touch drag by the grip: press the grip and hold, move in steps, release. Uses Chromium's touch input events. */
 export async function touchDrag(page: Page, ref: string, status: Status) {
-  const from = await centre(card(page, ref));
+  const handle = grip(page, ref);
+  await expect(handle, 'the drag grip is shown at 1280 px').toBeVisible();
+  const from = await centre(handle);
   const to = await columnDropPoint(page, status);
   const cdp = await page.context().newCDPSession(page);
   const touch = async (type: 'touchStart' | 'touchMove' | 'touchEnd', x: number, y: number) =>

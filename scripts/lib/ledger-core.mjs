@@ -748,8 +748,16 @@ export async function markStep(db, planId, localId, status, { note = '', reopen 
  * Runs the step's plan-approved verify commands itself. Commands come from the
  * ledger row, never from the caller — the actor doesn't get to choose its own test.
  */
-export async function verifyStep(db, planId, localId, { cwd, timeoutMs = 10 * 60 * 1000, run = defaultRunner } = {}) {
+// Default limit for each verify command. Long E2E suites run 11-16 minutes (rehearsal QA1), so 10 was too short.
+// Per step: manifest.verify_timeout_min; per machine: BASELEAP_VERIFY_TIMEOUT_MIN.
+export function verifyTimeoutMs(step, env = process.env) {
+  const min = Number(step?.manifest?.verify_timeout_min ?? env.BASELEAP_VERIFY_TIMEOUT_MIN ?? 30);
+  return (Number.isFinite(min) && min > 0 ? min : 30) * 60 * 1000;
+}
+
+export async function verifyStep(db, planId, localId, { cwd, timeoutMs, run = defaultRunner } = {}) {
   const step = await findStep(db, planId, localId);
+  timeoutMs = timeoutMs ?? verifyTimeoutMs(step);
   if (step.status === 'done') throw new LedgerError(`step ${localId} is already verified done`);
   cwd = cwd ?? step.manifest.checkout ?? stepCheckout(repoRoot(), step.agent);
   const results = [];

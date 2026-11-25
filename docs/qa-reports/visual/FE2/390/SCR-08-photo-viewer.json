@@ -1,0 +1,55 @@
+{
+  "id": "SCR-08-photo-viewer",
+  "width": 390,
+  "path": "/requests/41902f20-6dad-4b6a-b5b4-53a0e1967df3",
+  "title": "Request detail | Northside",
+  "screenshot": "390/SCR-08-photo-viewer.png",
+  "axe": {
+    "serious_or_critical": [],
+    "minor_or_moderate": []
+  },
+  "console_errors": [],
+  "failed_requests": [],
+  "designed_error_responses": [],
+  "aborted_by_navigation": 0,
+  "layout": {
+    "viewport": "390 x 844",
+    "photo": {
+      "x": 16,
+      "y": 301.375,
+      "width": 358,
+      "height": 268.5
+    },
+    "title \"Photo 2 of 3\"": {
+      "x": 16,
+      "y": 16,
+      "width": 97,
+      "height": 25
+    },
+    "reference and name line": {
+      "x": 16,
+      "y": 42.25,
+      "width": 252,
+      "height": 43.5
+    },
+    "Close": {
+      "x": 290.09375,
+      "y": 29.625,
+      "width": 83.90625,
+      "height": 44
+    },
+    "Previous photo": {
+      "x": 16,
+      "y": 784,
+      "width": 171,
+      "height": 44
+    },
+    "Next photo": {
+      "x": 203,
+      "y": 784,
+      "width": 171,
+      "height": 44
+    }
+  },
+  "covered": []
+}

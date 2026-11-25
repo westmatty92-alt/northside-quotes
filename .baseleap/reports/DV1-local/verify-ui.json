@@ -1,0 +1,255 @@
+{
+  "base": "http://localhost:3201",
+  "checked_at": "2026-11-25T00:42:38.775Z",
+  "ok": false,
+  "problems": [
+    "SCR-08 @ mobile: console error: verify-ui: locator.click: Timeout 10000ms exceeded.",
+    "SCR-08 @ desktop: console error: verify-ui: locator.click: Timeout 10000ms exceeded."
+  ],
+  "results": [
+    {
+      "id": "SCR-01",
+      "width": "mobile",
+      "url": "http://localhost:3201/",
+      "screenshot": ".baseleap/reports/DV1-local/SCR-01-mobile.png",
+      "status": 200,
+      "console": [],
+      "failedRequests": [],
+      "axe": []
+    },
+    {
+      "id": "SCR-01",
+      "width": "desktop",
+      "url": "http://localhost:3201/",
+      "screenshot": ".baseleap/reports/DV1-local/SCR-01-desktop.png",
+      "status": 200,
+      "console": [],
+      "failedRequests": [],
+      "axe": []
+    },
+    {
+      "id": "SCR-01--errors",
+      "width": "mobile",
+      "url": "http://localhost:3201/?mockScenario=errors",
+      "screenshot": ".baseleap/reports/DV1-local/SCR-01--errors-mobile.png",
+      "status": 200,
+      "console": [],
+      "failedRequests": [],
+      "axe": []
+    },
+    {
+      "id": "SCR-01--errors",
+      "width": "desktop",
+      "url": "http://localhost:3201/?mockScenario=errors",
+      "screenshot": ".baseleap/reports/DV1-local/SCR-01--errors-desktop.png",
+      "status": 200,
+      "console": [],
+      "failedRequests": [],
+      "axe": []
+    },
+    {
+      "id": "SCR-01--send-failed",
+      "width": "mobile",
+      "url": "http://localhost:3201/?mockScenario=send-failed",
+      "screenshot": ".baseleap/reports/DV1-local/SCR-01--send-failed-mobile.png",
+      "status": 200,
+      "console": [],
+      "failedRequests": [],
+      "axe": []
+    },
+    {
+      "id": "SCR-01--send-failed",
+      "width": "desktop",
+      "url": "http://localhost:3201/?mockScenario=send-failed",
+      "screenshot": ".baseleap/reports/DV1-local/SCR-01--send-failed-desktop.png",
+      "status": 200,
+      "console": [],
+      "failedRequests": [],
+      "axe": []
+    },
+    {
+      "id": "SCR-02",
+      "width": "mobile",
+      "url": "http://localhost:3201/request-sent?mockScenario=sent",
+      "screenshot": ".baseleap/reports/DV1-local/SCR-02-mobile.png",
+      "status": 200,
+      "console": [],
+      "failedRequests": [],
+      "axe": []
+    },
+    {
+      "id": "SCR-02",
+      "width": "desktop",
+      "url": "http://localhost:3201/request-sent?mockScenario=sent",
+      "screenshot": ".baseleap/reports/DV1-local/SCR-02-desktop.png",
+      "status": 200,
+      "console": [],
+      "failedRequests": [],
+      "axe": []
+    },
+    {
+      "id": "SCR-03",
+      "width": "mobile",
+      "url": "http://localhost:3201/sign-in",
+      "screenshot": ".baseleap/reports/DV1-local/SCR-03-mobile.png",
+      "status": 200,
+      "console": [],
+      "failedRequests": [],
+      "axe": []
+    },
+    {
+      "id": "SCR-03",
+      "width": "desktop",
+      "url": "http://localhost:3201/sign-in",
+      "screenshot": ".baseleap/reports/DV1-local/SCR-03-desktop.png",
+      "status": 200,
+      "console": [],
+      "failedRequests": [],
+      "axe": []
+    },
+    {
+      "id": "SCR-03--error",
+      "width": "mobile",
+      "url": "http://localhost:3201/sign-in?mockScenario=error",
+      "screenshot": ".baseleap/reports/DV1-local/SCR-03--error-mobile.png",
+      "status": 200,
+      "console": [],
+      "failedRequests": [],
+      "axe": []
+    },
+    {
+      "id": "SCR-03--error",
+      "width": "desktop",
+      "url": "http://localhost:3201/sign-in?mockScenario=error",
+      "screenshot": ".baseleap/reports/DV1-local/SCR-03--error-desktop.png",
+      "status": 200,
+      "console": [],
+      "failedRequests": [],
+      "axe": []
+    },
+    {
+      "id": "SCR-04",
+      "width": "mobile",
+      "url": "http://localhost:3201/requests?mockScenario=signed-in",
+      "screenshot": ".baseleap/reports/DV1-local/SCR-04-mobile.png",
+      "status": 200,
+      "console": [],
+      "failedRequests": [],
+      "axe": []
+    },
+    {
+      "id": "SCR-04",
+      "width": "desktop",
+      "url": "http://localhost:3201/requests?mockScenario=signed-in",
+      "screenshot": ".baseleap/reports/DV1-local/SCR-04-desktop.png",
+      "status": 200,
+      "console": [],
+      "failedRequests": [],
+      "axe": []
+    },
+    {
+      "id": "SCR-05",
+      "width": "mobile",
+      "url": "http://localhost:3201/pipeline?mockScenario=signed-in",
+      "screenshot": ".baseleap/reports/DV1-local/SCR-05-mobile.png",
+      "status": 200,
+      "console": [],
+      "failedRequests": [],
+      "axe": []
+    },
+    {
+      "id": "SCR-05",
+      "width": "desktop",
+      "url": "http://localhost:3201/pipeline?mockScenario=signed-in",
+      "screenshot": ".baseleap/reports/DV1-local/SCR-05-desktop.png",
+      "status": 200,
+      "console": [],
+      "failedRequests": [],
+      "axe": []
+    },
+    {
+      "id": "SCR-05--moving",
+      "width": "mobile",
+      "url": "http://localhost:3201/pipeline?mockScenario=moving",
+      "screenshot": ".baseleap/reports/DV1-local/SCR-05--moving-mobile.png",
+      "status": 200,
+      "console": [],
+      "failedRequests": [],
+      "axe": []
+    },
+    {
+      "id": "SCR-05--moving",
+      "width": "desktop",
+      "url": "http://localhost:3201/pipeline?mockScenario=moving",
+      "screenshot": ".baseleap/reports/DV1-local/SCR-05--moving-desktop.png",
+      "status": 200,
+      "console": [],
+      "failedRequests": [],
+      "axe": []
+    },
+    {
+      "id": "SCR-06",
+      "width": "mobile",
+      "url": "http://localhost:3201/requests/mock-1?mockScenario=signed-in",
+      "screenshot": ".baseleap/reports/DV1-local/SCR-06-mobile.png",
+      "status": 200,
+      "console": [],
+      "failedRequests": [],
+      "axe": []
+    },
+    {
+      "id": "SCR-06",
+      "width": "desktop",
+      "url": "http://localhost:3201/requests/mock-1?mockScenario=signed-in",
+      "screenshot": ".baseleap/reports/DV1-local/SCR-06-desktop.png",
+      "status": 200,
+      "console": [],
+      "failedRequests": [],
+      "axe": []
+    },
+    {
+      "id": "SCR-06--no-consent",
+      "width": "mobile",
+      "url": "http://localhost:3201/requests/mock-2?mockScenario=signed-in",
+      "screenshot": ".baseleap/reports/DV1-local/SCR-06--no-consent-mobile.png",
+      "status": 200,
+      "console": [],
+      "failedRequests": [],
+      "axe": []
+    },
+    {
+      "id": "SCR-06--no-consent",
+      "width": "desktop",
+      "url": "http://localhost:3201/requests/mock-2?mockScenario=signed-in",
+      "screenshot": ".baseleap/reports/DV1-local/SCR-06--no-consent-desktop.png",
+      "status": 200,
+      "console": [],
+      "failedRequests": [],
+      "axe": []
+    },
+    {
+      "id": "SCR-08",
+      "width": "mobile",
+      "url": "http://localhost:3201/requests/mock-1?mockScenario=signed-in",
+      "screenshot": ".baseleap/reports/DV1-local/SCR-08-mobile.png",
+      "status": 200,
+      "console": [
+        "verify-ui: locator.click: Timeout 10000ms exceeded."
+      ],
+      "failedRequests": [],
+      "axe": []
+    },
+    {
+      "id": "SCR-08",
+      "width": "desktop",
+      "url": "http://localhost:3201/requests/mock-1?mockScenario=signed-in",
+      "screenshot": ".baseleap/reports/DV1-local/SCR-08-desktop.png",
+      "status": 200,
+      "console": [
+        "verify-ui: locator.click: Timeout 10000ms exceeded."
+      ],
+      "failedRequests": [],
+      "axe": []
+    }
+  ]
+}

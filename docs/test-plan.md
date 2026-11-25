@@ -142,7 +142,7 @@ File keys: `spine` = `spine.phone.spec.ts`, `subs` = `submissions.phone.spec.ts`
 | AC-015.1 | US-015 | L | E2E | `detail › AC-006.1 AC-015.1` (Owner) + `req › AC-004.2` (Office helper) | @regression | request |
 | AC-015.2 | US-015 | L | E2E | `detail › AC-015.2` | @regression | untouched request |
 | AC-016.1 | US-016 | H | E2E | `board › AC-016.1 AC-016.8` (order, cards equal the API per column, facts) + `board-phone › AC-016.1 (phone)` | @smoke | any |
-| AC-016.2 | US-016 | H | E2E | `board › AC-016.2 dragging … mouse` (@smoke) + `board › … touch pointer` + `spine` (Move to on the board) | @smoke | New request |
+| AC-016.2 | US-016 | H | E2E | `board › AC-016.2 dragging … mouse` (@smoke) + `board › AC-016.2 SQ-9 touch drag by the grip at 1280 px` + `pipeline.phone › AC-016.17` (Move to, no grip at 375 px) + `spine` (Move to on the board at 390 px) | @smoke | New request |
 | AC-016.3 | US-016 | H | E2E | `board › AC-016.3` (Enter, arrows, Enter; focus on the card; announcement attached) | @regression | New request |
 | AC-016.4 | US-016 | M | E2E | `spine` (list after the board move) | @smoke | spine request |
 | AC-016.5 | US-016 | M | E2E | `board › AC-016.5` | @regression | any |
@@ -241,15 +241,15 @@ All permission rows are `@probe` tests in `tests/e2e/api/permissions.spec.ts`, w
 | # | Question | Proposal |
 |---|---|---|
 | SQ-1 | AC-001.13 and AC-002.9 ask for the database and bucket region to be "inspected", which a browser cannot do | DevOps/architect attach the Supabase project's region evidence to the release brief; QA marks it INSPECT |
-| SQ-2 | "Simulated 4G" (AC-001.10, AC-002.7) has no numbers | Use the WebPageTest "4G" profile: 9 Mbps down and up, 170 ms round trip. If the PM wants Lighthouse "slow 4G" (1.6 Mbps), AC-002.7 (15 MB in 20 s) cannot hold and the AC itself changes |
+| SQ-2 | "Simulated 4G" (AC-001.10, AC-002.7) has no numbers | **Ruled 2026-11-24:** QA's profile is the reference (WebPageTest "4G": 9 Mbps down and up, 170 ms round trip). AC-002.7 is reported as measured against it |
 | SQ-3 | AC-007.7 and FR-21 need to read the status-change history and `events` | Give QA a read-only staging database role (or a staff-only read endpoint) for those two tables; or accept them as backend-tested |
 | SQ-4 | AC-012.3 "after 2 hours" | Accept `GET .../photos` returning working fresh URLs as the proof (run), plus the unit test of the refresh-before-expiry rule |
 | SQ-5 | Empty-state and "no Lost requests" criteria cannot be met on a shared project | A dedicated empty staging branch for QA, or move these to frontend component tests |
 | SQ-6 | 51-request criteria | `bl-backend` seeds 51 tagged requests (51 Quoted) in `supabase/seed.sql` for staging |
 | SQ-7 | The submission limit (5 per 10 minutes per address) makes a full run take about 12 minutes of waiting at worst | Accepted; the suite paces itself and orders its projects to overlap the wait. No bypass of the limit is requested |
 | SQ-8 | AC-002.4 says a PDF or renamed text file is "refused with 'Photos must be JPEG, PNG or WebP' and is not stored". The deployed form keeps the refused file's row on screen with the message inside it (like AC-002.3, "refused next to that photo") | PM or designer confirm the row may stay. Attempt 3 changed `form › AC-002.4` to assert the message in the file's own row (the earlier "row disappears" assertion over-read the AC). The "not stored" half needs a send with a refused file on screen (one submission slot): **unverified**, QA can add it once the row behaviour is confirmed |
-| SQ-9 | AC-016.2 says "drags"; FR-23 gives the Move to menu as the tap path. `docs/design-specs.md` open question 8 leaves a finger drag undecided. `board › AC-016.2 … touch pointer` asserts a finger drag moves a card and fails on staging (the card stays in New) | PM or designer decide. If a finger drag is not required, QA changes that test to assert the Move to menu path on a touch screen (already covered by `pipeline.phone › AC-016.17`) and removes the touch-drag test. Until then it stays red and is **not** a product ticket |
-| SQ-10 | `docs/design-specs.md` names two accessible labels ("Open photo 2 of 3 at full size", "Move NQ-7K3M9P to another status") that the deployed app words differently ("View photo 2 of 3 at full size", "Move to another status, NQ-7K3M9P") | Designer or frontend choose which wording is right. Two `design wording` tests hold the design text and stay red until then (BUG-QA1-5, Minor); every behaviour test accepts either form |
+| SQ-9 | AC-016.2 says "drags"; FR-23 gives the Move to menu as the tap path. | **Ruled 2026-11-24:** touch drag works by the grip (`[data-grip]`), which is shown only from 1280 px; phones use Move to. `board › AC-016.2 SQ-9 touch drag by the grip at 1280 px` presses the grip; `pipeline.phone › AC-016.17` asserts no grip is visible at 375 px and moves a card with Move to; the spine does the same at 390 px |
+| SQ-10 | Two accessible labels in `docs/design-specs.md` differed from the deployed app | **Ruled 2026-11-24, design-specs updated:** photo tile visible text "View photo N", accessible name "View photo N of 3 at full size"; Move to button visible text "Move to", accessible name "Move to another status, NQ-…" (", saving" while it saves). The helpers and the two `design wording` tests now use exactly these names (no either-or) |
 
 ## Changes made in attempt 3 (QA1)
 
@@ -270,6 +270,17 @@ All permission rows are `@probe` tests in `tests/e2e/api/permissions.spec.ts`, w
 | `spine`, `detail`: "$450.00 CAD" is matched across inline elements inside the "Your quote" form | The price and "CAD" are separate elements |
 | `platform › health`: the default expected commit is `e966fbc` (`QA_EXPECTED_SHA` still overrides) | Commit under test |
 | `support/fixtures.ts`: a console error names its resource (host and path, no query) | So a ticket can point at the failing request |
+
+## Changes made in attempt 4 (QA1, re-run after FE2 at 0dff609)
+
+| Change | Why |
+|---|---|
+| `support/ui.ts`: `photoThumbs`, `photoThumb`, `moveButton` match the ruled names only ("View photo N of M at full size"; "Move to another status, NQ-…" with an optional ", saving") | SQ-10 ruled 2026-11-24; the either-or wording is gone |
+| `detail › design wording (SQ-10)`, `requests › design wording (SQ-10)`: assert the ruled accessible name and that the visible words ("View photo N", "Move to") start it | Same ruling; the tests held the old design text |
+| `support/ui.ts`: `grip`, `visibleGrips`; `touchDrag` presses the card's `[data-grip]` (asserted visible first); `board › AC-016.2 SQ-9`, run at 1280 px | SQ-9 ruled: a touch drag starts on the grip |
+| `pipeline.phone › AC-016.17`: asserts no `[data-grip]` is visible at 375 px, before the Move to taps | SQ-9: the grip is shown only from 1280 px |
+| `platform › health`: default expected commit `0dff609`; optional `QA_WAIT_BUILD_MS` polls for a landing build (default 0, the assertion is unchanged) | Commit under test |
+| `support/wait-for-build.mjs`: new helper that polls `/api/health` for a commit (no secret printed). Not run: `node` on it needs approval in this session | Convenience, unused |
 
 ## Test-data cleanup
 

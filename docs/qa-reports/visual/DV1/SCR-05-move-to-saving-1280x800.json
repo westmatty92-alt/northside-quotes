@@ -1,0 +1,51 @@
+{
+  "id": "SCR-05-move-to-saving",
+  "viewport": "1280 x 800",
+  "path": "/pipeline",
+  "title": "Pipeline | Northside",
+  "commit_prefix": "42208a4",
+  "screenshots": [
+    "SCR-05-move-to-saving-1280x800.png",
+    "SCR-05-move-to-saving-1280x800-card.png"
+  ],
+  "axe": {
+    "serious_or_critical": [],
+    "minor_or_moderate": []
+  },
+  "console_errors": [],
+  "failed_requests": [],
+  "designed_aborts": [],
+  "page_size": {
+    "document_scroll_width": 1280,
+    "document_client_width": 1280,
+    "document_scroll_height": 11435
+  },
+  "sideways_scroll": false,
+  "reference": "NQ-GBG78M",
+  "moved_from": "new",
+  "moved_to_requested": "quoted",
+  "move_to_normal": {
+    "height_px": 44,
+    "width_px": 234,
+    "css_min_height": "44px",
+    "css_height": "44px",
+    "border_style": "solid",
+    "disabled": false,
+    "aria_disabled": null,
+    "aria_busy": null
+  },
+  "move_to_saving": {
+    "height_px": 44,
+    "width_px": 234,
+    "css_min_height": "44px",
+    "css_height": "44px",
+    "border_style": "dashed",
+    "disabled": false,
+    "aria_disabled": "true",
+    "aria_busy": null
+  },
+  "move_to_saving_accessible_name": "Move to another status, NQ-GBG78M",
+  "accessible_name_says_saving": false,
+  "saving_height_at_least_44px": true,
+  "saving_css_min_height_at_least_44px": true
+}

@@ -1,0 +1,18 @@
+{
+  "id": "SCR-06-ticked",
+  "width": 390,
+  "path": "/requests/66442824-8a3b-4582-a0d7-f3e42e58c0e9",
+  "title": "Request detail | Northside",
+  "screenshot": "390/SCR-06-ticked.png",
+  "axe": {
+    "serious_or_critical": [],
+    "minor_or_moderate": []
+  },
+  "console_errors": [],
+  "failed_requests": [],
+  "designed_error_responses": [],
+  "aborted_by_navigation": 0,
+  "photo_count": 0,
+  "copy_state": "failed",
+  "status": "new"
+}
