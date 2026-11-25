@@ -198,7 +198,86 @@ describe('the matcher', () => {
   it.each(['/', '/requests', '/pipeline', `/requests/${ID}`, '/sign-in', '/request-sent'])('runs on the page %s', (path) => {
     expect(pattern.test(path)).toBe(true);
   });
-  it.each(['/api/health', '/api/auth/sign-in', '/api/staff/me', '/_next/static/chunks/app.js', '/_next/image', '/favicon.ico'])('does not run on %s', (path) => {
+  // BUG-QA2-1: /api is matched too, so that an /api path no route serves is answered 404 by the proxy on every method
+  it.each(['/api/health', '/api/auth/sign-in', '/api/staff/me', '/api/does-not-exist', '/api/password', '/does-not-exist'])('runs on %s', (path) => {
+    expect(pattern.test(path)).toBe(true);
+  });
+  it.each(['/_next/static/chunks/app.js', '/_next/image', '/favicon.ico'])('does not run on %s', (path) => {
     expect(pattern.test(path)).toBe(false);
+  });
+});
+
+// BUG-QA2-1 (QA2 PRB-06, PRB-06b), AC-004.10, FR-27: a path the app does not serve is a 404 on every method. The hosting
+// platform answered 200 with HTML for POST, PUT, DELETE and a GET with an Authorization header; the proxy answers first.
+// (The same requests against a real server are in tests/api/auth/unknown-paths.test.ts.)
+describe('a path the app does not serve is answered 404 by the proxy', () => {
+  const METHODS = ['GET', 'HEAD', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'];
+  const call = (path: string, method: string, headers: Record<string, string> = {}) =>
+    proxy(new NextRequest(`${ORIGIN}${path}`, { method, headers }));
+
+  describe.each(['/api', '/api/does-not-exist', '/api/auth/does-not-exist', '/api/password', '/api/reset-password', '/api/auth/forgot-password', '/api/inbox', '/api/quote-requests/abc/nothing'])(
+    'the /api path %s',
+    (path) => {
+      it.each(METHODS)('%s: 404 problem+json, code not_found, nothing else in the body', async (method) => {
+        const variants: Array<Record<string, string>> = [{}, { authorization: 'Bearer x' }, { cookie: SIGNED_IN_COOKIE }];
+        for (const headers of variants) {
+          const res = await call(path, method, headers);
+          expect(res.status).toBe(404);
+          expect(res.headers.get('content-type')).toBe('application/problem+json');
+          expect(res.headers.get('x-request-id')).toBeTruthy();
+          expect(res.headers.get('x-middleware-next')).toBeNull();
+          if (method !== 'HEAD') expect(await res.json()).toEqual({ type: 'about:blank', title: 'Not found', status: 404, code: 'not_found' });
+        }
+      });
+    },
+  );
+
+  describe.each(['/does-not-exist', '/forgot-password', '/reset-password', '/change-password', '/sign-up', '/register', '/account/password', '/inbox', `/requests/${ID}/extra`])(
+    'the page path %s',
+    (path) => {
+      it.each(METHODS)('%s: 404 HTML with the policy, never passed on', async (method) => {
+        const variants: Array<Record<string, string>> = [{}, { authorization: 'Bearer x' }];
+        for (const headers of variants) {
+          const res = await call(path, method, headers);
+          expect(res.status).toBe(404);
+          expect(res.headers.get('content-type')).toMatch(/^text\/html/);
+          expect(res.headers.get('x-middleware-next')).toBeNull();
+          expect(nonceOf(res)).toBeTruthy();
+        }
+      });
+    },
+  );
+
+  it('an unknown page costs no Supabase call, even with a session cookie', async () => {
+    await call('/forgot-password', 'GET', { cookie: SIGNED_IN_COOKIE });
+    expect(refreshSession).not.toHaveBeenCalled();
+  });
+
+  it.each(['/_next/data/x.json', '/__nextjs_original-stack-frames', '/_next/webpack-hmr'])('the framework address %s is left to Next.js', async (path) => {
+    const res = await call(path, 'GET');
+    expect(res.headers.get('x-middleware-next')).toBe('1');
+  });
+
+  it.each([
+    ['/api/health', 'GET'],
+    ['/api/auth/sign-in', 'POST'],
+    ['/api/auth/sign-in', 'GET'], // a method the route does not list is the route's own 405
+    ['/api/staff/me', 'GET'],
+    [`/api/quote-requests/${ID}/photos`, 'POST'],
+    [`/api/quote-requests/${ID}/status-changes`, 'POST'],
+    ['/api/weekly-counts/current', 'GET'],
+    ['/api/jobs/housekeeping/', 'GET'],
+  ])('the known route %s (%s) is passed straight on, with no nonce and no policy', async (path, method) => {
+    const res = await call(path, method);
+    expect(res.status).toBe(200);
+    expect(res.headers.get('x-middleware-next')).toBe('1');
+    expect(res.headers.get('content-security-policy')).toBeNull();
+    expect(refreshSession).not.toHaveBeenCalled();
+  });
+
+  it.each(['/', '/sign-in', '/request-sent', '/requests', '/pipeline', `/requests/${ID}`, `/pipeline/${ID}`])('the known page %s is not turned into a 404', async (path) => {
+    session.userId = ID;
+    const res = await call(path, 'GET', { cookie: SIGNED_IN_COOKIE });
+    expect(res.status).not.toBe(404);
   });
 });

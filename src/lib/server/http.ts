@@ -243,7 +243,26 @@ export function methodNotAllowed(route: string, allow: readonly string[]): (req:
   );
 }
 
+/**
+ * The answer for an /api path no route serves, on any method: 404 not_found as problem+json (contract: a missing resource is
+ * 404; FR-27: no password or reset route exists). Called by src/proxy.ts, so the answer never depends on the hosting
+ * platform's own not-found handling, which answered 200 with HTML for POST, PUT, DELETE and for a GET with an Authorization
+ * header (QA2 BUG-QA2-1). The log line names the route pattern, never the address asked for.
+ */
+export const unknownApiPath = withApi('ANY /api/unknown-path', () => Promise.reject(new ProblemError(404, 'not_found')));
+
 // ---- request bodies ---------------------------------------------------------------------------------------------------
+
+/**
+ * The route takes a JSON body only as `application/json` (parameters such as charset are fine, letter case does not matter).
+ * Any other type, or none, is a 400 bad_request (the contract documents no 415). It matters on a route with no custom
+ * header: a browser sends text/plain, form and multipart posts from any other site WITHOUT a preflight, so a route that read
+ * them as JSON could be driven by a stranger's page (QA2 BUG-QA2-3). Call it before the body is read or anything is counted.
+ */
+export function requireJsonContentType(req: Request): void {
+  const mediaType = (req.headers.get('content-type') ?? '').split(';')[0]?.trim().toLowerCase();
+  if (mediaType !== 'application/json') throw new ProblemError(400, 'bad_request', { errorClass: 'content_type', logCode: 'not_json' });
+}
 
 /** Returned by readJsonBody when the body is not JSON or is too large; the service answers it with 400 bad_request. */
 export const UNPARSEABLE = Symbol('unparseable-body');
