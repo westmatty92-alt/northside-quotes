@@ -1,0 +1,18 @@
+{
+  "id": "SCR-06-unticked",
+  "width": 390,
+  "path": "/requests/41902f20-6dad-4b6a-b5b4-53a0e1967df3",
+  "title": "Request detail | Northside",
+  "screenshot": "390/SCR-06-unticked.png",
+  "axe": {
+    "serious_or_critical": [],
+    "minor_or_moderate": []
+  },
+  "console_errors": [],
+  "failed_requests": [],
+  "designed_error_responses": [],
+  "aborted_by_navigation": 0,
+  "photo_count": 3,
+  "copy_state": "not_copied_no_consent",
+  "status": "new"
+}

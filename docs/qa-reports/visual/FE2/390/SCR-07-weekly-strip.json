@@ -1,0 +1,20 @@
+{
+  "id": "SCR-07-weekly-strip",
+  "width": 390,
+  "path": "/requests",
+  "title": "Requests | Northside",
+  "screenshot": "390/SCR-07-weekly-strip.png",
+  "axe": {
+    "serious_or_critical": [],
+    "minor_or_moderate": []
+  },
+  "console_errors": [],
+  "failed_requests": [],
+  "designed_error_responses": [],
+  "aborted_by_navigation": 0,
+  "week_start": "2026-11-23T05:00:00.000Z",
+  "week_end": "2026-11-30T05:00:00.000Z",
+  "requests": 78,
+  "won": 10,
+  "lost": 1
+}

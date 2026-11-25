@@ -1,0 +1,59 @@
+{
+  "id": "SCR-08-photo-viewer",
+  "width": 1280,
+  "path": "/requests/41902f20-6dad-4b6a-b5b4-53a0e1967df3",
+  "title": "Request detail | Northside",
+  "screenshot": "1280/SCR-08-photo-viewer.png",
+  "axe": {
+    "serious_or_critical": [],
+    "minor_or_moderate": []
+  },
+  "console_errors": [],
+  "failed_requests": [],
+  "designed_error_responses": [],
+  "aborted_by_navigation": 0,
+  "layout": {
+    "viewport": "1280 x 800",
+    "photo": {
+      "x": 160,
+      "y": 42.375,
+      "width": 960,
+      "height": 720
+    },
+    "title \"Photo 2 of 3\"": {
+      "x": 16,
+      "y": 16,
+      "width": 97,
+      "height": 25
+    },
+    "reference and name line": {
+      "x": 16,
+      "y": 42.25,
+      "width": 331,
+      "height": 21
+    },
+    "Close": {
+      "x": 1166,
+      "y": 18.375,
+      "width": 98,
+      "height": 44
+    },
+    "Previous photo": {
+      "x": 16,
+      "y": 740,
+      "width": 240,
+      "height": 44
+    },
+    "Next photo": {
+      "x": 1024,
+      "y": 740,
+      "width": 240,
+      "height": 44
+    }
+  },
+  "covered": [
+    "the photo covers reference and name line (187 x 21 px)",
+    "the photo covers Previous photo (96 x 22 px)",
+    "the photo covers Next photo (96 x 22 px)"
+  ]
+}
