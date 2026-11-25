@@ -5,6 +5,7 @@ import type { Problem, ProblemCode, QuoteRequestCreate } from '@/lib/api/generat
 import {
   classifyFailure,
   ContractMismatch,
+  PhotoConflict,
   runSubmission,
   UploadFailure,
   type FlowDeps,
@@ -111,6 +112,19 @@ describe('runSubmission', () => {
     expect(d.submit).not.toHaveBeenCalled();
   });
 
+  it('a photo conflict (a different photo already stored at the path) stops before submit, even if another photo also failed', async () => {
+    const progress = vi.fn();
+    const d = deps({
+      upload: vi.fn(async (_target, p: UploadablePhoto) => {
+        if (p.position === 1) throw new PhotoConflict([1]);
+        throw new Error('offline');
+      }),
+    });
+    await expect(runSubmission(body, [photo(1), photo(2)], d, progress)).rejects.toEqual(new PhotoConflict([1]));
+    expect(progress).toHaveBeenCalledWith(1, 'failed');
+    expect(d.submit).not.toHaveBeenCalled();
+  });
+
   it('a planned photo with no upload target counts as failed', async () => {
     const d = deps({ create: vi.fn().mockResolvedValue({ data: startedBody([1]) }) });
     await expect(runSubmission(body, [photo(1), photo(2)], d, vi.fn())).rejects.toBeInstanceOf(UploadFailure);
@@ -131,6 +145,8 @@ describe('classifyFailure', () => {
     expect(classifyFailure(problem(401, 'form_token_invalid'))).toEqual({ kind: 'fresh-token' });
     expect(classifyFailure(problem(429, 'rate_limited'))).toEqual({ kind: 'rate-limited' });
     expect(classifyFailure(new UploadFailure([1]))).toEqual({ kind: 'upload', positions: [1] });
+    // a photo swapped in over a stored one: the same fresh-token flow as a used token
+    expect(classifyFailure(new PhotoConflict([1]))).toEqual({ kind: 'fresh-token' });
   });
 
   it('never tells which spam check refused: honeypot, time trap, outage and noise are all just "failed"', () => {

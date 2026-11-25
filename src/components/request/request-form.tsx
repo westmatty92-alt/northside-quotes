@@ -9,7 +9,9 @@
 //     `router.refresh()` fetches a new one, and the form goes to SCR-02;
 //   - on mount and on `pageshow` (Back button, bfcache) a page whose token's nonce is listed refreshes first;
 //   - on 409 form_already_used, 400 form_expired (and 401 form_token_invalid) the token is refreshed, every typed
-//     value, photo and the offers box stay as they are, and she can send again.
+//     value, photo and the offers box stay as they are, and she can send again;
+//   - a Storage 409 on a photo that is not the file this tab put there (a swapped photo) gets the same treatment, so
+//     the old photo is never kept in place of the new one (photo-upload.ts).
 // The offers box is never ticked on load, by script or by autofill, and keeps its state through every refusal.
 import { useRouter } from 'next/navigation';
 import { useCallback, useContext, useEffect, useEffectEvent, useRef, useState, type BaseSyntheticEvent } from 'react';
@@ -84,6 +86,9 @@ export function RequestForm({ formToken }: RequestFormProps) {
   const noticeRef = useRef<HTMLDivElement>(null);
   const refreshedFor = useRef<string | null>(null);
   const lastCreate = useRef<{ nonce: string; signature: string } | null>(null);
+  // photo id -> the position it reached Storage at. A photo that moved up after another was removed is not "uploaded"
+  // at its new position: that path holds a different photo.
+  const uploadedAt = useRef(new Map<number, number>());
   const previewStarted = useRef(false);
 
   const create = useCreateQuoteRequest({ request: { headers: { 'X-Form-Token': formToken } } });
@@ -178,7 +183,7 @@ export function RequestForm({ formToken }: RequestFormProps) {
         position: index + 1,
         file: item.file,
         contentType,
-        alreadyUploaded: sameAnswers && item.status === 'uploaded',
+        alreadyUploaded: sameAnswers && item.status === 'uploaded' && uploadedAt.current.get(item.id) === index + 1,
       };
     });
 
@@ -198,6 +203,7 @@ export function RequestForm({ formToken }: RequestFormProps) {
         (position, status) => {
           const id = idByPosition.get(position);
           if (id === undefined) return;
+          if (status === 'uploaded') uploadedAt.current.set(id, position);
           photos.update(id, {
             status,
             problem: status === 'failed' ? { text: copy.photos.uploadFailed, blocking: false } : null,
