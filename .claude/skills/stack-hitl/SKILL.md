@@ -94,6 +94,8 @@ Any gate or change request about something people will see (a new app, a new fea
 - **Gate 3:** screenshots of the built screens on staging (QA's or the visual review's).
 - In the packet, add a **Preview** line linking each PNG (`design/previews/<id>/…`) with what it shows. The CRM's Needs you shows them inline on the item, so Matthew can judge it on his phone.
 - Back-end-only work (a webhook, a migration, a security fix) needs no preview; say "No screens change" instead.
+- **Revise until it looks right.** If Matthew says "not quite" (on the gate, in chat or in Build Chat), send his words back to the designer for a new preview round before anything is built. Rounds are cheap; building the wrong thing isn't.
+- **The approved preview is the target.** When the gate is approved, record the preview paths in a `decision` event (`approved_preview`). The design spec builds from it, and the visual review checks the built screens against it (`ux-visual-review`). If the build has to differ, the difference comes back to Matthew with a new preview, never as a surprise at Gate 3.
 
 ## 4. While waiting
 
