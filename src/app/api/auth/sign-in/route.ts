@@ -6,12 +6,13 @@
 // on this path is a 405.
 import { NextResponse } from 'next/server';
 import { signIn } from '@/lib/server/auth/sign-in';
-import { json, methodNotAllowed, readJsonBody, withApi } from '@/lib/server/http';
+import { json, methodNotAllowed, readJsonBody, requireJsonContentType, withApi } from '@/lib/server/http';
 import { clientAddress } from '@/lib/server/services/network';
 
 type CookieAttributes = NonNullable<Parameters<NextResponse['cookies']['set']>[2]>;
 
 export const POST = withApi('POST /api/auth/sign-in', async (req, ctx) => {
+  requireJsonContentType(req); // before anything is read or counted: a cross-site text/plain post must not burn the address quota
   const result = await signIn({ body: await readJsonBody(req), clientAddress: clientAddress(req.headers) });
   const base = json(ctx, result.staff, 200, result.headers);
   const response = new NextResponse(base.body, { status: 200, headers: base.headers });
