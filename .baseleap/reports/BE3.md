@@ -130,3 +130,47 @@ No temporary files were created. QA's probes (`tests/e2e/**`, PRB-45) were not t
 **Could not do:** nothing.
 **CONTRACT QUESTION:** none new. CQ-QA2-1 (a `maximum: 2147483647` on `version` in `QuoteSave`, `StatusChangeCreate` and the three response schemas) stays as QA recorded it. With the code now answering 422 for these values, the contract should say so, so the fuzzer treats them as invalid input.
 **BLOCKED:** none.
+
+## Attempt 3: REV-4 (2026-11-25)
+
+**Status:** done. Fixes REV-4 (`tests/api/inbox/weekly-count.test.ts` waited up to 30 s for a quiet shared database). The route, the service, the contract, migrations and generated code are untouched; only tests and test helpers changed.
+
+**Read:** this report, the REV-4 section of `REV1.md` only, the weekly-count route and `getCurrentWeeklyCount`, `weekly_counts()` / `weekly_counts_at()` in `20261120000600_functions.sql`, `app_private.is_staff()` (`20261120000200_staff.sql`), the `quote_requests` select policy and grants (`20261120000300_quote_requests.sql`), `tests/helpers/inbox.ts`, `tests/helpers/staging.ts`, `vitest.config.ts`.
+
+**Why the route can't take a week parameter:** `getCurrentWeeklyCount` calls `db.rpc('weekly_counts')` with no arguments, and `weekly_counts()` is `select * from app_private.weekly_counts_at(now())`. NG-10 and the contract offer only the current week, so nothing in my files can pick another week without changing the route's behaviour. The far-future-week tests already call `weekly_counts_at(instant)` directly and assert exact numbers. They are kept unchanged. The current week is now proven in three links, each exact on a busy database, with no retry and no waiting:
+1. **The route delegates.** A pass-through `fetch` spy records the route's database calls. There is exactly one call to `/rpc/weekly_counts`: POST, body empty or `{}` (no week argument), `Authorization: Bearer <the staff token>` (the user-scoped client, so RLS applies). The route's JSON equals that captured row mapped field by field. A second test stubs the row with distinct numbers (1234, 56, 7) and PostgREST timestamp text, so a swapped field can't hide behind equal real numbers.
+2. **One snapshot, delta against a baseline read in the same transaction.** `snapshot(ids)` runs one `begin isolation level repeatable read read only` transaction through psql. As the staff member (`set local role authenticated` plus the token's `sub`/`session_id` claims; `app_private.is_staff()` is asserted true inside), it reads `weekly_counts()` and checks that row equals `weekly_counts_at(now())`. Then, as the database owner and in the same snapshot, it runs independent plain counts of all rows and of every row that is **not** this test's (the baseline). Assertions: function = independent count, and function minus baseline = exactly what this test's rows must contribute. Rows of all ten kinds give exactly 5 requests, 2 won, 2 lost (AC-008.1, AC-008.3 Sunday 23:59:59 out and Monday 00:00:00 in, AC-008.4 submitted last week and won this week counts as won, not as a request, pending never counted). The real status route then moves one request through new, won, lost, lost again (200, no change) and quoted, giving exactly (1,0,0), (1,1,0), (1,0,1), (1,0,1), (1,0,0) (AC-008.2, AC-008.5: won and lost by status-change date). Snapshot bounds equal the route's `week_start`/`week_end`. The Monday-to-Monday Toronto bounds test and the NG-10 test are kept as they were.
+3. **Proof under load.** `tests/helpers/busy-week.ts` (new) is a concurrent writer. It inserts a current-week request and moves an earlier one between won and lost about every 100 ms, all through `ib.seed`, so it is tagged and deleted in `afterAll`. The new test takes 5 snapshots and 5 route calls while the writer runs. Each time it asserts that the writer wrote during that iteration, and at the end that the week's totals changed between snapshots. Every contribution is still exactly (2,1,1). `psqlOutputAsync` (new, in `tests/helpers/inbox.ts`) runs psql without blocking the event loop, so the writer really runs while the transaction is open. `execFileSync` would have paused it.
+
+**The old test's fragility, shown first:** I temporarily started the same writer around the old route describe block (a demo hook, removed afterwards; nothing else changed in the old file). `npx vitest run tests/api/inbox/weekly-count.test.ts --passWithNoTests=false` exited 1 twice in a row: `Tests 2 failed | 14 passed (16)`. Both failures were the `quietComparison` tests ("the three numbers are exactly the independent count..." and "AC-008.2 and AC-008.5 ..."), each `TestTimeoutError: Test timed out in 60000ms`: no quiet moment ever came.
+
+**After the change:** `npx vitest run tests/api/inbox/weekly-count.test.ts --passWithNoTests=false --silent` exited 0: 20 passed (20), 27 s, including the busy-writer test.
+
+**Stability (full inbox suite, files in parallel, back to back, hosted STAGING project, not a local stack):**
+- run 1: exit 0, 8 files, 362 passed (362), 35.2 s
+- run 2: exit 0, 8 files, 362 passed (362), 33.8 s
+- run 3: exit 0, 8 files, 362 passed (362), 31.5 s
+
+**Commands (each with the `cd` prefix):**
+- `npm run typecheck` -> exit 0 (`next typegen && tsc --noEmit`, no errors)
+- `npm run lint` -> exit 0, 0 errors, 2 warnings (the existing ones in `scripts/lib/yaml-lite.mjs` and `scripts/sync-agent-permissions.mjs`, not mine)
+- `node --env-file-if-exists=.env.local node_modules/.bin/vitest run tests/api/inbox --passWithNoTests=false` -> refused by the permission layer ("contains multiple operations ... requires approval"), as in attempts 1 and 2. Used the allowed fallback `npx vitest run tests/api/inbox --passWithNoTests=false` (with `--silent` to keep the JSON log lines out of the output) -> exit 0 three times, results above.
+- `npm run build` -> exit 0 (Next.js 16.4.6 Turbopack; `/api/weekly-counts/current` listed, dynamic)
+- `node scripts/check-code-guards.mjs service-role` -> exit 0, `check-code-guards service-role: OK`
+
+**Files changed:**
+- `tests/api/inbox/weekly-count.test.ts` (modified): `quietComparison`, the JS `independentCount` and `sleep` are removed. Added `snapshot()`, `contribution()` and `staffClaims()`, and the two route tests now use them. Four new tests: the route makes one call and returns the row unchanged; distinct-number mapping; `weekly_counts()` = `weekly_counts_at(now())` = independent count for the staff caller; exact while a concurrent writer runs. The isolated-week and failure/method tests are unchanged. Header comment updated.
+- `tests/helpers/busy-week.ts` (new): the concurrent current-week writer.
+- `tests/helpers/inbox.ts` (modified): `psqlOutputAsync`. On failure it keeps only psql's `ERROR:` line, never connection details.
+- `.baseleap/reports/BE3.md` (this section).
+No temporary files are left; the demo hook was removed (no `DEMO`, `quietComparison` or `sleep(` remains in the file).
+
+**Honest limits:**
+- The only time-dependent window left: if Monday 00:00 Toronto passes between a test seeding rows anchored at "now" and its snapshot (a few seconds, once a week), the current week changes under the test and it fails. The old test had the same window. Any current-week test has it, because the route can only answer for now.
+- The snapshot's staff part sets the claims PostgREST would set (`sub`, `session_id`, `role`) from the test's own token. It does not go through PostgREST. That link is covered separately by the route-delegation test, which uses the real token on the wire.
+- The busy writer adds about 30 to 60 short-lived tagged rows per run to the current week on shared staging, all deleted and proven gone in `afterAll`.
+
+**Could not do:** nothing.
+**CONTRACT QUESTION:** none.
+**BLOCKED:** none.
+**Notes for the next step:** the other REV items assigned to the backend (REV-5, REV-6, REV-8, REV-10, REV-12, REV-13) were not touched in this attempt.

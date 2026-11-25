@@ -5,7 +5,7 @@
 // afterAll deletes it with its photos, jobs, status history and events (all cascade) and proves nothing is left.
 // Requests are inserted with the service role directly, because the tests need control over submitted_at, status and the
 // job rows; the code under test only ever reads and writes through the user-scoped client and the staff RPCs.
-import { execFileSync } from 'node:child_process';
+import { execFile, execFileSync } from 'node:child_process';
 import { randomBytes, randomInt, randomUUID } from 'node:crypto';
 import { expect } from 'vitest';
 import { jpegBytes } from './api';
@@ -52,6 +52,26 @@ export function psqlOutput(sql: string): string {
     const status = typeof error === 'object' && error !== null && 'status' in error ? String((error as { status: unknown }).status) : 'unknown';
     throw new Error(`psql on the staging database failed (exit ${status})`);
   }
+}
+
+/**
+ * psqlOutput without blocking the event loop, so the rest of the file (a concurrent writer) keeps running while psql works.
+ * On failure only psql's own `ERROR:` line is kept (the SQL error text, never the connection details).
+ */
+export function psqlOutputAsync(sql: string): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const child = execFile(
+      'psql',
+      [process.env.SUPABASE_STAGING_DB_URL ?? '', '-v', 'ON_ERROR_STOP=1', '-qAt'],
+      { encoding: 'utf8', maxBuffer: 16 * 1024 * 1024 },
+      (error, stdout, stderr) => {
+        if (!error) return resolve(stdout);
+        const sqlError = /ERROR:.*/.exec(stderr)?.[0] ?? '';
+        reject(new Error(`psql on the staging database failed (exit ${String(error.code ?? 'unknown')}) ${sqlError}`));
+      },
+    );
+    child.stdin?.end(sql);
+  });
 }
 
 export type SeedRequest = {
