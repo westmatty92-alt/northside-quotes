@@ -46,10 +46,12 @@ jobs:
   smoke:
     needs: gate
     if: needs.gate.outputs.staging == 'true'
-    # On this job only, so skipped lane deploys cannot cancel a running staging check.
+    # On this job only, so skipped lane deploys cannot cancel a running staging check. The QA suite signs in and writes to
+    # the shared staging database, so it takes the same global group as ci.yml `api-tests` (REV-3) and is never cancelled
+    # while running; a newer waiting run replaces an older waiting one.
     concurrency:
-      group: qa-smoke
-      cancel-in-progress: true
+      group: staging-db
+      cancel-in-progress: false
     runs-on: ubuntu-24.04
     timeout-minutes: 20
     environment: staging
