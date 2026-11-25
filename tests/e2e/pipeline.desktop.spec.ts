@@ -99,7 +99,7 @@ test.describe('moving a card (AC-016.2, AC-016.3, AC-016.6, AC-016.7)', () => {
     expect((await api.weekly()).won).toBe(before.won + 1);
   });
 
-  test('@regression AC-016.2 dragging with a touch pointer (touch-enabled screen) into Quoted saves it', async ({ openStaff }) => {
+  test('@regression AC-016.2 SQ-9 touch drag by the grip at 1280 px (touch-enabled screen) into Quoted saves it', async ({ openStaff }) => {
     const owner = await openStaff('owner', { hasTouch: true });
     const request = await pickAt(owner.api, 'new', () => true, 'available');
     await owner.page.goto('/pipeline');

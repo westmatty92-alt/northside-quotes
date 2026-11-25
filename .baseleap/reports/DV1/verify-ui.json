@@ -1,0 +1,444 @@
+{
+  "base": "https://northside-quotes-git-staging-baseleap.vercel.app",
+  "checked_at": "2026-11-25T00:39:41.035Z",
+  "ok": false,
+  "problems": [
+    "SCR-01 @ mobile: console error: Access to XMLHttpRequest at 'https://accounts.google.com/gsi/status?client_id=258013614557-nema0dumfbottebi6to7aqi85qot9pvs.apps.googleusercontent.com&cas=t8kwSSEjMPpKwB2WL8TmQaivOgJDRVmnznimi862ZvE&b",
+    "SCR-01 @ mobile: console error: [GSI_LOGGER]: Check credential status returns invalid response.",
+    "SCR-01 @ mobile: console error: Access to fetch at 'https://o205439.ingest.sentry.io/api/1323670/envelope/?sentry_key=d00780d432ac4ccf882f60dd02062e14&sentry_version=7&sentry_client=sentry.javascript.browser%2F7.111.0' from origin '",
+    "SCR-01 @ mobile: console error: Access to fetch at 'https://o205439.ingest.sentry.io/api/1323670/envelope/?sentry_key=d00780d432ac4ccf882f60dd02062e14&sentry_version=7&sentry_client=sentry.javascript.browser%2F7.111.0' from origin '",
+    "SCR-01 @ mobile: console error: Access to fetch at 'https://o205439.ingest.sentry.io/api/1323670/envelope/?sentry_key=d00780d432ac4ccf882f60dd02062e14&sentry_version=7&sentry_client=sentry.javascript.browser%2F7.111.0' from origin '",
+    "SCR-01 @ mobile: console error: Access to XMLHttpRequest at 'https://accounts.google.com/gsi/style' from origin 'https://vercel.com' has been blocked by CORS policy: Response to preflight request doesn't pass access control check: N",
+    "SCR-01 @ mobile: request failed: 403 https://vercel.com/api/jwt",
+    "SCR-01 @ mobile: request failed: network https://accounts.google.com/gsi/status?client_id=258013614557-nema0dumfbottebi6to7aqi85qot9pvs.apps.googleusercontent.com&cas=t8kwSSEjMPpKwB2WL8TmQaivOgJDRVmnznimi862ZvE&bs=WkedkQYMdH52QWQA8xOxuCHa8q6BeH4sd1JRG4B2mTI",
+    "SCR-01 @ mobile: request failed: network https://o205439.ingest.sentry.io/api/1323670/envelope/?sentry_key=d00780d432ac4ccf882f60dd02062e14&sentry_version=7&sentry_client=sentry.javascript.browser%2F7.111.0",
+    "SCR-01 @ mobile: request failed: network https://o205439.ingest.sentry.io/api/1323670/envelope/?sentry_key=d00780d432ac4ccf882f60dd02062e14&sentry_version=7&sentry_client=sentry.javascript.browser%2F7.111.0",
+    "SCR-01 @ mobile: request failed: network https://o205439.ingest.sentry.io/api/1323670/envelope/?sentry_key=d00780d432ac4ccf882f60dd02062e14&sentry_version=7&sentry_client=sentry.javascript.browser%2F7.111.0",
+    "SCR-01 @ mobile: request failed: network https://accounts.google.com/gsi/style",
+    "SCR-01 @ mobile: axe serious color-contrast: Elements must meet minimum color contrast ratio thresholds (3 nodes) at .\\[\\:not\\(\\[aria-disabled\\]\\)\\]\\:hover\\:underline — Element has insufficient color contrast of 4.25 (foreground color: #0072f5, background color: #fafafa, font size: 12.0pt (16px), font weight: normal). Expected contrast ratio of 4.5:1; a[href$=\"terms\"] — Element has insufficient color contrast of 2.27 (foreground color: #a8a8a8, background color: #fafafa, font size: 9.0pt (12px), font weight: normal). Expected contrast ratio of 4.5:1; a[href$=\"privacy-notice\"] — Element has insufficient color contrast of 2.27 (foreground color: #a8a8a8, background color: #fafafa, font size: 9.0pt (12px), font weight: normal). Expected contrast ratio of 4.5:1",
+    "SCR-01 @ mobile: axe moderate meta-viewport: Zooming and scaling must not be disabled (1 node) at meta[name=\"viewport\"] — maximum-scale=1 on <meta> tag disables zooming on mobile devices",
+    "SCR-01 @ desktop: console error: Access to XMLHttpRequest at 'https://accounts.google.com/gsi/status?client_id=258013614557-nema0dumfbottebi6to7aqi85qot9pvs.apps.googleusercontent.com&cas=FFloWY6ETDBZL0wOyGhN2vgCLAH7IQ3O32cg6%2FQ73qs",
+    "SCR-01 @ desktop: console error: [GSI_LOGGER]: Check credential status returns invalid response.",
+    "SCR-01 @ desktop: console error: Access to fetch at 'https://o205439.ingest.sentry.io/api/1323670/envelope/?sentry_key=d00780d432ac4ccf882f60dd02062e14&sentry_version=7&sentry_client=sentry.javascript.browser%2F7.111.0' from origin '",
+    "SCR-01 @ desktop: console error: Access to fetch at 'https://o205439.ingest.sentry.io/api/1323670/envelope/?sentry_key=d00780d432ac4ccf882f60dd02062e14&sentry_version=7&sentry_client=sentry.javascript.browser%2F7.111.0' from origin '",
+    "SCR-01 @ desktop: console error: Access to fetch at 'https://o205439.ingest.sentry.io/api/1323670/envelope/?sentry_key=d00780d432ac4ccf882f60dd02062e14&sentry_version=7&sentry_client=sentry.javascript.browser%2F7.111.0' from origin '",
+    "SCR-01 @ desktop: request failed: network https://accounts.google.com/gsi/status?client_id=258013614557-nema0dumfbottebi6to7aqi85qot9pvs.apps.googleusercontent.com&cas=FFloWY6ETDBZL0wOyGhN2vgCLAH7IQ3O32cg6%2FQ73qs&bs=bkAYCKbHm7ldnPn3j%2ButBYbBwluSJ9jE0SNu2QLCdds",
+    "SCR-01 @ desktop: request failed: 403 https://vercel.com/api/jwt",
+    "SCR-01 @ desktop: request failed: network https://o205439.ingest.sentry.io/api/1323670/envelope/?sentry_key=d00780d432ac4ccf882f60dd02062e14&sentry_version=7&sentry_client=sentry.javascript.browser%2F7.111.0",
+    "SCR-01 @ desktop: request failed: network https://o205439.ingest.sentry.io/api/1323670/envelope/?sentry_key=d00780d432ac4ccf882f60dd02062e14&sentry_version=7&sentry_client=sentry.javascript.browser%2F7.111.0",
+    "SCR-01 @ desktop: request failed: network https://o205439.ingest.sentry.io/api/1323670/envelope/?sentry_key=d00780d432ac4ccf882f60dd02062e14&sentry_version=7&sentry_client=sentry.javascript.browser%2F7.111.0",
+    "SCR-02 @ mobile: console error: Access to XMLHttpRequest at 'https://accounts.google.com/gsi/status?client_id=258013614557-nema0dumfbottebi6to7aqi85qot9pvs.apps.googleusercontent.com&cas=aBULDVVjKaGifDNWg9lLrvB6oSYzChhZFFaMNb3scOg&b",
+    "SCR-02 @ mobile: console error: [GSI_LOGGER]: Check credential status returns invalid response.",
+    "SCR-02 @ mobile: console error: Access to fetch at 'https://o205439.ingest.sentry.io/api/1323670/envelope/?sentry_key=d00780d432ac4ccf882f60dd02062e14&sentry_version=7&sentry_client=sentry.javascript.browser%2F7.111.0' from origin '",
+    "SCR-02 @ mobile: console error: Access to fetch at 'https://o205439.ingest.sentry.io/api/1323670/envelope/?sentry_key=d00780d432ac4ccf882f60dd02062e14&sentry_version=7&sentry_client=sentry.javascript.browser%2F7.111.0' from origin '",
+    "SCR-02 @ mobile: console error: Access to fetch at 'https://o205439.ingest.sentry.io/api/1323670/envelope/?sentry_key=d00780d432ac4ccf882f60dd02062e14&sentry_version=7&sentry_client=sentry.javascript.browser%2F7.111.0' from origin '",
+    "SCR-02 @ mobile: console error: Access to XMLHttpRequest at 'https://accounts.google.com/gsi/style' from origin 'https://vercel.com' has been blocked by CORS policy: Response to preflight request doesn't pass access control check: N",
+    "SCR-02 @ mobile: request failed: 403 https://vercel.com/api/jwt",
+    "SCR-02 @ mobile: request failed: network https://accounts.google.com/gsi/status?client_id=258013614557-nema0dumfbottebi6to7aqi85qot9pvs.apps.googleusercontent.com&cas=aBULDVVjKaGifDNWg9lLrvB6oSYzChhZFFaMNb3scOg&bs=kWWAxz4cMYcDCNLL3nZp3V2r9CD0tYsDLQitz81Rqbo",
+    "SCR-02 @ mobile: request failed: network https://o205439.ingest.sentry.io/api/1323670/envelope/?sentry_key=d00780d432ac4ccf882f60dd02062e14&sentry_version=7&sentry_client=sentry.javascript.browser%2F7.111.0",
+    "SCR-02 @ mobile: request failed: network https://o205439.ingest.sentry.io/api/1323670/envelope/?sentry_key=d00780d432ac4ccf882f60dd02062e14&sentry_version=7&sentry_client=sentry.javascript.browser%2F7.111.0",
+    "SCR-02 @ mobile: request failed: network https://o205439.ingest.sentry.io/api/1323670/envelope/?sentry_key=d00780d432ac4ccf882f60dd02062e14&sentry_version=7&sentry_client=sentry.javascript.browser%2F7.111.0",
+    "SCR-02 @ mobile: request failed: network https://accounts.google.com/gsi/style",
+    "SCR-02 @ mobile: axe serious color-contrast: Elements must meet minimum color contrast ratio thresholds (3 nodes) at .\\[\\:not\\(\\[aria-disabled\\]\\)\\]\\:hover\\:underline — Element has insufficient color contrast of 4.25 (foreground color: #0072f5, background color: #fafafa, font size: 12.0pt (16px), font weight: normal). Expected contrast ratio of 4.5:1; a[href$=\"terms\"] — Element has insufficient color contrast of 2.27 (foreground color: #a8a8a8, background color: #fafafa, font size: 9.0pt (12px), font weight: normal). Expected contrast ratio of 4.5:1; a[href$=\"privacy-notice\"] — Element has insufficient color contrast of 2.27 (foreground color: #a8a8a8, background color: #fafafa, font size: 9.0pt (12px), font weight: normal). Expected contrast ratio of 4.5:1",
+    "SCR-02 @ mobile: axe moderate meta-viewport: Zooming and scaling must not be disabled (1 node) at meta[name=\"viewport\"] — maximum-scale=1 on <meta> tag disables zooming on mobile devices",
+    "SCR-02 @ desktop: console error: Access to fetch at 'https://o205439.ingest.sentry.io/api/1323670/envelope/?sentry_key=d00780d432ac4ccf882f60dd02062e14&sentry_version=7&sentry_client=sentry.javascript.browser%2F7.111.0' from origin '",
+    "SCR-02 @ desktop: console error: Access to XMLHttpRequest at 'https://accounts.google.com/gsi/status?client_id=258013614557-nema0dumfbottebi6to7aqi85qot9pvs.apps.googleusercontent.com&cas=NcInMwPgdFCP%2FqkT%2FoO9gHkb4q8vJQ5enNh8VQoNC",
+    "SCR-02 @ desktop: console error: [GSI_LOGGER]: Check credential status returns invalid response.",
+    "SCR-02 @ desktop: console error: Access to fetch at 'https://o205439.ingest.sentry.io/api/1323670/envelope/?sentry_key=d00780d432ac4ccf882f60dd02062e14&sentry_version=7&sentry_client=sentry.javascript.browser%2F7.111.0' from origin '",
+    "SCR-02 @ desktop: console error: Access to fetch at 'https://o205439.ingest.sentry.io/api/1323670/envelope/?sentry_key=d00780d432ac4ccf882f60dd02062e14&sentry_version=7&sentry_client=sentry.javascript.browser%2F7.111.0' from origin '",
+    "SCR-02 @ desktop: request failed: 403 https://vercel.com/api/jwt",
+    "SCR-02 @ desktop: request failed: network https://o205439.ingest.sentry.io/api/1323670/envelope/?sentry_key=d00780d432ac4ccf882f60dd02062e14&sentry_version=7&sentry_client=sentry.javascript.browser%2F7.111.0",
+    "SCR-02 @ desktop: request failed: network https://accounts.google.com/gsi/status?client_id=258013614557-nema0dumfbottebi6to7aqi85qot9pvs.apps.googleusercontent.com&cas=NcInMwPgdFCP%2FqkT%2FoO9gHkb4q8vJQ5enNh8VQoNCsU&bs=I6sI%2FuOCnmXuWxvXpDNspkM%2FIKw16fab02cBpUX5NeQ",
+    "SCR-02 @ desktop: request failed: network https://o205439.ingest.sentry.io/api/1323670/envelope/?sentry_key=d00780d432ac4ccf882f60dd02062e14&sentry_version=7&sentry_client=sentry.javascript.browser%2F7.111.0",
+    "SCR-02 @ desktop: request failed: network https://o205439.ingest.sentry.io/api/1323670/envelope/?sentry_key=d00780d432ac4ccf882f60dd02062e14&sentry_version=7&sentry_client=sentry.javascript.browser%2F7.111.0",
+    "SCR-03 @ mobile: console error: Access to fetch at 'https://o205439.ingest.sentry.io/api/1323670/envelope/?sentry_key=d00780d432ac4ccf882f60dd02062e14&sentry_version=7&sentry_client=sentry.javascript.browser%2F7.111.0' from origin '",
+    "SCR-03 @ mobile: console error: Access to XMLHttpRequest at 'https://accounts.google.com/gsi/status?client_id=258013614557-nema0dumfbottebi6to7aqi85qot9pvs.apps.googleusercontent.com&cas=z3bsG6JRLxr9CTHQ%2FEauL2eNb%2FclcKKAiuV2fqYqi",
+    "SCR-03 @ mobile: console error: [GSI_LOGGER]: Check credential status returns invalid response.",
+    "SCR-03 @ mobile: console error: Access to fetch at 'https://o205439.ingest.sentry.io/api/1323670/envelope/?sentry_key=d00780d432ac4ccf882f60dd02062e14&sentry_version=7&sentry_client=sentry.javascript.browser%2F7.111.0' from origin '",
+    "SCR-03 @ mobile: console error: Access to fetch at 'https://o205439.ingest.sentry.io/api/1323670/envelope/?sentry_key=d00780d432ac4ccf882f60dd02062e14&sentry_version=7&sentry_client=sentry.javascript.browser%2F7.111.0' from origin '",
+    "SCR-03 @ mobile: console error: Access to XMLHttpRequest at 'https://accounts.google.com/gsi/style' from origin 'https://vercel.com' has been blocked by CORS policy: Response to preflight request doesn't pass access control check: N",
+    "SCR-03 @ mobile: request failed: network https://o205439.ingest.sentry.io/api/1323670/envelope/?sentry_key=d00780d432ac4ccf882f60dd02062e14&sentry_version=7&sentry_client=sentry.javascript.browser%2F7.111.0",
+    "SCR-03 @ mobile: request failed: 403 https://vercel.com/api/jwt",
+    "SCR-03 @ mobile: request failed: network https://accounts.google.com/gsi/status?client_id=258013614557-nema0dumfbottebi6to7aqi85qot9pvs.apps.googleusercontent.com&cas=z3bsG6JRLxr9CTHQ%2FEauL2eNb%2FclcKKAiuV2fqYqisA&bs=lgy0ey0pBirROkEeVCrh4%2BJAvnE6cbUpAbENruLA%2FEk",
+    "SCR-03 @ mobile: request failed: network https://o205439.ingest.sentry.io/api/1323670/envelope/?sentry_key=d00780d432ac4ccf882f60dd02062e14&sentry_version=7&sentry_client=sentry.javascript.browser%2F7.111.0",
+    "SCR-03 @ mobile: request failed: network https://o205439.ingest.sentry.io/api/1323670/envelope/?sentry_key=d00780d432ac4ccf882f60dd02062e14&sentry_version=7&sentry_client=sentry.javascript.browser%2F7.111.0",
+    "SCR-03 @ mobile: request failed: network https://accounts.google.com/gsi/style",
+    "SCR-03 @ mobile: axe serious color-contrast: Elements must meet minimum color contrast ratio thresholds (3 nodes) at .\\[\\:not\\(\\[aria-disabled\\]\\)\\]\\:hover\\:underline — Element has insufficient color contrast of 4.25 (foreground color: #0072f5, background color: #fafafa, font size: 12.0pt (16px), font weight: normal). Expected contrast ratio of 4.5:1; a[href$=\"terms\"] — Element has insufficient color contrast of 2.27 (foreground color: #a8a8a8, background color: #fafafa, font size: 9.0pt (12px), font weight: normal). Expected contrast ratio of 4.5:1; a[href$=\"privacy-notice\"] — Element has insufficient color contrast of 2.27 (foreground color: #a8a8a8, background color: #fafafa, font size: 9.0pt (12px), font weight: normal). Expected contrast ratio of 4.5:1",
+    "SCR-03 @ mobile: axe moderate meta-viewport: Zooming and scaling must not be disabled (1 node) at meta[name=\"viewport\"] — maximum-scale=1 on <meta> tag disables zooming on mobile devices",
+    "SCR-03 @ desktop: console error: Access to XMLHttpRequest at 'https://accounts.google.com/gsi/status?client_id=258013614557-nema0dumfbottebi6to7aqi85qot9pvs.apps.googleusercontent.com&cas=lovpYhVUm9lxMIwdxb%2FY5sQHjsaJRaQBDvufVcGjBCQ",
+    "SCR-03 @ desktop: console error: [GSI_LOGGER]: Check credential status returns invalid response.",
+    "SCR-03 @ desktop: console error: Access to fetch at 'https://o205439.ingest.sentry.io/api/1323670/envelope/?sentry_key=d00780d432ac4ccf882f60dd02062e14&sentry_version=7&sentry_client=sentry.javascript.browser%2F7.111.0' from origin '",
+    "SCR-03 @ desktop: console error: Access to fetch at 'https://o205439.ingest.sentry.io/api/1323670/envelope/?sentry_key=d00780d432ac4ccf882f60dd02062e14&sentry_version=7&sentry_client=sentry.javascript.browser%2F7.111.0' from origin '",
+    "SCR-03 @ desktop: console error: Access to fetch at 'https://o205439.ingest.sentry.io/api/1323670/envelope/?sentry_key=d00780d432ac4ccf882f60dd02062e14&sentry_version=7&sentry_client=sentry.javascript.browser%2F7.111.0' from origin '",
+    "SCR-03 @ desktop: request failed: 403 https://vercel.com/api/jwt",
+    "SCR-03 @ desktop: request failed: network https://accounts.google.com/gsi/status?client_id=258013614557-nema0dumfbottebi6to7aqi85qot9pvs.apps.googleusercontent.com&cas=lovpYhVUm9lxMIwdxb%2FY5sQHjsaJRaQBDvufVcGjBCQ&bs=WN4MiqayrgOjejfRkVuyxQbS3n92qrDP9cNdqe1OwNU",
+    "SCR-03 @ desktop: request failed: network https://o205439.ingest.sentry.io/api/1323670/envelope/?sentry_key=d00780d432ac4ccf882f60dd02062e14&sentry_version=7&sentry_client=sentry.javascript.browser%2F7.111.0",
+    "SCR-03 @ desktop: request failed: network https://o205439.ingest.sentry.io/api/1323670/envelope/?sentry_key=d00780d432ac4ccf882f60dd02062e14&sentry_version=7&sentry_client=sentry.javascript.browser%2F7.111.0",
+    "SCR-03 @ desktop: request failed: network https://o205439.ingest.sentry.io/api/1323670/envelope/?sentry_key=d00780d432ac4ccf882f60dd02062e14&sentry_version=7&sentry_client=sentry.javascript.browser%2F7.111.0"
+  ],
+  "results": [
+    {
+      "id": "SCR-01",
+      "width": "mobile",
+      "url": "https://northside-quotes-git-staging-baseleap.vercel.app/",
+      "screenshot": ".baseleap/reports/DV1/SCR-01-mobile.png",
+      "status": 200,
+      "console": [
+        "Access to XMLHttpRequest at 'https://accounts.google.com/gsi/status?client_id=258013614557-nema0dumfbottebi6to7aqi85qot9pvs.apps.googleusercontent.com&cas=t8kwSSEjMPpKwB2WL8TmQaivOgJDRVmnznimi862ZvE&bs=WkedkQYMdH52QWQA8xOxuCHa8q6BeH4sd1JRG4B2mTI' from origin 'https://vercel.com' has been blocked by CORS policy: Response to preflight request doesn't pass access control check: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "[GSI_LOGGER]: Check credential status returns invalid response.",
+        "Access to fetch at 'https://o205439.ingest.sentry.io/api/1323670/envelope/?sentry_key=d00780d432ac4ccf882f60dd02062e14&sentry_version=7&sentry_client=sentry.javascript.browser%2F7.111.0' from origin 'https://vercel.com' has been blocked by CORS policy: Request header field x-vercel-protection-bypass is not allowed by Access-Control-Allow-Headers in preflight response.",
+        "Access to fetch at 'https://o205439.ingest.sentry.io/api/1323670/envelope/?sentry_key=d00780d432ac4ccf882f60dd02062e14&sentry_version=7&sentry_client=sentry.javascript.browser%2F7.111.0' from origin 'https://vercel.com' has been blocked by CORS policy: Request header field x-vercel-protection-bypass is not allowed by Access-Control-Allow-Headers in preflight response.",
+        "Access to fetch at 'https://o205439.ingest.sentry.io/api/1323670/envelope/?sentry_key=d00780d432ac4ccf882f60dd02062e14&sentry_version=7&sentry_client=sentry.javascript.browser%2F7.111.0' from origin 'https://vercel.com' has been blocked by CORS policy: Request header field x-vercel-protection-bypass is not allowed by Access-Control-Allow-Headers in preflight response.",
+        "Access to XMLHttpRequest at 'https://accounts.google.com/gsi/style' from origin 'https://vercel.com' has been blocked by CORS policy: Response to preflight request doesn't pass access control check: No 'Access-Control-Allow-Origin' header is present on the requested resource."
+      ],
+      "failedRequests": [
+        {
+          "url": "https://vercel.com/api/jwt",
+          "status": 403
+        },
+        {
+          "url": "https://accounts.google.com/gsi/status?client_id=258013614557-nema0dumfbottebi6to7aqi85qot9pvs.apps.googleusercontent.com&cas=t8kwSSEjMPpKwB2WL8TmQaivOgJDRVmnznimi862ZvE&bs=WkedkQYMdH52QWQA8xOxuCHa8q6BeH4sd1JRG4B2mTI",
+          "status": 0,
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://o205439.ingest.sentry.io/api/1323670/envelope/?sentry_key=d00780d432ac4ccf882f60dd02062e14&sentry_version=7&sentry_client=sentry.javascript.browser%2F7.111.0",
+          "status": 0,
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://o205439.ingest.sentry.io/api/1323670/envelope/?sentry_key=d00780d432ac4ccf882f60dd02062e14&sentry_version=7&sentry_client=sentry.javascript.browser%2F7.111.0",
+          "status": 0,
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://o205439.ingest.sentry.io/api/1323670/envelope/?sentry_key=d00780d432ac4ccf882f60dd02062e14&sentry_version=7&sentry_client=sentry.javascript.browser%2F7.111.0",
+          "status": 0,
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://accounts.google.com/gsi/style",
+          "status": 0,
+          "error": "net::ERR_FAILED"
+        }
+      ],
+      "axe": [
+        {
+          "id": "color-contrast",
+          "impact": "serious",
+          "help": "Elements must meet minimum color contrast ratio thresholds",
+          "nodes": 3,
+          "where": [
+            {
+              "target": ".\\[\\:not\\(\\[aria-disabled\\]\\)\\]\\:hover\\:underline",
+              "detail": "Element has insufficient color contrast of 4.25 (foreground color: #0072f5, background color: #fafafa, font size: 12.0pt (16px), font weight: normal). Expected contrast ratio of 4.5:1"
+            },
+            {
+              "target": "a[href$=\"terms\"]",
+              "detail": "Element has insufficient color contrast of 2.27 (foreground color: #a8a8a8, background color: #fafafa, font size: 9.0pt (12px), font weight: normal). Expected contrast ratio of 4.5:1"
+            },
+            {
+              "target": "a[href$=\"privacy-notice\"]",
+              "detail": "Element has insufficient color contrast of 2.27 (foreground color: #a8a8a8, background color: #fafafa, font size: 9.0pt (12px), font weight: normal). Expected contrast ratio of 4.5:1"
+            }
+          ]
+        },
+        {
+          "id": "meta-viewport",
+          "impact": "moderate",
+          "help": "Zooming and scaling must not be disabled",
+          "nodes": 1,
+          "where": [
+            {
+              "target": "meta[name=\"viewport\"]",
+              "detail": "maximum-scale=1 on <meta> tag disables zooming on mobile devices"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "SCR-01",
+      "width": "desktop",
+      "url": "https://northside-quotes-git-staging-baseleap.vercel.app/",
+      "screenshot": ".baseleap/reports/DV1/SCR-01-desktop.png",
+      "status": 200,
+      "console": [
+        "Access to XMLHttpRequest at 'https://accounts.google.com/gsi/status?client_id=258013614557-nema0dumfbottebi6to7aqi85qot9pvs.apps.googleusercontent.com&cas=FFloWY6ETDBZL0wOyGhN2vgCLAH7IQ3O32cg6%2FQ73qs&bs=bkAYCKbHm7ldnPn3j%2ButBYbBwluSJ9jE0SNu2QLCdds' from origin 'https://vercel.com' has been blocked by CORS policy: Response to preflight request doesn't pass access control check: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "[GSI_LOGGER]: Check credential status returns invalid response.",
+        "Access to fetch at 'https://o205439.ingest.sentry.io/api/1323670/envelope/?sentry_key=d00780d432ac4ccf882f60dd02062e14&sentry_version=7&sentry_client=sentry.javascript.browser%2F7.111.0' from origin 'https://vercel.com' has been blocked by CORS policy: Request header field x-vercel-protection-bypass is not allowed by Access-Control-Allow-Headers in preflight response.",
+        "Access to fetch at 'https://o205439.ingest.sentry.io/api/1323670/envelope/?sentry_key=d00780d432ac4ccf882f60dd02062e14&sentry_version=7&sentry_client=sentry.javascript.browser%2F7.111.0' from origin 'https://vercel.com' has been blocked by CORS policy: Request header field x-vercel-protection-bypass is not allowed by Access-Control-Allow-Headers in preflight response.",
+        "Access to fetch at 'https://o205439.ingest.sentry.io/api/1323670/envelope/?sentry_key=d00780d432ac4ccf882f60dd02062e14&sentry_version=7&sentry_client=sentry.javascript.browser%2F7.111.0' from origin 'https://vercel.com' has been blocked by CORS policy: Request header field x-vercel-protection-bypass is not allowed by Access-Control-Allow-Headers in preflight response."
+      ],
+      "failedRequests": [
+        {
+          "url": "https://accounts.google.com/gsi/status?client_id=258013614557-nema0dumfbottebi6to7aqi85qot9pvs.apps.googleusercontent.com&cas=FFloWY6ETDBZL0wOyGhN2vgCLAH7IQ3O32cg6%2FQ73qs&bs=bkAYCKbHm7ldnPn3j%2ButBYbBwluSJ9jE0SNu2QLCdds",
+          "status": 0,
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://vercel.com/api/jwt",
+          "status": 403
+        },
+        {
+          "url": "https://o205439.ingest.sentry.io/api/1323670/envelope/?sentry_key=d00780d432ac4ccf882f60dd02062e14&sentry_version=7&sentry_client=sentry.javascript.browser%2F7.111.0",
+          "status": 0,
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://o205439.ingest.sentry.io/api/1323670/envelope/?sentry_key=d00780d432ac4ccf882f60dd02062e14&sentry_version=7&sentry_client=sentry.javascript.browser%2F7.111.0",
+          "status": 0,
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://o205439.ingest.sentry.io/api/1323670/envelope/?sentry_key=d00780d432ac4ccf882f60dd02062e14&sentry_version=7&sentry_client=sentry.javascript.browser%2F7.111.0",
+          "status": 0,
+          "error": "net::ERR_FAILED"
+        }
+      ],
+      "axe": []
+    },
+    {
+      "id": "SCR-02",
+      "width": "mobile",
+      "url": "https://northside-quotes-git-staging-baseleap.vercel.app/request-sent",
+      "screenshot": ".baseleap/reports/DV1/SCR-02-mobile.png",
+      "status": 200,
+      "console": [
+        "Access to XMLHttpRequest at 'https://accounts.google.com/gsi/status?client_id=258013614557-nema0dumfbottebi6to7aqi85qot9pvs.apps.googleusercontent.com&cas=aBULDVVjKaGifDNWg9lLrvB6oSYzChhZFFaMNb3scOg&bs=kWWAxz4cMYcDCNLL3nZp3V2r9CD0tYsDLQitz81Rqbo' from origin 'https://vercel.com' has been blocked by CORS policy: Response to preflight request doesn't pass access control check: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "[GSI_LOGGER]: Check credential status returns invalid response.",
+        "Access to fetch at 'https://o205439.ingest.sentry.io/api/1323670/envelope/?sentry_key=d00780d432ac4ccf882f60dd02062e14&sentry_version=7&sentry_client=sentry.javascript.browser%2F7.111.0' from origin 'https://vercel.com' has been blocked by CORS policy: Request header field x-vercel-protection-bypass is not allowed by Access-Control-Allow-Headers in preflight response.",
+        "Access to fetch at 'https://o205439.ingest.sentry.io/api/1323670/envelope/?sentry_key=d00780d432ac4ccf882f60dd02062e14&sentry_version=7&sentry_client=sentry.javascript.browser%2F7.111.0' from origin 'https://vercel.com' has been blocked by CORS policy: Request header field x-vercel-protection-bypass is not allowed by Access-Control-Allow-Headers in preflight response.",
+        "Access to fetch at 'https://o205439.ingest.sentry.io/api/1323670/envelope/?sentry_key=d00780d432ac4ccf882f60dd02062e14&sentry_version=7&sentry_client=sentry.javascript.browser%2F7.111.0' from origin 'https://vercel.com' has been blocked by CORS policy: Request header field x-vercel-protection-bypass is not allowed by Access-Control-Allow-Headers in preflight response.",
+        "Access to XMLHttpRequest at 'https://accounts.google.com/gsi/style' from origin 'https://vercel.com' has been blocked by CORS policy: Response to preflight request doesn't pass access control check: No 'Access-Control-Allow-Origin' header is present on the requested resource."
+      ],
+      "failedRequests": [
+        {
+          "url": "https://vercel.com/api/jwt",
+          "status": 403
+        },
+        {
+          "url": "https://accounts.google.com/gsi/status?client_id=258013614557-nema0dumfbottebi6to7aqi85qot9pvs.apps.googleusercontent.com&cas=aBULDVVjKaGifDNWg9lLrvB6oSYzChhZFFaMNb3scOg&bs=kWWAxz4cMYcDCNLL3nZp3V2r9CD0tYsDLQitz81Rqbo",
+          "status": 0,
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://o205439.ingest.sentry.io/api/1323670/envelope/?sentry_key=d00780d432ac4ccf882f60dd02062e14&sentry_version=7&sentry_client=sentry.javascript.browser%2F7.111.0",
+          "status": 0,
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://o205439.ingest.sentry.io/api/1323670/envelope/?sentry_key=d00780d432ac4ccf882f60dd02062e14&sentry_version=7&sentry_client=sentry.javascript.browser%2F7.111.0",
+          "status": 0,
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://o205439.ingest.sentry.io/api/1323670/envelope/?sentry_key=d00780d432ac4ccf882f60dd02062e14&sentry_version=7&sentry_client=sentry.javascript.browser%2F7.111.0",
+          "status": 0,
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://accounts.google.com/gsi/style",
+          "status": 0,
+          "error": "net::ERR_FAILED"
+        }
+      ],
+      "axe": [
+        {
+          "id": "color-contrast",
+          "impact": "serious",
+          "help": "Elements must meet minimum color contrast ratio thresholds",
+          "nodes": 3,
+          "where": [
+            {
+              "target": ".\\[\\:not\\(\\[aria-disabled\\]\\)\\]\\:hover\\:underline",
+              "detail": "Element has insufficient color contrast of 4.25 (foreground color: #0072f5, background color: #fafafa, font size: 12.0pt (16px), font weight: normal). Expected contrast ratio of 4.5:1"
+            },
+            {
+              "target": "a[href$=\"terms\"]",
+              "detail": "Element has insufficient color contrast of 2.27 (foreground color: #a8a8a8, background color: #fafafa, font size: 9.0pt (12px), font weight: normal). Expected contrast ratio of 4.5:1"
+            },
+            {
+              "target": "a[href$=\"privacy-notice\"]",
+              "detail": "Element has insufficient color contrast of 2.27 (foreground color: #a8a8a8, background color: #fafafa, font size: 9.0pt (12px), font weight: normal). Expected contrast ratio of 4.5:1"
+            }
+          ]
+        },
+        {
+          "id": "meta-viewport",
+          "impact": "moderate",
+          "help": "Zooming and scaling must not be disabled",
+          "nodes": 1,
+          "where": [
+            {
+              "target": "meta[name=\"viewport\"]",
+              "detail": "maximum-scale=1 on <meta> tag disables zooming on mobile devices"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "SCR-02",
+      "width": "desktop",
+      "url": "https://northside-quotes-git-staging-baseleap.vercel.app/request-sent",
+      "screenshot": ".baseleap/reports/DV1/SCR-02-desktop.png",
+      "status": 200,
+      "console": [
+        "Access to fetch at 'https://o205439.ingest.sentry.io/api/1323670/envelope/?sentry_key=d00780d432ac4ccf882f60dd02062e14&sentry_version=7&sentry_client=sentry.javascript.browser%2F7.111.0' from origin 'https://vercel.com' has been blocked by CORS policy: Request header field x-vercel-protection-bypass is not allowed by Access-Control-Allow-Headers in preflight response.",
+        "Access to XMLHttpRequest at 'https://accounts.google.com/gsi/status?client_id=258013614557-nema0dumfbottebi6to7aqi85qot9pvs.apps.googleusercontent.com&cas=NcInMwPgdFCP%2FqkT%2FoO9gHkb4q8vJQ5enNh8VQoNCsU&bs=I6sI%2FuOCnmXuWxvXpDNspkM%2FIKw16fab02cBpUX5NeQ' from origin 'https://vercel.com' has been blocked by CORS policy: Response to preflight request doesn't pass access control check: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "[GSI_LOGGER]: Check credential status returns invalid response.",
+        "Access to fetch at 'https://o205439.ingest.sentry.io/api/1323670/envelope/?sentry_key=d00780d432ac4ccf882f60dd02062e14&sentry_version=7&sentry_client=sentry.javascript.browser%2F7.111.0' from origin 'https://vercel.com' has been blocked by CORS policy: Request header field x-vercel-protection-bypass is not allowed by Access-Control-Allow-Headers in preflight response.",
+        "Access to fetch at 'https://o205439.ingest.sentry.io/api/1323670/envelope/?sentry_key=d00780d432ac4ccf882f60dd02062e14&sentry_version=7&sentry_client=sentry.javascript.browser%2F7.111.0' from origin 'https://vercel.com' has been blocked by CORS policy: Request header field x-vercel-protection-bypass is not allowed by Access-Control-Allow-Headers in preflight response."
+      ],
+      "failedRequests": [
+        {
+          "url": "https://vercel.com/api/jwt",
+          "status": 403
+        },
+        {
+          "url": "https://o205439.ingest.sentry.io/api/1323670/envelope/?sentry_key=d00780d432ac4ccf882f60dd02062e14&sentry_version=7&sentry_client=sentry.javascript.browser%2F7.111.0",
+          "status": 0,
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://accounts.google.com/gsi/status?client_id=258013614557-nema0dumfbottebi6to7aqi85qot9pvs.apps.googleusercontent.com&cas=NcInMwPgdFCP%2FqkT%2FoO9gHkb4q8vJQ5enNh8VQoNCsU&bs=I6sI%2FuOCnmXuWxvXpDNspkM%2FIKw16fab02cBpUX5NeQ",
+          "status": 0,
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://o205439.ingest.sentry.io/api/1323670/envelope/?sentry_key=d00780d432ac4ccf882f60dd02062e14&sentry_version=7&sentry_client=sentry.javascript.browser%2F7.111.0",
+          "status": 0,
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://o205439.ingest.sentry.io/api/1323670/envelope/?sentry_key=d00780d432ac4ccf882f60dd02062e14&sentry_version=7&sentry_client=sentry.javascript.browser%2F7.111.0",
+          "status": 0,
+          "error": "net::ERR_FAILED"
+        }
+      ],
+      "axe": []
+    },
+    {
+      "id": "SCR-03",
+      "width": "mobile",
+      "url": "https://northside-quotes-git-staging-baseleap.vercel.app/sign-in",
+      "screenshot": ".baseleap/reports/DV1/SCR-03-mobile.png",
+      "status": 200,
+      "console": [
+        "Access to fetch at 'https://o205439.ingest.sentry.io/api/1323670/envelope/?sentry_key=d00780d432ac4ccf882f60dd02062e14&sentry_version=7&sentry_client=sentry.javascript.browser%2F7.111.0' from origin 'https://vercel.com' has been blocked by CORS policy: Request header field x-vercel-protection-bypass is not allowed by Access-Control-Allow-Headers in preflight response.",
+        "Access to XMLHttpRequest at 'https://accounts.google.com/gsi/status?client_id=258013614557-nema0dumfbottebi6to7aqi85qot9pvs.apps.googleusercontent.com&cas=z3bsG6JRLxr9CTHQ%2FEauL2eNb%2FclcKKAiuV2fqYqisA&bs=lgy0ey0pBirROkEeVCrh4%2BJAvnE6cbUpAbENruLA%2FEk' from origin 'https://vercel.com' has been blocked by CORS policy: Response to preflight request doesn't pass access control check: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "[GSI_LOGGER]: Check credential status returns invalid response.",
+        "Access to fetch at 'https://o205439.ingest.sentry.io/api/1323670/envelope/?sentry_key=d00780d432ac4ccf882f60dd02062e14&sentry_version=7&sentry_client=sentry.javascript.browser%2F7.111.0' from origin 'https://vercel.com' has been blocked by CORS policy: Request header field x-vercel-protection-bypass is not allowed by Access-Control-Allow-Headers in preflight response.",
+        "Access to fetch at 'https://o205439.ingest.sentry.io/api/1323670/envelope/?sentry_key=d00780d432ac4ccf882f60dd02062e14&sentry_version=7&sentry_client=sentry.javascript.browser%2F7.111.0' from origin 'https://vercel.com' has been blocked by CORS policy: Request header field x-vercel-protection-bypass is not allowed by Access-Control-Allow-Headers in preflight response.",
+        "Access to XMLHttpRequest at 'https://accounts.google.com/gsi/style' from origin 'https://vercel.com' has been blocked by CORS policy: Response to preflight request doesn't pass access control check: No 'Access-Control-Allow-Origin' header is present on the requested resource."
+      ],
+      "failedRequests": [
+        {
+          "url": "https://o205439.ingest.sentry.io/api/1323670/envelope/?sentry_key=d00780d432ac4ccf882f60dd02062e14&sentry_version=7&sentry_client=sentry.javascript.browser%2F7.111.0",
+          "status": 0,
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://vercel.com/api/jwt",
+          "status": 403
+        },
+        {
+          "url": "https://accounts.google.com/gsi/status?client_id=258013614557-nema0dumfbottebi6to7aqi85qot9pvs.apps.googleusercontent.com&cas=z3bsG6JRLxr9CTHQ%2FEauL2eNb%2FclcKKAiuV2fqYqisA&bs=lgy0ey0pBirROkEeVCrh4%2BJAvnE6cbUpAbENruLA%2FEk",
+          "status": 0,
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://o205439.ingest.sentry.io/api/1323670/envelope/?sentry_key=d00780d432ac4ccf882f60dd02062e14&sentry_version=7&sentry_client=sentry.javascript.browser%2F7.111.0",
+          "status": 0,
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://o205439.ingest.sentry.io/api/1323670/envelope/?sentry_key=d00780d432ac4ccf882f60dd02062e14&sentry_version=7&sentry_client=sentry.javascript.browser%2F7.111.0",
+          "status": 0,
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://accounts.google.com/gsi/style",
+          "status": 0,
+          "error": "net::ERR_FAILED"
+        }
+      ],
+      "axe": [
+        {
+          "id": "color-contrast",
+          "impact": "serious",
+          "help": "Elements must meet minimum color contrast ratio thresholds",
+          "nodes": 3,
+          "where": [
+            {
+              "target": ".\\[\\:not\\(\\[aria-disabled\\]\\)\\]\\:hover\\:underline",
+              "detail": "Element has insufficient color contrast of 4.25 (foreground color: #0072f5, background color: #fafafa, font size: 12.0pt (16px), font weight: normal). Expected contrast ratio of 4.5:1"
+            },
+            {
+              "target": "a[href$=\"terms\"]",
+              "detail": "Element has insufficient color contrast of 2.27 (foreground color: #a8a8a8, background color: #fafafa, font size: 9.0pt (12px), font weight: normal). Expected contrast ratio of 4.5:1"
+            },
+            {
+              "target": "a[href$=\"privacy-notice\"]",
+              "detail": "Element has insufficient color contrast of 2.27 (foreground color: #a8a8a8, background color: #fafafa, font size: 9.0pt (12px), font weight: normal). Expected contrast ratio of 4.5:1"
+            }
+          ]
+        },
+        {
+          "id": "meta-viewport",
+          "impact": "moderate",
+          "help": "Zooming and scaling must not be disabled",
+          "nodes": 1,
+          "where": [
+            {
+              "target": "meta[name=\"viewport\"]",
+              "detail": "maximum-scale=1 on <meta> tag disables zooming on mobile devices"
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "id": "SCR-03",
+      "width": "desktop",
+      "url": "https://northside-quotes-git-staging-baseleap.vercel.app/sign-in",
+      "screenshot": ".baseleap/reports/DV1/SCR-03-desktop.png",
+      "status": 200,
+      "console": [
+        "Access to XMLHttpRequest at 'https://accounts.google.com/gsi/status?client_id=258013614557-nema0dumfbottebi6to7aqi85qot9pvs.apps.googleusercontent.com&cas=lovpYhVUm9lxMIwdxb%2FY5sQHjsaJRaQBDvufVcGjBCQ&bs=WN4MiqayrgOjejfRkVuyxQbS3n92qrDP9cNdqe1OwNU' from origin 'https://vercel.com' has been blocked by CORS policy: Response to preflight request doesn't pass access control check: No 'Access-Control-Allow-Origin' header is present on the requested resource.",
+        "[GSI_LOGGER]: Check credential status returns invalid response.",
+        "Access to fetch at 'https://o205439.ingest.sentry.io/api/1323670/envelope/?sentry_key=d00780d432ac4ccf882f60dd02062e14&sentry_version=7&sentry_client=sentry.javascript.browser%2F7.111.0' from origin 'https://vercel.com' has been blocked by CORS policy: Request header field x-vercel-protection-bypass is not allowed by Access-Control-Allow-Headers in preflight response.",
+        "Access to fetch at 'https://o205439.ingest.sentry.io/api/1323670/envelope/?sentry_key=d00780d432ac4ccf882f60dd02062e14&sentry_version=7&sentry_client=sentry.javascript.browser%2F7.111.0' from origin 'https://vercel.com' has been blocked by CORS policy: Request header field x-vercel-protection-bypass is not allowed by Access-Control-Allow-Headers in preflight response.",
+        "Access to fetch at 'https://o205439.ingest.sentry.io/api/1323670/envelope/?sentry_key=d00780d432ac4ccf882f60dd02062e14&sentry_version=7&sentry_client=sentry.javascript.browser%2F7.111.0' from origin 'https://vercel.com' has been blocked by CORS policy: Request header field x-vercel-protection-bypass is not allowed by Access-Control-Allow-Headers in preflight response."
+      ],
+      "failedRequests": [
+        {
+          "url": "https://vercel.com/api/jwt",
+          "status": 403
+        },
+        {
+          "url": "https://accounts.google.com/gsi/status?client_id=258013614557-nema0dumfbottebi6to7aqi85qot9pvs.apps.googleusercontent.com&cas=lovpYhVUm9lxMIwdxb%2FY5sQHjsaJRaQBDvufVcGjBCQ&bs=WN4MiqayrgOjejfRkVuyxQbS3n92qrDP9cNdqe1OwNU",
+          "status": 0,
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://o205439.ingest.sentry.io/api/1323670/envelope/?sentry_key=d00780d432ac4ccf882f60dd02062e14&sentry_version=7&sentry_client=sentry.javascript.browser%2F7.111.0",
+          "status": 0,
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://o205439.ingest.sentry.io/api/1323670/envelope/?sentry_key=d00780d432ac4ccf882f60dd02062e14&sentry_version=7&sentry_client=sentry.javascript.browser%2F7.111.0",
+          "status": 0,
+          "error": "net::ERR_FAILED"
+        },
+        {
+          "url": "https://o205439.ingest.sentry.io/api/1323670/envelope/?sentry_key=d00780d432ac4ccf882f60dd02062e14&sentry_version=7&sentry_client=sentry.javascript.browser%2F7.111.0",
+          "status": 0,
+          "error": "net::ERR_FAILED"
+        }
+      ],
+      "axe": []
+    }
+  ]
+}

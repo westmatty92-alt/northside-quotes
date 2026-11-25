@@ -1,0 +1,67 @@
+{
+  "id": "SCR-08-photo-viewer",
+  "viewport": "1280 x 800",
+  "path": "/requests/41902f20-6dad-4b6a-b5b4-53a0e1967df3",
+  "title": "Request detail | Northside",
+  "commit_prefix": "42208a4",
+  "screenshots": [
+    "SCR-08-photo-viewer-1280x800.png"
+  ],
+  "axe": {
+    "serious_or_critical": [],
+    "minor_or_moderate": []
+  },
+  "console_errors": [],
+  "failed_requests": [],
+  "designed_aborts": [],
+  "page_size": {
+    "document_scroll_width": 1280,
+    "document_client_width": 1280,
+    "document_scroll_height": 1396
+  },
+  "sideways_scroll": false,
+  "layout": {
+    "photo": {
+      "x": 211.171875,
+      "y": 80.75,
+      "width": 857.65625,
+      "height": 643.234375
+    },
+    "title \"Photo 2 of 3\"": {
+      "x": 16,
+      "y": 16,
+      "width": 97,
+      "height": 25
+    },
+    "reference and name line": {
+      "x": 16,
+      "y": 42.25,
+      "width": 331,
+      "height": 21
+    },
+    "Close": {
+      "x": 1166,
+      "y": 18.375,
+      "width": 98,
+      "height": 44
+    },
+    "Previous photo": {
+      "x": 16,
+      "y": 740,
+      "width": 240,
+      "height": 44
+    },
+    "Next photo": {
+      "x": 1024,
+      "y": 740,
+      "width": 240,
+      "height": 44
+    },
+    "dialog_scroll_height": 800,
+    "dialog_client_height": 800,
+    "gap_between_photo_bottom_and_previous_photo_top": 16,
+    "aspect_ratio_of_photo": 1.333
+  },
+  "covered": [],
+  "photo_covers_nothing": true
+}
