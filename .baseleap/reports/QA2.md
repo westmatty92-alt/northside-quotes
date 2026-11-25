@@ -88,3 +88,52 @@ Not edited: `docs/test-plan.md` (it names `tests/e2e/api/permissions.spec.ts` fo
 - QA1's `tests/e2e/support`-based `platform.both.spec.ts` still expects commit `0dff609`; staging is `42208a4`.
 - After the three fixes, reopen QA2 and run `npx playwright test tests/e2e/probes`; the 4 failing tests should pass with nothing else changing. REV1 and SEC1 can start from this report (no Critical, three tickets, fuzz not run).
 - Baseleap removes the `QA-PROBE` requests by name prefix (14 visible, 2 pending); the full list with references is in `docs/qa-reports/QA2-run.md`.
+
+---
+
+## Re-run at bb54c17 (2026-11-24)
+
+**Status:** partial. **Probes: 54 of 54 pass. All three bugs are resolved. No Critical, no new defect, no open ticket.** The **fuzz run has still not run** (not runnable in this session), so "no 5xx and no contract break in the fuzz run" remains **unproven**; the script is changed to install Schemathesis itself and is waiting for the ledger's verify to execute it.
+
+**Target:** https://northside-quotes-git-staging-baseleap.vercel.app, commit `bb54c17d2ea4d9d873f2f9f77d0af70dbcce2875` (read from `/api/health` by PRB-00). Preflight: the first read still showed `42208a4`; the retry about 2 minutes later showed `bb54c17`.
+
+**Probe counts:** full run `ida17`, `npx playwright test tests/e2e/probes` → exit 0, **54 passed, 0 failed, 0 flaky, 0 skipped**, 12.3 min, retries off. `PRB-74b` run alone afterwards (the tightened version) → 1 passed. Evidence: `docs/qa-reports/playwright-results.json` (54 expected, 0 unexpected, 0 flaky).
+
+**Status of each bug**
+- **BUG-QA2-1 RESOLVED.** `PRB-06b` (3 paths x 9 method and header variants) and `PRB-06` (17 password and reset style paths x 3 methods x 2 clients, plus 9 pages) all answer 404. The test file is unchanged.
+- **BUG-QA2-2 RESOLVED.** `PRB-74b` passes. I tightened it before the run: the four unpaired-surrogate cases (name on update; name, problem, address on create) now require 422 `problem+json` naming the field in `errors[]`, not only "no 5xx". A stricter test, not a weaker one.
+- **BUG-QA2-3 RESOLVED under the ruling.** `PRB-08` now expects 400 with code `bad_request` for `text/plain` (was 400, 415 or 422) and I added `application/x-www-form-urlencoded` with the same expectation. It still fails on 401 `invalid_credentials`, 429, a cookie, a non-problem body or any 5xx, so "a non-JSON body is not treated as a sign-in" is what is asserted. Architect's soft question stands: if the contract adds a 415, this expected status changes with it.
+
+**What the fuzz script will do** (`bash tests/fuzz/run.sh`, run by the ledger)
+1. Checks `.baseleap/tools/venv/bin/schemathesis` reports exactly the pinned version. If not: `python3 -m venv .baseleap/tools/venv`, then `.baseleap/tools/venv/bin/python -m pip install schemathesis==4.0.0`, then re-checks the version. A failure at any of those steps prints "NOT RUN ... This is not a pass" and **exits 3**.
+2. Prints `Schemathesis installed version: 4.0.0 (pinned 4.0.0)`.
+3. Runs `tests/fuzz/run.mjs`: staging-host guard (refuses anything but `<project>-git-staging-<team>.vercel.app` and anything in `PRODUCTION_HOSTS`), a staff token for the owner (one successful sign-in, no failed ones), then three gentle Schemathesis runs: `anonymous` and `staff` (20 examples per operation, one worker, 5 requests a second, `examples,coverage,fuzzing`, no stateful phase, `/auth`, `/storage`, `/jobs` excluded) and `jobs` (the two cron routes only, one case each, no secret: the documented 401). The bypass header goes only to the staging host; secret values are replaced by variable names in all output; reports go to `.baseleap/tools/fuzz-reports/` (git-ignored) and the transcript to `tests/fuzz/last-run.txt`.
+4. Exit codes: **0** clean; **1** any failure Schemathesis reports (5xx, schema break, undocumented status); **2** setup problem, or a run that did not complete or tested zero cases (so a wrong flag cannot read as a pass); **3** install failed or wrong version.
+
+**Pinned Schemathesis version: `4.0.0`.** Chosen as the 4.x release I am sure exists (`pip index` is refused here, so I could not list newer ones). Raising it is the one `SCHEMATHESIS_VERSION` line in `run.sh`; if `pip` cannot find it the script exits 3 rather than guessing.
+
+**Still unverified**
+- **The whole fuzz run.** Not executed. `bash -n tests/fuzz/run.sh` was refused ("This command requires approval"), as were `python3 -m venv`, `pip` and `bash tests/fuzz/run.sh`. I checked the script by reading it, and `npx eslint tests/fuzz` and `npx tsc --noEmit` pass. Not known until the ledger runs it: that the venv installs here (`python3` is 3.12.3; Debian and Ubuntu need `python3-venv`), that `4.0.0` resolves, that every flag is accepted by it (`--url --header --checks all --rate-limit --workers --no-color --phases --max-examples --exclude-path-regex --include-path-regex --report junit --report-dir` were written from the v4 documentation), and what `--checks all` finds on the first pass. Expect one correction round and possibly first-run noise to triage; findings from it become tickets.
+- Everything listed under "Not run, or not proven" in `docs/qa-reports/QA2-run.md`: per-address sign-in limit (AC-004.11), real-account sign-in checks (AC-004.5, AC-004.12), counters and 1,000-event cap (AC-004.13, AC-003.5, AC-003.8), cron routes with the real secret, 7-day expiry, IPv6 keying, embed handoff, live GoHighLevel.
+
+**Files changed (all QA-owned, inside the step's paths)**
+- `tests/e2e/probes/10-anonymous-routes.probe.spec.ts`: PRB-08 expects 400 `bad_request` for a non-JSON content type (ruling); added the form-encoded case.
+- `tests/e2e/probes/80-storage-and-create.probe.spec.ts`: PRB-74b requires 422 naming the field for the four surrogate cases; imported `vercelId` for the failure message.
+- `tests/fuzz/run.sh`: pinned venv install, version print, exit 3 on a failed install.
+- `tests/fuzz/run.mjs`: uses only the pinned venv binary (dropped `PATH`, `uvx`, `pipx`, `SCHEMATHESIS_ALLOW_INSTALL`), version in the log, jobs run uses one fuzzing case (the `examples` phase alone could run nothing), exit 2 for an incomplete or empty run.
+- `tests/e2e/probes/created.ndjson`, `docs/qa-reports/playwright-results.json`, `playwright-report/`: generated by the run.
+- `docs/qa-reports/QA2-run.md`: rewritten for this run. `.baseleap/reports/QA2-errors.md`: a status block added at the top (all three resolved); the original tickets are kept. `.baseleap/reports/QA2.md`: this section.
+
+**Commands run**
+- `npx playwright test tests/e2e/probes/10-anonymous -g PRB-00 --reporter=json` (twice) → exit 0; version `42208a4...`, then `bb54c17d2ea4...`
+- `npx playwright test tests/e2e/probes` → exit 0, 54 passed, 12.3 min
+- `npx playwright test tests/e2e/probes/80-storage-and-create -g PRB-74b --reporter=list` → exit 0, 1 passed
+- `npx eslint tests/e2e tests/fuzz playwright.config.ts` → exit 0; `npx tsc --noEmit` → exit 0; `npm run lint` → exit 0 (2 warnings in `scripts/`, not mine)
+- Refused ("This command requires approval"): `bash -n tests/fuzz/run.sh`, `python3 -m pip index versions schemathesis`, `env QA_EXPECTED_COMMIT=... npx playwright test`, `node -e` as a timer. `python3 --version` → 3.12.3.
+
+**Data left on staging:** run `ida17` 7 visible requests (NQ-DWUSJY, NQ-79YWMB, NQ-5BU5NM, NQ-GXXSKH, NQ-GVNEYM, NQ-NV5AKT, NQ-4SGXNZ) and 1 pending; run `itzkc` (PRB-74b alone) 1 pending. All `QA-PROBE <run id>`. Cumulative 21 visible, 4 pending.
+
+**CONTRACT QUESTION:** none new. Existing: the architect's soft question on 415 for a non-JSON sign-in body (my tests follow the 400 ruling). For the plan owner: `docs/test-plan.md` still names `tests/e2e/api/permissions.spec.ts`; the rows are in `tests/e2e/probes/`.
+**BLOCKED:** none for the probes. The fuzz run needs the ledger's verify to execute `bash tests/fuzz/run.sh` (needs network for pip, python3 venv).
+
+**Notes for the next step:** the probes command is green for the first time, so REV1 and SEC1 can start from this report (no Critical, no open ticket, fuzz pending). When the ledger runs the fuzz script, send its `tests/fuzz/last-run.txt` back so any first-run findings can be triaged into tickets.

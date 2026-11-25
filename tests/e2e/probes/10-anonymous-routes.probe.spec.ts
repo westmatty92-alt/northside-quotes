@@ -338,18 +338,23 @@ test.describe('anonymous and wrong-session boundaries @probe', () => {
   test('@probe PRB-08 malformed sign-in bodies are refused with a clean 4xx, set no session and are never a 5xx', async ({ playwright }, testInfo) => {
     const api = await appApi(playwright);
     const failures: string[] = [];
-    const cases: Array<{ label: string; headers?: Record<string, string>; body: string | undefined; expect: number[] }> = [
+    // BUG-QA2-3 ruling (orchestrator, ledger 2026-11-24): the contract has no 415, so a body that is not sent as
+    // application/json is refused with 400 `bad_request`. What matters is that it is NOT treated as a sign-in (never
+    // 401 invalid_credentials or 429 sign_in_paused, which would count a failed attempt).
+    const cases: Array<{ label: string; headers?: Record<string, string>; body: string | undefined; expect: number[]; code?: string }> = [
       { label: 'not JSON', headers: { 'content-type': 'application/json' }, body: '{not json', expect: [400] },
       { label: 'empty body', headers: { 'content-type': 'application/json' }, body: '', expect: [400, 422] },
       { label: 'empty object', headers: { 'content-type': 'application/json' }, body: '{}', expect: [400, 422] },
       { label: 'wrong types', headers: { 'content-type': 'application/json' }, body: JSON.stringify({ email: 123, password: ['x'] }), expect: [400, 422] },
-      { label: 'text/plain content type', headers: { 'content-type': 'text/plain' }, body: JSON.stringify({ email: 'x@example.test', password: 'x' }), expect: [400, 415, 422] },
+      { label: 'text/plain content type', headers: { 'content-type': 'text/plain' }, body: JSON.stringify({ email: 'x@example.test', password: 'x' }), expect: [400], code: 'bad_request' },
+      { label: 'form-encoded content type', headers: { 'content-type': 'application/x-www-form-urlencoded' }, body: 'email=x%40example.test&password=x', expect: [400], code: 'bad_request' },
     ];
     for (const c of cases) {
       const res = await api.post('/api/auth/sign-in', { headers: c.headers, data: c.body === undefined ? undefined : Buffer.from(c.body) });
       const label = `POST /api/auth/sign-in [${c.label}]`;
       if (!c.expect.includes(res.status())) failures.push(`${await lineWithBody(label, res)} expected ${c.expect.join(' or ')} (request id ${vercelId(res)})`);
       else if (!isProblemJson(res)) failures.push(`${line(label, res)} not problem+json`);
+      else if (c.code && (await problemOf(res))?.code !== c.code) failures.push(`${await lineWithBody(label, res)} expected code ${c.code}`);
       else if (res.headers()['set-cookie']) failures.push(`${line(label, res)} set a cookie`);
       else {
         const leak = await leaks(res);

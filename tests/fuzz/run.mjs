@@ -17,13 +17,14 @@
 //   /jobs/...      only in the third run, for the 401
 //
 // Exit codes: 0 no finding · 1 findings (a 5xx, a response that breaks the contract, an undocumented status) ·
-//             2 setup problem (missing variable name, refused host, no token) · 3 Schemathesis is not installed.
+//             2 setup problem (missing variable name, refused host, no token) or a Schemathesis run that did not
+//               complete (a usage error, a crash, or a run that tested nothing: none of these is a pass) ·
+//             3 Schemathesis is not installed (NOT RUN, never a pass).
 //
-// Schemathesis itself: found in this order: $SCHEMATHESIS_BIN, .baseleap/tools/schemathesis-venv/bin/schemathesis,
-// `schemathesis` on PATH. With SCHEMATHESIS_ALLOW_INSTALL=1 it may also run through `uvx` or `pipx run`, pinned to the
-// major version below. Without that switch nothing is downloaded or installed (an install needs a person's approval).
-// Secrets are never printed: every value is replaced by its variable name in the output, and the raw reports stay in
-// .baseleap/tools/fuzz-reports (git-ignored).
+// Schemathesis itself: only the pinned one in .baseleap/tools/venv, which tests/fuzz/run.sh installs (exact version,
+// exit 3 if the install fails) and passes in as $SCHEMATHESIS_BIN. This file never installs anything. Run it through
+// run.sh. Secrets are never printed: every value is replaced by its variable name in the output, and the raw reports
+// stay in .baseleap/tools/fuzz-reports (git-ignored).
 import { spawn, spawnSync } from 'node:child_process';
 import fs from 'node:fs';
 import path from 'node:path';
@@ -37,7 +38,7 @@ try {
   // no .env.local: the variables must already be in the environment
 }
 
-const SPEC = 'schemathesis>=4,<5';
+const VENV_BIN = path.join(ROOT, '.baseleap/tools/venv/bin/schemathesis');
 const SUMMARY = path.join(ROOT, 'tests/fuzz/last-run.txt');
 const REPORTS = path.join(ROOT, '.baseleap/tools/fuzz-reports');
 
@@ -65,37 +66,16 @@ const bypass = process.env.VERCEL_AUTOMATION_BYPASS_SECRET;
 if (!bypass) stop(2, 'VERCEL_AUTOMATION_BYPASS_SECRET is not set (the preview is protected).');
 
 // ---- 2. Schemathesis ----------------------------------------------------------------------------------------------
-function works(cmd, args) {
-  const r = spawnSync(cmd, [...args, '--version'], { encoding: 'utf8' });
-  return r.status === 0 ? [cmd, ...args] : null;
+const schemathesisBin = process.env.SCHEMATHESIS_BIN || VENV_BIN;
+const probe = fs.existsSync(schemathesisBin) ? spawnSync(schemathesisBin, ['--version'], { encoding: 'utf8' }) : null;
+if (!probe || probe.status !== 0) {
+  stop(3, 'NOT RUN: the pinned Schemathesis is not installed in .baseleap/tools/venv. No fuzz result exists. This is not a pass.\nRun it through tests/fuzz/run.sh, which installs it.');
 }
-function findSchemathesis() {
-  const candidates = [];
-  if (process.env.SCHEMATHESIS_BIN) candidates.push([process.env.SCHEMATHESIS_BIN, []]);
-  candidates.push([path.join(ROOT, '.baseleap/tools/schemathesis-venv/bin/schemathesis'), []]);
-  candidates.push(['schemathesis', []]);
-  if (process.env.SCHEMATHESIS_ALLOW_INSTALL === '1') {
-    candidates.push(['uvx', ['--from', SPEC, 'schemathesis']]);
-    candidates.push(['pipx', ['run', '--spec', SPEC, 'schemathesis']]);
-  }
-  for (const [cmd, args] of candidates) {
-    if (cmd.includes('/') && !fs.existsSync(cmd)) continue;
-    const found = works(cmd, args);
-    if (found) return found;
-  }
-  return null;
-}
-const st = findSchemathesis();
-if (!st) {
-  stop(
-    3,
-    [
-      'NOT RUN: Schemathesis is not available on this machine, so no fuzz result exists. This is not a pass.',
-      `Install it inside the repo, for example: python3 -m venv .baseleap/tools/schemathesis-venv && .baseleap/tools/schemathesis-venv/bin/pip install "${SPEC}"`,
-      'or run with SCHEMATHESIS_ALLOW_INSTALL=1 when uvx or pipx may fetch it (pinned to the same major version).',
-    ].join('\n'),
-  );
-}
+const st = [schemathesisBin];
+const stVersion = `${probe.stdout}${probe.stderr}`.match(/\d+\.\d+\.\d+/)?.[0] ?? 'unknown';
+const pinned = process.env.SCHEMATHESIS_PINNED_VERSION;
+if (pinned && pinned !== stVersion) stop(3, `NOT RUN: Schemathesis ${stVersion} is installed but ${pinned} is pinned. This is not a pass.`);
+console.log(`Schemathesis version in use: ${stVersion}${pinned ? ` (pinned ${pinned})` : ' (no pin passed: run through run.sh)'}`);
 
 // ---- 3. a staff token, got the way a browser client gets one ---------------------------------------------------------
 async function staffToken() {
@@ -130,7 +110,7 @@ const redact = (text) => secrets.reduce((acc, [name, value]) => acc.split(value)
 
 fs.mkdirSync(path.dirname(SUMMARY), { recursive: true });
 fs.mkdirSync(REPORTS, { recursive: true });
-const log = [`# Schemathesis run ${new Date().toISOString()} against ${base} with ${st.join(' ')}`];
+const log = [`# Schemathesis ${stVersion} run ${new Date().toISOString()} against ${base}`];
 const echo = (line) => {
   const clean = redact(line);
   log.push(clean);
@@ -145,7 +125,8 @@ const fuzzPhases = ['--phases', 'examples,coverage,fuzzing', '--max-examples', '
 const runs = [
   { name: 'anonymous', args: [...common, ...fuzzPhases] },
   { name: 'staff', args: [...common, '--header', `Authorization: Bearer ${token}`, ...fuzzPhases] },
-  { name: 'jobs', args: [...common, '--phases', 'examples', '--max-examples', '1', '--include-path-regex', '^/jobs/'] },
+  // One generated case per cron route, sent with no secret: the documented 401 only.
+  { name: 'jobs', args: [...common, '--phases', 'fuzzing', '--max-examples', '1', '--include-path-regex', '^/jobs/'] },
 ];
 
 function runOne(run) {
@@ -190,10 +171,17 @@ const results = [];
 for (const run of runs) results.push(await runOne(run));
 
 echo('\n## summary');
-let bad = false;
+let findings = false;
+let incomplete = false;
 for (const r of results) {
   echo(`${r.run}: exit ${r.code}, ${r.tests} test cases, ${r.failures} failures, ${r.errors} errors`);
-  if (r.code !== 0 || r.failures > 0 || r.errors > 0) bad = true;
+  // Schemathesis exits 1 when a check fails; any other non-zero code (2: usage error, a crash) means the run did not
+  // finish, and a run that exercised nothing proves nothing. Neither is a pass.
+  if (r.code > 1 || r.code < 0) incomplete = true;
+  else if (r.code === 0 && r.tests === 0) incomplete = true;
+  if (r.code === 1 || r.failures > 0 || r.errors > 0) findings = true;
 }
+if (incomplete) echo('NOT PROVEN: at least one Schemathesis run did not complete or tested nothing (see its output above). This is not a pass.');
+if (findings) echo('FINDINGS: see the failures above; each prints a curl reproduction.');
 fs.writeFileSync(SUMMARY, `${log.join('\n')}\n`);
-process.exit(bad ? 1 : 0);
+process.exit(findings ? 1 : incomplete ? 2 : 0);

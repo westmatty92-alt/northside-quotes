@@ -35,6 +35,7 @@ import {
   sleep,
   staffToken,
   supabaseTarget,
+  vercelId,
   ZERO_UUID,
 } from './support';
 import type { APIRequestContext, APIResponse, TestInfo } from '@playwright/test';
@@ -447,7 +448,6 @@ test.describe('photo bucket and create-route input @probe', () => {
     // Allowed to be accepted or refused, but never a server error and never a changed or truncated value in the reply.
     const edgy: Array<[string, Record<string, unknown>]> = [
       ['name with a NUL character', good({ name: 'Zo\u0000e Probe' })],
-      ['name with a lone surrogate', good({ name: 'Zo\ud800e Probe' })],
       ['problem with a NUL character', good({ problem: 'The tap drips\u0000 and the cabinet is wet' })],
       ['name that is all emoji', good({ name: '🙂🙂🙂🙂' })],
       ['SQL-looking name', good({ name: "Robert'); DROP TABLE quote_requests;--" })],
@@ -491,15 +491,19 @@ test.describe('photo bucket and create-route input @probe', () => {
       else if (res.status() >= 400 && !isProblemJson(res) && res.status() !== 413) failures.push(`${await lineWithBody(`create [${label}]`, res)} an error that is not problem+json`);
       else if (res.status() === 200) failures.push(`INFO [${label}] was accepted as an update (200)`);
     }
-    // The same odd text on a brand-new request (the create path, not an update of a pending one).
-    for (const [label, body] of [
-      ['name with a lone surrogate (create path)', good({ name: 'Zo\ud800e Probe' })],
-      ['problem with a lone surrogate (create path)', good({ problem: 'The tap drips \udc00 and the cabinet is wet' })],
-      ['address with a lone surrogate (create path)', good({ address: '12 Main St \ud83d, Hamilton' })],
+    // BUG-QA2-2 regression: an unpaired UTF-16 surrogate is not well-formed text. It must be refused with 422 and the
+    // field named in errors[] (never a 500), on a brand-new request and on an update of a pending one.
+    for (const [label, token, body, field] of [
+      ['name with a lone surrogate (update of the pending request)', C.token, good({ name: 'Zo\ud800e Probe' }), /^name$/],
+      ['name with a lone surrogate (create path)', undefined, good({ name: 'Zo\ud800e Probe' }), /^name$/],
+      ['problem with a lone surrogate (create path)', undefined, good({ problem: 'The tap drips \udc00 and the cabinet is wet' }), /^problem$/],
+      ['address with a lone surrogate (create path)', undefined, good({ address: '12 Main St \ud83d, Hamilton' }), /^address$/],
     ] as const) {
-      const res = await anon.post('/api/quote-requests', { headers: { 'X-Form-Token': next() }, data: body });
-      if (res.status() >= 500) failures.push(`${await lineWithBody(`create [${label}]`, res)} a server error`);
-      else if (res.status() >= 400 && !isProblemJson(res)) failures.push(`${await lineWithBody(`create [${label}]`, res)} an error that is not problem+json`);
+      const res = await anon.post('/api/quote-requests', { headers: { 'X-Form-Token': token ?? next() }, data: body });
+      const problem = await problemOf(res);
+      if (res.status() !== 422) failures.push(`${await lineWithBody(`create [${label}]`, res)} expected 422 (BUG-QA2-2), request id ${vercelId(res)}`);
+      else if (!isProblemJson(res)) failures.push(`${line(`create [${label}]`, res)} not problem+json`);
+      else if (!problem?.errors?.some((e) => field.test(e.field))) failures.push(`${line(`create [${label}]`, res)} 422 does not name the field in errors[] (${field.source})`);
     }
     // Malformed bodies
     for (const [label, data, type] of [

@@ -1,5 +1,19 @@
 # QA2 tickets: permission probes and API boundaries on the staging preview
 
+## Re-run at `bb54c17` (2026-11-24): all three tickets RESOLVED, no open ticket, no new ticket
+
+Run `ida17`: `npx playwright test tests/e2e/probes` → 54 passed, 0 failed, 0 flaky (`docs/qa-reports/QA2-run.md`). Each regression test now passes and stays in the suite.
+
+| Ticket | Status | Regression test that now passes |
+|---|---|---|
+| BUG-QA2-1 | RESOLVED | `PRB-06` (102 requests, 9 pages) and `PRB-06b` (27 requests): every unknown path answers 404 for every method and header |
+| BUG-QA2-2 | RESOLVED | `PRB-74b`, tightened to require 422 `problem+json` naming `name`, `problem` or `address` for an unpaired surrogate (create and update paths) |
+| BUG-QA2-3 | RESOLVED under the 400 ruling | `PRB-08`: `text/plain` and form-encoded bodies answer 400 `bad_request`, never a 401 sign-in failure. Open soft question for the architect (no 415 in the contract); if the contract gains one, change the expected status in `PRB-08` |
+
+The original tickets follow unchanged, for the record.
+
+---
+
 **Target:** https://northside-quotes-git-staging-baseleap.vercel.app · **Commit:** `42208a49aaaf21477fd369360f6a17caed80254f` · **Run:** `npx playwright test tests/e2e/probes`, run id `gqutp`, evidence `docs/qa-reports/playwright-results.json`, report `docs/qa-reports/QA2-run.md`.
 
 **No Critical ticket: no permission boundary was crossed.** Three root causes, each with a failing regression test that stays in the suite (the ledger's probes command stays red until they are fixed, by design). `$STAGING_URL` is the preview above and `$BYPASS` is `VERCEL_AUTOMATION_BYPASS_SECRET` (sent as `x-vercel-protection-bypass` to the preview host only).
