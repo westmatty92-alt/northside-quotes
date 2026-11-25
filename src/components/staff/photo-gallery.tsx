@@ -130,7 +130,8 @@ export function PhotoGallery({ requestId, reference, name, photos: initial }: Ph
                       />
                       <span
                         aria-hidden="true"
-                        className={cn('absolute bottom-xs left-xs rounded-sm bg-surface-deep px-sm py-xs text-text-inverse', type.labelSm)}
+                        // DV1 F-05: one line at 390 px ("View photo 1", not "View photo" over "1")
+                        className={cn('absolute bottom-xs left-xs rounded-sm bg-surface-deep px-xs py-xs whitespace-nowrap text-text-inverse', type.labelSm)}
                       >
                         {staffCopy.detail.viewPhoto(photo.position)}
                       </span>

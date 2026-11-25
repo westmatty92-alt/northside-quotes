@@ -175,3 +175,72 @@ Exact result: `12 view(s) of 6 screen(s)`, 4 problems, all `console error: verif
 - `verify-ui` not run, as instructed. Staff-screen visual evidence comes from QA on the staging preview (FE2V).
 
 **Not mine:** QA e2e tests in `tests/e2e/**` that look for "Open photo" or "Photo N" tiles, if any, need the new wording (not searched, outside my paths).
+
+## Attempt 3: BUG-FE2V-1 and DV1 F-01 (plus F-05) (2026-11-24)
+**Status:** done. Both defects reproduced by a failing test, fixed, and green. Nothing committed by me (no git, per the lane protocol). No verify-ui, as instructed. Staging proof is QA's `tests/e2e/visual` re-run after the merge.
+
+Read: this report (attempts 1 to 2b), `.baseleap/reports/FE2V-errors.md` and `.baseleap/reviews/DV1.md` (F-01, F-05) in the main repo, `src/components/ui/button.tsx`, `src/components/staff/photo-viewer.tsx`, `photo-gallery.tsx`, `src/app/globals.css`, `vitest.config.ts`, `.github/workflows/ci.yml` (to see whether CI has a browser).
+
+### BUG-FE2V-1 (Important): SCR-08 frame overlapped Previous / Next and the reference line at 1280 x 800
+- **Why a new kind of test:** jsdom has no layout, so a jsdom test cannot see an overlap. The new `src/components/staff/photo-viewer.layout.test.tsx` renders `PhotoViewer`'s real markup (`renderToStaticMarkup`), styles it with the app's real Tailwind build (`src/app/globals.css` through `@tailwindcss/postcss`, both already dev dependencies), opens it with `showModal()` in Playwright's Chromium (`@playwright/test`, already a dev dependency), and measures. It runs under the normal `npx vitest run src/components`.
+- **What it asserts,** in 24 cases (8 windows x 3 states). Windows: 1280x800, 1280x720, 390x844, 390x640 (the brief's four) plus 1280x600, 1920x500, 844x390 and 320x568. States: a landscape photo with Previous and Next both live, a portrait photo first of three (Previous paused), and "Photo unavailable" with Try again. For each case:
+  - the frame's box intersects none of the title, the reference/name line, Close, Previous photo, Next photo;
+  - each of those controls is the element the browser hits at its own centre (not covered);
+  - every control and the frame are inside the viewport, and the dialog does not scroll;
+  - the frame is wider than 200 px, taller than 150 px and at most 960 px wide; a photo frame stays 4:3 (within 0.02);
+  - Close, Previous and Next are each at least 44 px tall.
+- **Red (before the fix):** 18 of 24 failed. The 1280x800 case reproduced QA's numbers exactly: `frame (frame 160,42 960x720) overlaps reference line 16,42 196x23`, `overlaps Previous photo 16,740 240x44`, `overlaps Next photo 1024,740 240x44`. At 1280x720 and shorter, the frame also covered the title and Close and the dialog scrolled. The 390x844 and 390x640 cases passed, which matches QA. 320x568 failed differently: the Previous/Next row ran off the right edge (`Next photo 218,508 154x44 is off screen`).
+- **Fix** (`photo-viewer.tsx`):
+  - The middle region is now `min-h-0 flex-1 content-center`. It takes the height left between the title row and the button row, and centres the frame vertically.
+  - The frame (`figure`, and the "Photo unavailable" panel) is `mx-auto aspect-4/3 max-h-full max-w-240` with no set width. The browser carries the max-height across the 4:3 ratio, so the frame narrows to keep 4:3 when the height runs out. The photo stays `object-contain`.
+  - The unavailable panel also has `overflow-y-auto`, so on a very short window its words scroll inside it instead of pushing into the buttons.
+  - The Previous/Next row is now `flex-wrap`, with `ml-auto` on Next. It wraps only when the two buttons cannot fit side by side (320 px).
+  - Tokens only: no arbitrary values, no inline style.
+- **Green:** 23 of 24 passed after the layout fix. The last failure was F-01 showing in a real browser: at 320 px the paused Previous button sits alone on its row and measured **23.25 px** tall. After the F-01 fix below, 24 of 24 pass.
+- **Unverified:**
+  - Firefox and Safari. The test runs Chromium only. If a browser did not carry max-height across the ratio, the frame would come out wider than 4:3 but still the same height, so it could not overlap. The photo itself stays whole either way (object-contain).
+  - The staging preview: QA's `fe2-screens.both.spec.ts` (unchanged) is the proof there.
+- **CI note:** CI's `verify` job installs no Playwright browsers, so this file skips itself there and prints a warning saying why (`describe.skipIf(!hasChromium)`). On this machine Chromium is installed and all 24 cases run (the counts above are real runs, not skips).
+
+### DV1 F-01 (Important): paused buttons shrank to about 23 px
+- **Reproducing test:** new `src/components/ui/button.test.tsx`. For each variant (primary, secondary) it checks:
+  - the live button has its designed `min-h-12` or `min-h-11`, and the paused one keeps it, still with `aria-disabled="true"` and the dashed paused look;
+  - a paused button carries exactly one `min-h-*` class;
+  - the default variant keeps `min-h-11` when paused;
+  - a press on a paused button does nothing, and a live one runs.
+- **Red:** 5 of 6 failed. Each `toHaveClass("min-h-12")` / `toHaveClass("min-h-11")` on a paused button failed, and the class list's heights were `[]`.
+- **Fix** (`button.tsx`):
+  - The heights moved out of `looks` into `const minHeight = { primary: 'min-h-12', secondary: 'min-h-11' }`. `minHeight[variant]` is applied in `cn(...)` whether or not the button is paused.
+  - `pausedLook` is border, colour and cursor only.
+  - `looks` is checked with `satisfies` against the same keys, so a new variant cannot forget its height.
+  - `linkButtonClass` uses `minHeight.secondary` and is unchanged in output.
+  - This reaches all 18 `paused` call sites: Sending, Saving, Sign in, Move to while saving, Retry copy, Add a photo at the limit, Previous/Next at the ends, Try again, Show more.
+- **Green:** 6 of 6. The real-browser height (at least 44 px for the paused Previous) also passes in the layout test above.
+
+### DV1 F-05 (Minor, optional): "View photo N" wrapped at 390
+- **Fix** (`photo-gallery.tsx`): the tile label is `whitespace-nowrap` with `px-xs`, as the designer directed.
+- **Test:** `photo-viewer.test.tsx` "keep the "View photo N" label on one line" checks the class on each tile's label. I wrote it after the fix, so there is no separate red run.
+- **Unverified:** how it looks at 390 in a real browser. The tile's `overflow-hidden` would clip the label rather than wrap it if a tile were ever narrower than the label (about 95 px). QA's 390 capture will show it.
+
+### Commands run (each as one `cd <lane> && …` call)
+- `npm run typecheck` -> exit 0 ("Types generated successfully", tsc clean).
+- `npm run lint` -> exit 0 (0 errors; the same 2 warnings in `scripts/`, not mine).
+- `npx vitest run src/components --passWithNoTests=false` -> exit 0, 17 files, 278 tests passed. This includes the public-page (FE1) component tests that use `Button`, the new layout test (24 cases, run in Chromium, not skipped) and the new button test. I also ran `npx vitest run src` -> 20 files, 321 tests passed.
+- `npm run build` -> exit 0, every route listed, `Proxy (Middleware)` present.
+- `node scripts/check-code-guards.mjs generated` -> exit 0, "check-code-guards generated: OK".
+- verify-ui: not run (instructed).
+
+### Files changed (all inside FE2's owned paths)
+- `src/components/ui/button.tsx`: the height is independent of `paused` (F-01).
+- `src/components/ui/button.test.tsx` (new): a paused button keeps its min-height for each variant.
+- `src/components/staff/photo-viewer.tsx`: the frame fits the height that is left; `data-photo-frame` marks the frame for the test; the button row wraps at 320 (BUG-FE2V-1).
+- `src/components/staff/photo-viewer.layout.test.tsx` (new): Chromium layout test, no overlap at 8 windows and 3 states.
+- `src/components/staff/photo-gallery.tsx`: the tile label stays on one line (F-05).
+- `src/components/staff/photo-viewer.test.tsx`: one new test for F-05. No existing test changed.
+- `.baseleap/reports/FE2.md`: this section.
+
+**CONTRACT QUESTION:** none. **BLOCKED:** none. **NEW SETTING:** none.
+
+**Notes for the orchestrator**
+- The designer asked for the FE3 "Saving" Move to capture to be re-run after F-01. That needs a signed-in staging capture (QA or FE2V), not this lane.
+- If CI should run the layout test too, devops would add `npx playwright install --with-deps chromium` to the `verify` job (`.github/workflows/ci.yml`, devops-owned). Until then CI skips the file and says so.
