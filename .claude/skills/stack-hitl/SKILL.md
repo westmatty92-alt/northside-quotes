@@ -77,6 +77,7 @@ You cannot resolve gates — the CLI refuses inside Claude Code and the database
 
 These are what the CRM's **Needs you** shows, so write them for a phone screen and a non-developer.
 
+- **Say who answers.** Mark each question **For Matthew** or **For the client**. Client questions (the designer's discovery questions above all) are written so Matthew can forward them as they are: plain words, no internal names, with the preview images. The CRM gives them a share button.
 - **Every gate, escalation and question has a Recommendation with its reason and the options.** Lead with what you'd do (`**Recommendation:** Option A, because …`), then each option in one line with its cost or trade-off. Never ask an open question when you can propose an answer.
 - **A manual task for Matthew is its own task file**, `.baseleap/tasks/<id>.md`, recorded with `stack-ledger event manual_task --data '{"task":"<id>","title":"…","gate":"<key or none>"}'`:
   - **Title** (imperative), **why** it's needed, **time estimate**, and **what it unblocks**.
