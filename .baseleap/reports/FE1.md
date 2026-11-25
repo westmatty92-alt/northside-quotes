@@ -108,3 +108,55 @@ The folders `src/components/providers/` and `src/components/site/` are left empt
 
 **Could not do:** delete files (no `rm`, no git); the notes under "Could not do / unverified" in Attempt 3 still stand (gzip size, Vercel preview).
 **CONTRACT QUESTION:** none. The architect requests from Attempt 3 stand unchanged.
+
+## Attempt 2: REV-2 CQ-4
+**Status:** done, with two notes under "Could not do / unverified". Nothing committed (no git, per the lane protocol).
+
+**The problem.** `uploadPhoto` treated any storage 409 as "already uploaded". After a failed send, a swapped-in photo with the same type and size (so an identical photo plan, same token, same request, same path) got a 409 from the old photo, was skipped, and the request was submitted with the old photo.
+
+**Reproducing test, failing first.** `src/components/request/photo-swap.test.tsx`, test "a photo swapped in after a failed send (same type and size) is not treated as the one already uploaded". It runs the real form, send flow and `uploadPhoto` against a stand-in for the `quote-photos` bucket that answers 409 for an existing object (only `@/lib/supabase/browser` and `next/navigation` are replaced; the API is msw). Steps: send with photo X (uploads to photo-1), the submit fails (503), remove X, add Y (same type, same 2048 bytes), send again, storage answers 409.
+Run against the unfixed code (`npx vitest run src/components/request/photo-swap.test.tsx`, exit 1):
+```
+× a photo swapped in after a failed send (same type and size) is not treated as the one already uploaded
+AssertionError: expected "vi.fn()" to not be called at all, but actually been called 1 times
+  1st vi.fn() call: [ "/request-sent" ]
+  ❯ photo-swap.test.tsx:156   expect(nav.push).not.toHaveBeenCalled();
+Tests  1 failed | 1 passed (2)
+```
+That is the bug: the form went to SCR-02 and the old photo stood in for Y. (The second test in the file, the lost-reply retry of the same file, passed before and after: it pins the behaviour that must not change.)
+
+**The fix.**
+- `photo-upload.ts`: the uploader remembers, per path (the path carries the request id, so per token), which files this tab sent there (identity = name + size + lastModified, `photoIdentity`). A success makes the path exactly that file. An attempt that errors without a 409 (lost reply) may have landed, so its identity is kept as possible. On a 409 the photo counts as uploaded only if the one and only file this tab ever sent to that path is this file. Every other 409 (a different file, the same name and size with another lastModified, a path this tab never sent to, two different files that may both be stored) throws the new `PhotoConflict`. `isAlreadyUploaded` is kept, now documented as only "an object exists".
+- `submit-flow.ts`: new `PhotoConflict` (defined here, not in `photo-upload.ts`, because `request-form.test.tsx` replaces that whole module). `runSubmission` lets a conflict outrank a plain upload failure and stops before submit; the conflicted photo's row is marked failed. `classifyFailure` maps `PhotoConflict` to the existing `fresh-token` kind.
+- `request-form.tsx`: no new handling for the conflict, because `fresh-token` already does what CQ-4 asks: `router.refresh()`, every typed value, the photos and the offers box kept, the failure banner shown. The new token has a new nonce, so the next send is a fresh request, all photos are re-uploaded to new paths, and she taps Send again. One small addition in the same hazard class: a photo counts as `alreadyUploaded` only if it reached Storage at the position it now has (`uploadedAt` ref), so a photo that moves up after another is removed is checked at its new place instead of being skipped over a different photo sitting at that path.
+
+**Passing.** Same command after the fix: `Test Files 6 passed (6), Tests 79 passed (79)` (the swap test now ends with: no navigation, `nav.refresh` once, typed values and offers tick kept, new token sent, Y stored at the new request's photo-1, token sequence `[TOKEN, TOKEN, TOKEN_2]`). I also removed the `uploadedAt` check temporarily and confirmed the "moves up" test fails without it, then restored it.
+
+**New tests (all in `src/components/request/`):**
+- `photo-swap.test.tsx` (3): the swap above; the moved-up photo; a same-file retry after a lost reply is still "already uploaded" (no new token, one submit).
+- `photo-upload.test.ts` (11): identity, same file, same file after a lost reply, different file same type/size, same name/size with another lastModified, a path this tab never sent to, lost reply then a different file, a conflict repeated, a real landing after a lost reply, non-409 errors thrown as is.
+- `submit-flow.test.ts`: conflict stops before submit and outranks a failed upload; `classifyFailure(PhotoConflict)` is `fresh-token`.
+
+**Commands run (each as one `cd <lane> && ...`):**
+- `npm run typecheck` -> exit 0.
+- `npm run lint` -> exit 0 (0 errors; the same 2 warnings in `scripts/`, not mine).
+- `npx vitest run src/components/request --passWithNoTests=false` -> exit 0, 6 files, 79 tests.
+- Env-prefixed `npm run build` (`NEXT_PUBLIC_API_MOCKING=on NEXT_PUBLIC_SUPABASE_URL=... NEXT_PUBLIC_SUPABASE_ANON_KEY=... APP_SIGNING_SECRET=... npm run build`) -> **refused** ("This Bash command contains multiple operations. The following part requires approval"). Ran plain `npm run build` -> exit 0; `/` and `/request-sent` are dynamic. **The env-prefixed form is unverified by me.**
+- `node scripts/check-code-guards.mjs generated` -> exit 0 ("OK").
+- FE1's verify-ui command exactly as in the step entry (local `next start`, `--serve`, no mocking flag) -> exit 0 ("no console errors, failed requests or axe violations"). **Caution:** with my plain build, mocking is off, so every `mockScenario` URL rendered the blank form and `/request-sent` redirected to `/`; the screenshots were identical. That is a green that checked nothing about the scenario states. I re-ran it with `--env NEXT_PUBLIC_API_MOCKING=on` added (as in Attempt 3) -> exit 0, 8 views of 4 screens, 0 console errors, 0 failed requests, 0 axe violations; I looked at `SCR-01--send-failed-mobile.png` and it shows the failure banner, kept values and 3 photos. The screenshots in `.baseleap/reports/FE1/` are from that second run. With the ledger's build (flag set at build time) the extra flag is not needed.
+
+**Files changed:**
+- `src/components/request/photo-upload.ts`: identity record, 409 only for the same file, otherwise `PhotoConflict`.
+- `src/components/request/submit-flow.ts`: `PhotoConflict`, conflict outranks upload failure, classified as `fresh-token`.
+- `src/components/request/request-form.tsx`: header comment, `uploadedAt` position check.
+- `src/components/request/photo-swap.test.tsx` (new), `src/components/request/photo-upload.test.ts` (new), `src/components/request/submit-flow.test.ts` (added cases).
+- `.baseleap/reports/FE1.md` (this section) and regenerated `.baseleap/reports/FE1/*` screenshots and `verify-ui.json`.
+
+**Could not do / unverified:**
+- "Re-send": I used the existing refresh flow, where the page gets the new token and she taps Send again (the banner says so). An automatic re-send would have to wait for the new token to arrive through a re-render; I did not build that. Say if the reviewer wants it automatic.
+- The photo row of a conflicted photo shows the existing "This photo didn't upload. Check your connection, then tap Send request to try again." copy (`copy.ts`). It is not wrong, but "check your connection" is not the cause; designer to confirm or supply copy.
+- Identity is name + size + lastModified (as CQ-4 allows), not a content hash. Two different files with all three equal would be treated as the same file; I judged that not realistic and did not hash 5 MB files on a phone.
+- Not run against real Supabase Storage (the bucket is a stand-in answering 409 like `upsert: false` does) and not on a Vercel preview (no push by me). The component tests use jsdom.
+- Backend's photo-plan comparison is not exercised here; this change is independent of it.
+
+**CONTRACT QUESTION:** none. **BLOCKED:** none.
