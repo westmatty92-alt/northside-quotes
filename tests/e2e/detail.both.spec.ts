@@ -165,14 +165,18 @@ test.describe('the detail screen (US-005, US-007, US-010)', () => {
     await guard.axe('request-detail-with-photos');
   });
 
-  test('@regression design wording: each photo button is named "Open photo N of 3 at full size" (design-specs, PhotoThumb and Screen readers)', async ({
+  test('@regression design wording (SQ-10): each photo tile shows "View photo N" and is named "View photo N of 3 at full size" (design-specs, PhotoThumb and Screen readers)', async ({
     page,
     staffApi,
   }) => {
     const api = await staffApi('owner');
     const request = await pick(api, (d) => d.photo_count === 3, 'one with 3 photos');
     await page.goto(`/requests/${request.id}`);
-    await expect(page.getByRole('button', { name: /^Open photo \d of 3 at full size$/ })).toHaveCount(3);
+    for (const n of [1, 2, 3]) {
+      const tile = page.getByRole('button', { name: `View photo ${n} of 3 at full size`, exact: true });
+      await expect(tile).toHaveCount(1);
+      await expect(tile, 'the visible words start the accessible name (WCAG 2.5.3)').toContainText(`View photo ${n}`);
+    }
   });
 
   test('@regression AC-005.7 when photo storage cannot be reached each photo slot says "Photo unavailable" and the rest of the request is shown', async ({

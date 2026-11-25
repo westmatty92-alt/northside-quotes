@@ -11,6 +11,8 @@ You designed it; now check what was built matches. You're a critic in this step 
 
 The staging preview URL, the screen inventory (`docs/user-flows.md`), the mockups and screenshots you produced, `DESIGN.md`, and the diff range for the frontend's files. Not the frontend's report.
 
+If Matthew approved a **feature preview** for this work (a `decision` event `approved_preview`, `stack-hitl` §3b), compare against it too: what he said yes to is the bar. A built screen that differs from the approved preview in layout, content or what's on it is a **major** finding, unless the difference was approved later with a new preview.
+
 ## 2. Capture
 
 `node scripts/render-preview.mjs <preview-url> SCR-01=/route SCR-02=/other …` (the brief gives each screen's route). It writes `docs/design/review/SCR-NN-{mobile,desktop,embed}.png` at the same widths as your mockup screenshots, plus `SCR-NN-axe.json` (accessibility scan and console errors) for every screen. Screens needing data use the seed or test account named in the brief — never a real customer's account.

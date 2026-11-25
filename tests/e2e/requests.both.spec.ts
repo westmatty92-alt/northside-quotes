@@ -219,11 +219,13 @@ test.describe('status from the list (US-007) and the weekly count (US-008)', () 
     await page.keyboard.press('Escape');
   });
 
-  test('@regression design wording: each Move to button is named "Move NQ-... to another status" (design-specs, Screen readers)', async ({ page, staffApi }) => {
+  test('@regression design wording (SQ-10): each Move to button shows "Move to" and is named "Move to another status, NQ-..." (design-specs, MoveToMenu and Screen readers)', async ({ page, staffApi }) => {
     const api = await staffApi('owner');
     const request = await pickAt(api, 'quoted', () => true, 'available');
     await page.goto('/requests');
-    await expect(page.getByRole('button', { name: `Move ${request.reference} to another status` })).toHaveCount(1);
+    const button = page.getByRole('button', { name: `Move to another status, ${request.reference}`, exact: true });
+    await expect(button).toHaveCount(1);
+    await expect(button, 'the visible words start the accessible name (WCAG 2.5.3)').toContainText('Move to');
   });
 
   test('@regression AC-007.6 when a status save fails the request keeps its status and says "Couldn\'t save. Try again."', async ({ page, staffApi, guard }) => {

@@ -140,6 +140,7 @@ test.describe('accepted submissions', () => {
     await cdp.send('Network.emulateNetworkConditions', { offline: false, latency: 0, downloadThroughput: -1, uploadThroughput: -1 });
     recordCreated({ reference, name, note: 'double tap, 3 x 5,242,880 byte photos' });
     await testInfo.attach('confirm-ms', { body: `${elapsed} ms from the tap to the confirmation (simulated 4G, 15 MB of photos)`, contentType: 'text/plain' });
+    console.log(`[qa] AC-002.7 confirm-ms=${elapsed} (4G profile: 9 Mbps, 170 ms, 3 x 5,242,880 bytes)`);
     expect(elapsed, 'AC-002.7 milliseconds from Send to the confirmation').toBeLessThan(20_000);
 
     const matches = await ownerApi.byName(name);

@@ -85,5 +85,15 @@ export default defineConfig({
       testMatch: /late\.phone\.spec\.ts$/,
       dependencies: ['setup'],
     },
+    // QA2: permission, abuse and boundary probes (tests/e2e/probes, every test tagged @probe). No dependency on
+    // `setup`: the probes get their own staff tokens, and `setup` would empty qa-e2e-created.ndjson, which QA2 must keep.
+    // Retries are off because most probes spend the 5-per-10-minutes submission limit or a sign-in count; a retry
+    // would change what is being measured. A failure is reported as a failure, never retried into a pass.
+    {
+      name: 'probes',
+      use: { ...desktop, browserName: 'chromium' },
+      testMatch: /probes[\\/].*\.spec\.ts$/,
+      retries: 0,
+    },
   ],
 });

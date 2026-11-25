@@ -14,7 +14,9 @@ info:
     token of a staff session as a bearer token (never the cookie). The public submission uses the
     signed form token (formToken). Photos are uploaded straight to Supabase Storage (uploadQuotePhoto,
     implemented by Supabase, not by our app). A method that is not listed for a path returns 405
-    with a problem body (code method_not_allowed). Unexpected failures return 500 with code
+    with a problem body (code method_not_allowed). The TRACE method is the exception: the hosting
+    platform (Vercel) answers it before the app runs, with its own plain-text 405 that this
+    contract does not describe. Unexpected failures return 500 with code
     internal_error. There is no operation to change or reset a password (ruling 3A, FR-27): Baseleap
     sets and resets the two staff passwords in the Supabase dashboard. See docs/architecture.md
     and docs/SECURITY_MODEL.md.
@@ -577,6 +579,11 @@ paths:
                 display_name: Owner
         '400':
           $ref: '#/components/responses/BadRequest'
+          description: >-
+            Malformed request: the body is not JSON or has the wrong types, or the Content-Type is
+            missing or not application/json (for example text/plain or form-encoded; parameters
+            such as charset are fine). A wrong Content-Type is refused before the body is read,
+            so it is not counted against either sign-in limit.
         '401':
           $ref: '#/components/responses/InvalidCredentials'
         '422':
@@ -803,10 +810,13 @@ components:
     Cursor:
       name: cursor
       in: query
-      description: Opaque cursor from the previous page's next_cursor
+      description: >-
+        Opaque cursor from the previous page's next_cursor. A value this API did not issue
+        (wrong prefix, not decodable, not the shape it writes) is refused with 400 bad_request.
       schema:
         type: string
         maxLength: 200
+        pattern: '^c1\.[A-Za-z0-9_-]+$'
     Limit:
       name: limit
       in: query
@@ -851,6 +861,7 @@ components:
         version:
           type: integer
           minimum: 1
+          maximum: 2147483647
           description: Send it back with a status change from a list row or board card
     QuoteRequestPage:
       type: object
@@ -1023,6 +1034,7 @@ components:
         version:
           type: integer
           minimum: 1
+          maximum: 2147483647
     PhotoPlan:
       type: object
       additionalProperties: false
@@ -1164,6 +1176,8 @@ components:
         version:
           type: integer
           minimum: 1
+          maximum: 2147483647
+          description: The version the user saw. Above 2,147,483,647 (the column is a 32-bit integer) is 422 naming version.
     StatusChangeCreate:
       type: object
       additionalProperties: false
@@ -1174,6 +1188,8 @@ components:
         version:
           type: integer
           minimum: 1
+          maximum: 2147483647
+          description: The version the user saw. Above 2,147,483,647 (the column is a 32-bit integer) is 422 naming version.
     StatusChangeResult:
       type: object
       additionalProperties: false
@@ -1189,6 +1205,7 @@ components:
         version:
           type: integer
           minimum: 1
+          maximum: 2147483647
     GhlCopyRetryResult:
       type: object
       additionalProperties: false

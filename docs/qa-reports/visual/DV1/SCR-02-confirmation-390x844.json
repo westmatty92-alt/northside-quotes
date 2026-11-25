@@ -1,0 +1,27 @@
+{
+  "id": "SCR-02-confirmation",
+  "viewport": "390 x 844",
+  "path": "/request-sent",
+  "title": "Request sent | Northside",
+  "commit_prefix": "42208a4",
+  "screenshots": [
+    "SCR-02-confirmation-390x844.png",
+    "SCR-02-confirmation-390x844-full.png"
+  ],
+  "axe": {
+    "serious_or_critical": [],
+    "minor_or_moderate": []
+  },
+  "console_errors": [],
+  "failed_requests": [],
+  "designed_aborts": [],
+  "page_size": {
+    "document_scroll_width": 390,
+    "document_client_width": 390,
+    "document_scroll_height": 1192
+  },
+  "sideways_scroll": false,
+  "reference_shown": "NQ-GBG78M",
+  "photos_sent": 1,
+  "note": "same page, window narrowed to 390 px (desktop browser, not a phone)"
+}
