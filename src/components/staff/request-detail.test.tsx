@@ -178,7 +178,7 @@ describe('SCR-06 Request detail', () => {
       const { container } = await open(TOMASZ);
       expect(screen.getByText('No photos')).toBeInTheDocument();
       expect(screen.getByText(/The homeowner did not attach any/)).toBeInTheDocument();
-      expect(screen.queryByRole('button', { name: /View photo/ })).toBeNull();
+      expect(screen.queryByRole('button', { name: /photo/i })).toBeNull();
       await expectNoAxeViolations(container);
     });
 
@@ -198,7 +198,7 @@ describe('SCR-06 Request detail', () => {
       );
       const { container } = await open();
       expect(screen.getAllByText('Photo unavailable')).toHaveLength(3);
-      expect(screen.queryByRole('button', { name: /View photo/ })).toBeNull();
+      expect(screen.queryByRole('button', { name: /photo/i })).toBeNull();
       expect(screen.getByText(/Reload the page to try the photos again/)).toBeInTheDocument();
       expect(screen.getByRole('heading', { level: 1, name: 'Dana Whitfield' })).toBeInTheDocument();
       await expectNoAxeViolations(container);

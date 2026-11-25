@@ -85,3 +85,162 @@ Console errors: 0 on every view. axe (WCAG 2.2 AA tags, phone width): 0 violatio
 - **Tailwind trap (new, same family as FE1's `font-h1`):** `theme.css` defines `--spacing-xs` to `--spacing-2xl`, and Tailwind resolves `max-w-xs`, `max-w-md` and friends to those spacing tokens (4 to 48 px), not to container widths. Use numeric widths (`max-w-80`, `max-w-112`). I hit this twice (search box and empty-state text collapsed) and fixed it.
 - **Refused command shapes this step:** env-prefixed `npm run build`; `node -e`; `cd ... && grep ... | head`; `wc`; background `npm run start` with an env prefix. Plain `npm run`, `npx vitest`, `node scripts/...`, `ls`, `grep` (single command) work.
 - The old FE1 leftovers still to delete (no `rm` for me): `src/components/providers/app-providers.tsx`, `src/components/site/public-page.tsx`, `src/components/site/site-chrome.tsx`, `src/components/site/wordmark.tsx`.
+
+## Attempt 2: QA1 fixes (2026-11-23)
+
+**Status:** partial. Every code fix and its component test is done and green. `verify-ui` fails on SCR-06 for a reason I cannot clear (see "verify-ui" below).
+
+Read: the four tickets in `.baseleap/reports/QA1-errors.md`, `docs/design-specs.md` (SCR-06, SCR-08, PhotoThumb, Wordmark, Screen readers), `design/mockups/SCR-06-request-detail.html`, QA's `tests/e2e/detail.both.spec.ts` and `pipeline.desktop.spec.ts` plus `support/ui.ts` (read only), axe-core 4.14.1's `label-content-name-mismatch` source.
+
+### Why jsdom never caught BUG-2, and the test helper that does
+The generic axe run in the old tests passes on the broken header because axe cannot decide this rule in jsdom. With no layout nothing counts as visible text, and without a canvas axe's icon-ligature check throws, so the rule ends up "needs review", not a violation. `expectLabelsContainVisibleText` (new, `src/components/staff/test-support.tsx`) gives axe a box per element and a canvas stand-in for the length of the run, then restores them. It also fails if axe checked nothing. It runs only `label-content-name-mismatch`, which is tagged `wcag21a` (QA's tags include it; `verify-ui` uses `wcag21aa` and does not, which is why FE2 attempt 1 never saw it).
+
+### BUG-QA1-2 (Critical): header logo link
+- **Reproducing test:** `staff-shell.test.tsx` "the header logo link is named with its visible wordmark text first, and the frame has no axe violation (WCAG 2.5.3)" (renders `StaffShell`), plus negative controls in `tmp-debug.test.tsx` (the helper fails on the old link).
+- **Red:** failed with `label-content-name-mismatch (serious): <a href="/requests" aria-label="Northside Plumbing, Requests">`.
+- **Root cause was two things.** (1) The aria-label did not contain "Hamilton". (2) Fixing the label alone left the test red: axe joins the wordmark's two SVG `<text>` elements with no space, so the visible text it compares is "NORTHSIDEPLUMBING · HAMILTON" and no sensible label can contain that.
+- **Fix:** `copy.ts` `nav.home` is now "Northside Plumbing, Hamilton: Requests" (starts with the visible words, still says where it goes). `src/components/ui/site/wordmark.tsx` now draws its two lines as two `<tspan>`s of one `<text>` with a space between them, each keeping its own x/y, so the visible text reads "NORTHSIDE PLUMBING · HAMILTON". The drawing is unchanged (checked on the sign-in screenshot, `.baseleap/reports/FE2/SCR-03-desktop.png`). The public pages share this component and are unchanged too.
+- **Green:** same test passes; `tmp-debug2.test.tsx` pins the wordmark's text with its space.
+- **Unverified:** in a real browser on the staging preview (no way past the proxy, below). QA's axe run on the redeployed preview is the proof. Axe may then show other violations that the first failure hid, as QA warned.
+
+### BUG-QA1-3 (Important): "Photo unavailable" when an image cannot load
+- **Design:** SCR-06 Error: "Photo storage unreachable: each photo slot says 'Photo unavailable' and the rest of the page shows." Same slot as the existing `url: null` case.
+- **Reproducing tests** (`photo-viewer.test.tsx`): "Storage unreachable: every slot whose image fails says 'Photo unavailable', the rest of the request still shows, and fresh URLs are asked for once" and "one photo that fails does not take the others with it, and it comes back when a fresh URL loads".
+- **Red:** both failed with "Unable to find an element with the text: Photo unavailable".
+- **Fix** (`photo-gallery.tsx`): a thumbnail's `onError` now marks that slot (it remembers the URL that failed) and the slot renders the unavailable panel at once. It still asks for fresh URLs, but once per photo until an image loads and as one request however many fail together. Before, a set of URLs that all failed would ask again for every new set (a loop while Storage is down). A fresh URL for the same photo is tried again; if it fails too the slot stays "Photo unavailable" with no new request (the test checks the request count stays 1). The hint under the photos switches to "The rest of the request is still shown. Reload the page to try the photos again." for these too.
+- **Green:** both pass, with axe clean on the failed state. A slot can flash the picture again for a moment while a fresh URL is tried; I accepted that.
+
+### BUG-QA1-4 (Important): focus leaves the photo viewer
+- **Cause:** a native modal `<dialog>` makes the page behind inert but its Tab order ends at the browser's own controls, so after the last button focus goes to the body (what QA saw).
+- **Reproducing tests** (`photo-viewer.test.tsx`): "Tab keeps focus inside the dialog and cycles Close, Previous photo, Next photo, Close", "Shift+Tab from Close goes to the last control, and back", "the trap still holds on the last photo, where Next is paused but stays in the Tab order", "Escape closes the viewer and puts focus back on the thumbnail that opened it". jsdom has no Tab key, so `pressTab()` sends the keydown and, if the page did not stop it, plays the browser's default (next control inside the dialog; past the last: out of the page).
+- **Red:** 4 failed: "Tab 3 left the dialog: focus trail Previous photo > Next photo > ..." (the same trail as QA), and Escape left the dialog open.
+- **Fix** (`photo-viewer.tsx`): the dialog's own `onKeyDown` wraps Tab from the last control to the first and Shift+Tab from the first to the last. Escape is now handled explicitly (`dialog.close()`, one path that hands focus back to the thumbnail) as well as by the browser. The paused Previous/Next buttons (`aria-disabled`, not `disabled`) stay in the Tab order, as the project's `Button paused` pattern has it; QA's side note about that is the designed behaviour, not changed.
+- **Green:** all four pass, with the existing open/close/arrows tests. **Not run in a real browser** (Escape and the trap in Chromium are for QA's `design: focus is trapped inside the open photo viewer` on the preview).
+
+### BUG-QA1-5 (Minor): accessible names
+- **Photo thumbnails: aligned to the spec.** Button name "Open photo N of 3 at full size" (design-specs PhotoThumb and Screen readers); tile text "Photo N" (the SCR-06 mockup). The name contains the visible words, so WCAG 2.5.3 holds (test: "are named 'Open photo N of 3 at full size' and show 'Photo N' on the tile; the name contains the visible words"). `request-detail.test.tsx` and `photo-viewer.test.tsx` use the new names. I wrote the fix and the test together; there is no separate red run for this one, but the negative control in `tmp-debug.test.tsx` shows the helper fails the old pairing ("Open photo ..." on a tile reading "View photo 2").
+- **Move to: the spec is wrong, so the deployed name stays.** design-specs wants "Move NQ-7K3M9P to another status" with the visible text "Move to". "Move" and "to" are not together in that name, so axe's `label-content-name-mismatch` fails it (serious, WCAG 2.5.3). The negative control in `tmp-debug.test.tsx` proves it. "Move to another status, NQ-7K3M9P" starts with the visible words, carries the reference, and passes. FE3's board uses the same `moveLabel`, and its tests (`^Move to another status`) are unaffected. New test in `requests-list.test.tsx`: every Move to button is named with its visible words first, and passes the label-in-name check. **Needs the designer:** change the spec wording to "Move to another status, NQ-7K3M9P" (design-specs "Screen readers", and the MoveToMenu line if there is one). QA's `design wording: each Move to button is named "Move NQ-... to another status"` (SQ-10) will keep failing until the spec and that test change; it should not be satisfied by changing the app.
+
+### SQ-9: finger drag by the grip
+- **Result: it works as FE3 designed it, in the logic.** New file `src/components/staff/pipeline/touch-drag.test.tsx` (5 tests, all pass) drives the real `PipelineBoard` with touch pointer events: pressing the grip, moving over Won and lifting saves `to_status: won` with the version she saw, the card moves there and "NQ-7K3M9P moved to Won" is announced; New to Quoted and Quoted to Lost; a `pointercancel` puts the card back with nothing stored; another pointer is ignored; the grip carries `touch-none` and a press on the rest of the card does not drag. I added a new file and did not edit FE3's tests or code.
+- **Why QA's `board › AC-016.2 ... touch pointer` still fails.** `touchDrag` in `tests/e2e/support/ui.ts` presses the centre of the card and long-presses. By design a finger only picks a card up by the grip (`[data-grip]`), so the card centre is a page scroll, not a drag. The test must press the grip (it is `aria-hidden`, so target it by `[data-grip]` inside the card) and then move.
+- **Real finding for FE3 (not mine to edit).** `board-card.tsx` renders the grip as `className="hidden touch-none ... xl:inline-flex"`, so it is only displayed from 1280 px. Below that a finger has no handle and the Move to menu is the only touch path. If the ruling means finger drag at tablet and phone widths too, the grip must be displayed at those widths (drop `hidden`/`xl:inline-flex`, keep `touch-none`, and give it a 44 px target as the design's touch rule says). At 1280 px and above it is there.
+- **Unverified in a real browser (cannot reach /pipeline, below):** (a) whether Chromium keeps delivering the touch's pointer events to the window after the card turns into the dashed gap, because the touch's implicit capture target (the grip) sits inside the `inert`/`invisible` div of the lifted card. If it does not, the fix in `use-board-drag.ts` is one line at the start of `onCardPointerDown`: `if (event.pointerType === 'touch' && event.target instanceof Element) event.target.releasePointerCapture?.(event.pointerId)`, so events follow the finger, not the lifted element. (b) That the browser does not send `pointercancel` itself (`touch-none` on the grip should prevent it).
+
+### Commands run (each with the `cd <lane> &&` prefix)
+- `npm run typecheck` -> exit 0.
+- `npm run lint` -> exit 0 (0 errors; 2 warnings in `scripts/` that are not mine).
+- `npx vitest run src/components/staff --passWithNoTests=false` -> exit 0, 11 files, 184 tests pass. `npx vitest run src` -> 18 files, 290 tests pass.
+- `NEXT_PUBLIC_API_MOCKING=on ... npm run build` -> refused again (env-prefixed command). Built plain: `npm run build` -> exit 0 (all routes listed; `Proxy (Middleware)` present).
+- `node scripts/check-code-guards.mjs generated` -> exit 0, "check-code-guards generated: OK".
+- FE2's verify-ui command (as in the step entry) -> exit 1, see below.
+
+### verify-ui
+Exact result: `12 view(s) of 6 screen(s)`, 4 problems, all `console error: verify-ui: locator.click: Timeout 10000ms exceeded.` on SCR-06 and SCR-06--no-consent (mobile and desktop). The cause is the proxy: `.baseleap/reports/FE2/SCR-04-desktop.png` shows the Staff sign-in page, so `/requests` and `/requests/mock-1` were redirected to `/sign-in`, where there is no photo button to click. SCR-04 and SCR-04--empty "pass" only because they were looking at the clean sign-in page (not a real check of the Requests tab). SCR-03 and SCR-03--error pass. I did not work around the proxy.
+
+**Second problem waiting behind the first (decide before the proxy is fixed).** The step entry's click is `--click "SCR-06=button:has-text('View photo')"`. After BUG-QA1-5 the tile shows "Photo N" (the spec and mockup), so that selector no longer matches anything, even with a session. Change the step entry to something like `--click "SCR-06=button[aria-label^='Open photo']"`. I kept to the spec because the ruling was to align with it; if you prefer to keep the ledger command, the alternative is to make the spec and mockup say "View photo" (name "View photo N of 3 at full size", tile "View photo N", as attempt 1 had it) and leave QA's design-wording test to the designer.
+
+### Files changed
+- `src/components/staff/copy.ts` — `nav.home`, photo tile text and name, comment on `moveLabel`.
+- `src/components/ui/site/wordmark.tsx` — one `<text>` with two `<tspan>`s and a space.
+- `src/components/staff/photo-gallery.tsx` — failed-thumbnail state, bounded refresh.
+- `src/components/staff/photo-viewer.tsx` — Tab wrap and explicit Escape.
+- `src/components/staff/test-support.tsx` — `expectLabelsContainVisibleText`.
+- `src/components/staff/staff-shell.test.tsx`, `photo-viewer.test.tsx`, `request-detail.test.tsx`, `requests-list.test.tsx` — the new and updated tests.
+- `src/components/staff/pipeline/touch-drag.test.tsx` (new) — SQ-9.
+- `src/components/staff/tmp-debug.test.tsx`, `src/components/staff/tmp-debug2.test.tsx` (new): negative controls for the helper and the wordmark text pin. The names are leftovers of my debugging and I have no `rm` or `mv`; they are real tests, please rename them (for example `label-in-name.test.tsx` and `wordmark.test.tsx`).
+- `.baseleap/reports/FE2.md`, `.baseleap/reports/FE2/*` (re-written by verify-ui).
+
+### Not mine, for the orchestrator
+- The designer: Move to wording in the spec (above); QA: the touch-drag test must start on the grip, and the photo design-wording test now matches.
+- FE3: grip display below 1280 px (above), only if finger drag is wanted on phones and tablets.
+- `CONTRACT QUESTION` 1 from attempt 1 (proxy in mock mode) is now the live blocker for `verify-ui` on SCR-04 and SCR-06. No new contract question.
+
+## Attempt 2b: View photo wording (2026-11-24)
+**Status:** done. Per the ledger ruling of 2026-11-24: the photo tile shows "View photo N" and its accessible name is "View photo N of 3 at full size" (visible words first, so label-in-name holds). The Move to button keeps "Move to another status, NQ-...". The photo viewer dialog title ("Photo N of 3") is unchanged. Nothing committed by me (no git).
+
+**Files changed**
+- `src/components/staff/copy.ts`: `detail.viewPhoto` now `View photo N`; `detail.viewPhotoLabel` now `View photo N of T at full size`; comment updated.
+- `src/components/staff/photo-viewer.test.tsx`: thumb lookup, the tile wording test, and the `/Open photo/` queries now use `View photo`.
+- `src/components/staff/request-detail.test.tsx`: the three-tile assertion now matches `/^View photo \d of 3 at full size$/`.
+- `src/components/staff/label-in-name.test.tsx`: the photo case keeps both checks (new wording passes; the old "Open photo" name against "View photo 2" text still fails), retitled.
+- `src/components/staff/photo-gallery.tsx` needed no change (it reads both strings from copy).
+
+**Commands run (each with the `cd <lane> &&` prefix)**
+- `npm run typecheck` -> exit 0.
+- `npm run lint` -> exit 0 (0 errors; the same 2 warnings in `scripts/`, not mine).
+- `npx vitest run src/components/staff --passWithNoTests=false` -> exit 0, 11 files, 184 tests (label-in-name and axe tests included).
+- `npm run build` -> exit 0.
+- `node scripts/check-code-guards.mjs generated` -> exit 0 ("OK").
+- `verify-ui` not run, as instructed. Staff-screen visual evidence comes from QA on the staging preview (FE2V).
+
+**Not mine:** QA e2e tests in `tests/e2e/**` that look for "Open photo" or "Photo N" tiles, if any, need the new wording (not searched, outside my paths).
+
+## Attempt 3: BUG-FE2V-1 and DV1 F-01 (plus F-05) (2026-11-24)
+**Status:** done. Both defects reproduced by a failing test, fixed, and green. Nothing committed by me (no git, per the lane protocol). No verify-ui, as instructed. Staging proof is QA's `tests/e2e/visual` re-run after the merge.
+
+Read: this report (attempts 1 to 2b), `.baseleap/reports/FE2V-errors.md` and `.baseleap/reviews/DV1.md` (F-01, F-05) in the main repo, `src/components/ui/button.tsx`, `src/components/staff/photo-viewer.tsx`, `photo-gallery.tsx`, `src/app/globals.css`, `vitest.config.ts`, `.github/workflows/ci.yml` (to see whether CI has a browser).
+
+### BUG-FE2V-1 (Important): SCR-08 frame overlapped Previous / Next and the reference line at 1280 x 800
+- **Why a new kind of test:** jsdom has no layout, so a jsdom test cannot see an overlap. The new `src/components/staff/photo-viewer.layout.test.tsx` renders `PhotoViewer`'s real markup (`renderToStaticMarkup`), styles it with the app's real Tailwind build (`src/app/globals.css` through `@tailwindcss/postcss`, both already dev dependencies), opens it with `showModal()` in Playwright's Chromium (`@playwright/test`, already a dev dependency), and measures. It runs under the normal `npx vitest run src/components`.
+- **What it asserts,** in 24 cases (8 windows x 3 states). Windows: 1280x800, 1280x720, 390x844, 390x640 (the brief's four) plus 1280x600, 1920x500, 844x390 and 320x568. States: a landscape photo with Previous and Next both live, a portrait photo first of three (Previous paused), and "Photo unavailable" with Try again. For each case:
+  - the frame's box intersects none of the title, the reference/name line, Close, Previous photo, Next photo;
+  - each of those controls is the element the browser hits at its own centre (not covered);
+  - every control and the frame are inside the viewport, and the dialog does not scroll;
+  - the frame is wider than 200 px, taller than 150 px and at most 960 px wide; a photo frame stays 4:3 (within 0.02);
+  - Close, Previous and Next are each at least 44 px tall.
+- **Red (before the fix):** 18 of 24 failed. The 1280x800 case reproduced QA's numbers exactly: `frame (frame 160,42 960x720) overlaps reference line 16,42 196x23`, `overlaps Previous photo 16,740 240x44`, `overlaps Next photo 1024,740 240x44`. At 1280x720 and shorter, the frame also covered the title and Close and the dialog scrolled. The 390x844 and 390x640 cases passed, which matches QA. 320x568 failed differently: the Previous/Next row ran off the right edge (`Next photo 218,508 154x44 is off screen`).
+- **Fix** (`photo-viewer.tsx`):
+  - The middle region is now `min-h-0 flex-1 content-center`. It takes the height left between the title row and the button row, and centres the frame vertically.
+  - The frame (`figure`, and the "Photo unavailable" panel) is `mx-auto aspect-4/3 max-h-full max-w-240` with no set width. The browser carries the max-height across the 4:3 ratio, so the frame narrows to keep 4:3 when the height runs out. The photo stays `object-contain`.
+  - The unavailable panel also has `overflow-y-auto`, so on a very short window its words scroll inside it instead of pushing into the buttons.
+  - The Previous/Next row is now `flex-wrap`, with `ml-auto` on Next. It wraps only when the two buttons cannot fit side by side (320 px).
+  - Tokens only: no arbitrary values, no inline style.
+- **Green:** 23 of 24 passed after the layout fix. The last failure was F-01 showing in a real browser: at 320 px the paused Previous button sits alone on its row and measured **23.25 px** tall. After the F-01 fix below, 24 of 24 pass.
+- **Unverified:**
+  - Firefox and Safari. The test runs Chromium only. If a browser did not carry max-height across the ratio, the frame would come out wider than 4:3 but still the same height, so it could not overlap. The photo itself stays whole either way (object-contain).
+  - The staging preview: QA's `fe2-screens.both.spec.ts` (unchanged) is the proof there.
+- **CI note:** CI's `verify` job installs no Playwright browsers, so this file skips itself there and prints a warning saying why (`describe.skipIf(!hasChromium)`). On this machine Chromium is installed and all 24 cases run (the counts above are real runs, not skips).
+
+### DV1 F-01 (Important): paused buttons shrank to about 23 px
+- **Reproducing test:** new `src/components/ui/button.test.tsx`. For each variant (primary, secondary) it checks:
+  - the live button has its designed `min-h-12` or `min-h-11`, and the paused one keeps it, still with `aria-disabled="true"` and the dashed paused look;
+  - a paused button carries exactly one `min-h-*` class;
+  - the default variant keeps `min-h-11` when paused;
+  - a press on a paused button does nothing, and a live one runs.
+- **Red:** 5 of 6 failed. Each `toHaveClass("min-h-12")` / `toHaveClass("min-h-11")` on a paused button failed, and the class list's heights were `[]`.
+- **Fix** (`button.tsx`):
+  - The heights moved out of `looks` into `const minHeight = { primary: 'min-h-12', secondary: 'min-h-11' }`. `minHeight[variant]` is applied in `cn(...)` whether or not the button is paused.
+  - `pausedLook` is border, colour and cursor only.
+  - `looks` is checked with `satisfies` against the same keys, so a new variant cannot forget its height.
+  - `linkButtonClass` uses `minHeight.secondary` and is unchanged in output.
+  - This reaches all 18 `paused` call sites: Sending, Saving, Sign in, Move to while saving, Retry copy, Add a photo at the limit, Previous/Next at the ends, Try again, Show more.
+- **Green:** 6 of 6. The real-browser height (at least 44 px for the paused Previous) also passes in the layout test above.
+
+### DV1 F-05 (Minor, optional): "View photo N" wrapped at 390
+- **Fix** (`photo-gallery.tsx`): the tile label is `whitespace-nowrap` with `px-xs`, as the designer directed.
+- **Test:** `photo-viewer.test.tsx` "keep the "View photo N" label on one line" checks the class on each tile's label. I wrote it after the fix, so there is no separate red run.
+- **Unverified:** how it looks at 390 in a real browser. The tile's `overflow-hidden` would clip the label rather than wrap it if a tile were ever narrower than the label (about 95 px). QA's 390 capture will show it.
+
+### Commands run (each as one `cd <lane> && …` call)
+- `npm run typecheck` -> exit 0 ("Types generated successfully", tsc clean).
+- `npm run lint` -> exit 0 (0 errors; the same 2 warnings in `scripts/`, not mine).
+- `npx vitest run src/components --passWithNoTests=false` -> exit 0, 17 files, 278 tests passed. This includes the public-page (FE1) component tests that use `Button`, the new layout test (24 cases, run in Chromium, not skipped) and the new button test. I also ran `npx vitest run src` -> 20 files, 321 tests passed.
+- `npm run build` -> exit 0, every route listed, `Proxy (Middleware)` present.
+- `node scripts/check-code-guards.mjs generated` -> exit 0, "check-code-guards generated: OK".
+- verify-ui: not run (instructed).
+
+### Files changed (all inside FE2's owned paths)
+- `src/components/ui/button.tsx`: the height is independent of `paused` (F-01).
+- `src/components/ui/button.test.tsx` (new): a paused button keeps its min-height for each variant.
+- `src/components/staff/photo-viewer.tsx`: the frame fits the height that is left; `data-photo-frame` marks the frame for the test; the button row wraps at 320 (BUG-FE2V-1).
+- `src/components/staff/photo-viewer.layout.test.tsx` (new): Chromium layout test, no overlap at 8 windows and 3 states.
+- `src/components/staff/photo-gallery.tsx`: the tile label stays on one line (F-05).
+- `src/components/staff/photo-viewer.test.tsx`: one new test for F-05. No existing test changed.
+- `.baseleap/reports/FE2.md`: this section.
+
+**CONTRACT QUESTION:** none. **BLOCKED:** none. **NEW SETTING:** none.
+
+**Notes for the orchestrator**
+- The designer asked for the FE3 "Saving" Move to capture to be re-run after F-01. That needs a signed-in staging capture (QA or FE2V), not this lane.
+- If CI should run the layout test too, devops would add `npx playwright install --with-deps chromium` to the `verify` job (`.github/workflows/ci.yml`, devops-owned). Until then CI skips the file and says so.

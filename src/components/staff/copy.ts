@@ -20,7 +20,8 @@ export const staffCopy = {
     signOut: 'Sign out',
     signedInAs: (name: string) => `Signed in as ${name}`,
     skip: 'Skip to main content',
-    home: 'Northside Plumbing, Requests',
+    // starts with the words the wordmark shows (WCAG 2.5.3 Label in Name) and then says where the link goes
+    home: 'Northside Plumbing, Hamilton: Requests',
   },
 
   signIn: {
@@ -72,7 +73,10 @@ export const staffCopy = {
     listHeading: 'Quote requests, newest first',
     columns: ['Reference', 'Name', 'Urgency', 'Status', 'Submitted'] as const,
     moveTo: 'Move to',
-    // starts with the visible words "Move to" (WCAG 2.5.3) and carries the reference (the design's rule for repeated buttons)
+    // Starts with the visible words "Move to" (WCAG 2.5.3 Label in Name) and carries the reference (the design's rule for
+    // repeated buttons). NOT the wording of design-specs ("Move NQ-7K3M9P to another status"): its words "Move" and "to" are
+    // not together, so axe's label-content-name-mismatch fails it against the visible "Move to" (negative control in
+    // tmp-debug.test.tsx). The spec needs the change, not this label.
     moveLabel: (reference: string) => `Move to another status, ${reference}`,
     moveMenu: (reference: string) => `Move ${reference} to`,
     loading: 'Loading requests',
@@ -115,6 +119,9 @@ export const staffCopy = {
     photosHint: 'Tap a photo to see it at full size. Only signed-in staff can open photos.',
     photosUnavailableHint: 'The rest of the request is still shown. Reload the page to try the photos again.',
     photoUnavailable: 'Photo unavailable',
+    // Ledger ruling 2026-11-24 (matches the plan-approved check, FE1 and the spec being updated): the tile shows "View photo 2"
+    // and the button is named "View photo 2 of 3 at full size". The visible words come first, so the name contains them
+    // (WCAG 2.5.3 Label in Name)
     viewPhoto: (position: number) => `View photo ${position}`,
     viewPhotoLabel: (position: number, total: number) => `View photo ${position} of ${total} at full size`,
     quote: 'Your quote',

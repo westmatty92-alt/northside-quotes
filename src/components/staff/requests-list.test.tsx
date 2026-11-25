@@ -6,7 +6,7 @@ import { http, HttpResponse } from 'msw';
 import { setupServer } from 'msw/node';
 import { afterAll, afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
 import { RequestsList } from '@/components/staff/requests-list';
-import { expectNoAxeViolations, renderStaff } from '@/components/staff/test-support';
+import { expectLabelsContainVisibleText, expectNoAxeViolations, renderStaff } from '@/components/staff/test-support';
 import type { Problem, ProblemCode, QuoteRequestSummary } from '@/lib/api/generated/model';
 import { buildStaffHandlers } from '@/mocks/staff-handlers';
 
@@ -73,6 +73,19 @@ describe('SCR-04 Requests tab', () => {
     expect(listCalls[0]?.get('limit')).toBe('50');
     expect(screen.queryByRole('switch')).toBeNull(); // no List / Board switch
     await expectNoAxeViolations(container);
+  });
+
+  // BUG-QA1-5: every Move to button is named from its visible words first, then the reference (WCAG 2.5.3 Label in Name).
+  // design-specs says "Move NQ-7K3M9P to another status"; that wording separates "Move" from "to" and fails this check
+  // (see the negative control in tmp-debug.test.tsx), so the deployed "Move to another status, NQ-7K3M9P" stays.
+  it('every Move to button is named with its visible words first, then the reference', async () => {
+    useMock();
+    const { container } = renderStaff(<RequestsList />);
+    await screen.findByRole('link', { name: 'NQ-7K3M9P' });
+    const buttons = screen.getAllByRole('button', { name: /^Move to another status, NQ-[A-Z0-9]{6}$/ });
+    expect(buttons).toHaveLength(8);
+    for (const button of buttons) expect(button).toHaveTextContent(/^Move to/);
+    await expectLabelsContainVisibleText(container);
   });
 
   it('Loading: skeleton rows in the real layout, the page marked busy, "Loading requests" announced', async () => {

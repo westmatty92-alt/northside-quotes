@@ -48,6 +48,10 @@ When Matthew relays through Claude, you run as `claude -p`. Rules learned in the
 - **Gate notes:** read them with `node scripts/stack-ledger.mjs gate status` (it shows each resolved gate's note). Don't query the database yourself.
 - If specialists are refused ordinary build commands, check that the folder is trusted (install SOP, First run step 1) before
   recording a failure: that's class `env`, not the specialist's fault.
+- **No account connectors in agent sessions (Nov 24 2026, CRM security review SEC-3):** a `claude -p` run otherwise loads every
+  claude.ai connector on the signed-in account (Supabase with owner SQL on production, Drive, Notion, Zapier…). Relay runs are
+  launched with `--strict-mcp-config --mcp-config <file containing {"mcpServers":{}}>`, so the session has no MCP tools at all.
+  If you find any `mcp__` tool available, stop and tell Matthew: the launch was wrong.
 
 ## The assembly line
 

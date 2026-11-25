@@ -59,7 +59,28 @@ export function PhotoViewer({ reference, name, photos, index, onIndexChange, onC
   const state = !photo?.url ? 'failed' : outcome?.key === key ? outcome.state : 'loading';
 
   function onKeyDown(event: KeyboardEvent<HTMLDialogElement>) {
-    if (event.key === 'ArrowLeft' && index > 0) {
+    if (event.key === 'Tab') {
+      // A modal <dialog> makes the page behind inert, but its Tab order still ends at the browser's own controls: after
+      // the last button focus would leave the page. So the viewer wraps focus itself (SCR-08: "trapped inside"). A paused
+      // button (aria-disabled, not disabled) stays in the order, so it is counted.
+      const controls = Array.from(event.currentTarget.querySelectorAll<HTMLElement>('button:not([disabled]), [href], input:not([disabled]), select, textarea, [tabindex]:not([tabindex="-1"])'));
+      const first = controls[0];
+      const last = controls[controls.length - 1];
+      if (first && last) {
+        if (event.shiftKey && (document.activeElement === first || !event.currentTarget.contains(document.activeElement))) {
+          event.preventDefault();
+          last.focus();
+        } else if (!event.shiftKey && (document.activeElement === last || !event.currentTarget.contains(document.activeElement))) {
+          event.preventDefault();
+          first.focus();
+        }
+      }
+    } else if (event.key === 'Escape') {
+      // the browser does this itself; stated here so Escape works the same wherever <dialog> behaves differently, and
+      // closing always runs through the one path that hands focus back to the thumbnail
+      event.preventDefault();
+      dialog.current?.close();
+    } else if (event.key === 'ArrowLeft' && index > 0) {
       event.preventDefault();
       onIndexChange(index - 1);
     } else if (event.key === 'ArrowRight' && index < total - 1) {
@@ -89,9 +110,15 @@ export function PhotoViewer({ reference, name, photos, index, onIndexChange, onC
         </Button>
       </div>
 
-      <div className="grid min-h-0 flex-1 place-items-center">
+      {/* BUG-FE2V-1: the frame fits the height left after the title row and the Previous / Next row. This region takes
+          that height (flex-1, min-h-0), and the frame is 4:3 with max-h-full and max-w-240 (960 px) but no set width:
+          the browser then narrows it to keep 4:3 when the height runs out (the max-height is carried across the ratio),
+          so at 1280 x 800 or shorter it never runs under the controls. Where a browser did not carry it across, the
+          frame would only get wider than 4:3 (object-contain keeps the photo whole); it still could not overlap.
+          Checked in Chromium by photo-viewer.layout.test.tsx. */}
+      <div className="min-h-0 flex-1 content-center">
         {photo?.url && state !== 'failed' ? (
-          <figure className="relative aspect-4/3 w-full max-w-240 overflow-hidden rounded-md bg-neutral-surface">
+          <figure data-photo-frame className="relative mx-auto aspect-4/3 max-h-full max-w-240 overflow-hidden rounded-md bg-neutral-surface">
             {/* SEC-16: a plain <img> on the signed URL, never next/image */}
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img
@@ -116,7 +143,8 @@ export function PhotoViewer({ reference, name, photos, index, onIndexChange, onC
         ) : (
           <div
             role="alert"
-            className="grid aspect-4/3 w-full max-w-240 content-center justify-items-center gap-sm rounded-md bg-surface-raised p-md text-center text-text"
+            data-photo-frame
+            className="mx-auto grid aspect-4/3 max-h-full max-w-240 content-center justify-items-center gap-sm overflow-y-auto rounded-md bg-surface-raised p-md text-center text-text"
           >
             <Icon name="alert" className="size-8 text-text-secondary" />
             <p className={type.label}>{staffCopy.viewer.unavailable}</p>
@@ -134,12 +162,13 @@ export function PhotoViewer({ reference, name, photos, index, onIndexChange, onC
         )}
       </div>
 
-      <div className="flex justify-between gap-md">
+      {/* wraps only when the two do not fit side by side (a 320 px window), instead of running off the right edge */}
+      <div className="flex flex-wrap justify-between gap-md">
         <Button className={cn('max-w-60 flex-1', onInk)} paused={index <= 0} onClick={() => onIndexChange(index - 1)}>
           <Icon name="left" className="size-4" />
           {staffCopy.viewer.previous}
         </Button>
-        <Button className={cn('max-w-60 flex-1', onInk)} paused={index >= total - 1} onClick={() => onIndexChange(index + 1)}>
+        <Button className={cn('ml-auto max-w-60 flex-1', onInk)} paused={index >= total - 1} onClick={() => onIndexChange(index + 1)}>
           {staffCopy.viewer.next}
           <Icon name="right" className="size-4" />
         </Button>

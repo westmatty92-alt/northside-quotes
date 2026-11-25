@@ -64,6 +64,13 @@ Supabase, git and `node scripts/*`. Anything else is refused, so:
 - **Each repo gets its own `npm ci`.** Never symlink `node_modules` from another repo (Next.js/Turbopack refuses to build).
 - A local run doesn't prove hosted behaviour: the local Supabase stack allows things hosted Supabase refuses. Say which one you ran.
 
+## 5b. New settings (environment variables) — flag them the moment you add them (rehearsal, Nov 23 2026)
+
+If your step makes the app read a setting that isn't already in `.env.example` (for example a signing secret or a cron secret):
+- Add the name to `.env.example` with a one-line comment (what it is, where its value comes from, minimum length). Never a real value.
+- Put a **NEW SETTING** line in your report: name, which environments need it (local, Preview, Production), and how Matthew makes it (`openssl rand -hex 32`, a dashboard page, and so on).
+- The orchestrator then tells Matthew before the code reaches staging, and the account-setup doc gets the row. A missing setting found later by QA on the preview costs a full re-run.
+
 ## 6. Report
 
 Write the full report to `.baseleap/reports/<STEP>.md`. On a fix attempt, **append** a new `## Attempt N` section — never rewrite earlier attempts. Then return only the summary block (≤ 15 lines) to the orchestrator.
