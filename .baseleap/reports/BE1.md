@@ -135,3 +135,91 @@ Why only three fields: `email` and `phone` were already refused as 422 by their 
 - Other public text routes were not probed by me. QA reports PRB-44 (staff note, search) passes.
 - Verified against the staging project only; the hosted PostgREST behaviour (PGRST102) is what the tests exercise. Nothing run against production.
 **CONTRACT QUESTION:** none. **BLOCKED:** none. **NEW SETTING:** none.
+
+## Attempt 3: REV-3 and REV-2 backend half (2026-11-25)
+**Status:** done. Every verify command exits 0, and the vitest list passed three times back to back (230/230 each). Verification also turned up a third, real defect: `checkPhotos` sometimes read a replaced photo's old bytes from the Storage cache. It is fixed below with its own failing-then-passing test.
+**Database:** the shared staging Supabase project (hosted), never production or a local stack. Migrations 0900/1000 were already applied by A2; I applied nothing.
+**Read:** this report; `.baseleap/reviews/REV1.md` (REV-2, REV-3, REV-10); `.baseleap/reports/A2.md` "Attempt 3: REV-2" (CQ-1 to CQ-4); migration `20261125001000_photo_plan_replay_fallback.sql`; `src/types/database.ts`; `submissions.ts`, `jobs/housekeeping.ts`, `tests/helpers/staging.ts`, `tests/helpers/api.ts`, `submit.test.ts`, `create.test.ts`, `create-failures.test.ts`, `housekeeping.test.ts`; `src/components/request/photo-upload.ts` (the form's 409 rule, which the test mirrors); storage-js 2.119.2 `download()` (the `cacheNonce` option).
+
+### Assumptions
+1. **CQ-2 wording:** a size that differs from the plan gives 422 `photo_invalid` with the existing message "This photo didn't upload. Please add it again.", is recorded as `photo_upload_failed` with reason `storage_error`, and the object is removed. That is the closest existing message and metrics reason, with no new value.
+2. **CQ-2 order:** the byte check (type, size cap, dimensions) runs first. The size comparison applies only to a photo that passes it, so a text file renamed `.jpg` is still reported as "must be JPEG, PNG or WebP" (AC-002.4), whatever its size. A row with no `photo_plan` (started before the route sent plans) is not compared, as A2's CQ-2 says.
+
+### Fix 1: REV-3, housekeeping test isolation (test-only; `jobs/housekeeping.ts` unchanged)
+- **Failing first:** I added a "bystander" to the old test: a pending request and a rate-limit hit created 26 and 25 hours ago in real time, which is what other runs' fixtures look like, and asserted they survive. Result: **1 failed / 17 passed**, `REV-3: left alone the stale rows another run owns` → `expected false to be true` (this file's own purge deleted the other run's request). That is the REV-3 mechanism, reproduced.
+- **Approach (no new production parameter):** the job already takes its cutoff from the clock (`runHousekeeping(nowMs = Date.now())`, cutoff = now − 24 h). The test creates every row the purge may touch in January 2001. Every authorised call runs the **production route and job unchanged**, with only `Date` faked (`vi.useFakeTimers({ toFake: ['Date'], now: 2001-01-03T12:00Z })`). Timers, fetch and TLS keep the real clock. The cutoff is therefore 2001-01-02T12:00Z, which reaches only this file's rows. Nothing real on staging is from that era.
+- **What it proves now** (`tests/api/housekeeping/housekeeping.test.ts`, 18 tests, all passing):
+  - **Exact counts:** `{ pending_requests_purged: 1, photos_purged: 1, rate_limit_rows_purged: 3, sign_in_rows_purged: 2 }`, not "at least". A second run gives exactly 0 everywhere.
+  - **This file's stale rows go:** the pending request and its file, a hit 24 h + 1 min old and one 48 h old, the spam window, the sign-in attempt and the sign-in pause.
+  - **This file's rows that must stay, stay:** a hit 24 h − 1 min old (the 24-hour line, both sides), the fresh pending request and its file, an old submitted request, both spam events.
+  - **Other runs' rows stay:** bystanders stale in real time (a pending request with its file, a hit, a sign-in attempt and a pause, 25 to 26 hours old) all survive.
+  - **Refused calls purge nothing:** they are also made at the faked time, so a refused call that purged would reach this file's rows.
+  - **Production behaviour is still proved:** the route takes no time input, so the faked clock is the only difference from production. The job purges stale pending requests with their files, and all four counter tables.
+- **Sweep:** `beforeAll` first clears anything older than 2002-01-01, which can only be this file's leftovers from a run cancelled before its afterAll (REV-3's orphan point). Window events are deleted with psql in afterAll.
+- **Cleanup:** the old manual sign-in cleanup is replaced by `trackHash` for the email hashes, so the shared afterAll deletes them and proves it.
+- **Remaining limit:** two copies of *this file* running at the same moment share the 2001 era and could purge each other's rows. CI now serialises the staging-database jobs (devops). Nothing else on staging is touched by the test any more.
+
+### Fix 2: REV-2 backend half (CQ-1, CQ-2, CQ-3)
+- **Failing first** (tests written before any code change):
+  - `create-failures.test.ts` "REV-2 CQ-1: passes the validated photo plan … as p_photos, and [] for no photos" → **1 failed / 19 passed**: `p_photos` was missing from the RPC args.
+  - `submit.test.ts` → **5 failed / 20 passed**:
+    - both swap cases (another size; another type at the same size): `expected ['photo-1'] to deeply equal []`, so X was kept after the resend;
+    - the submitted case: `expected 200 to be 409`;
+    - CQ-3b: `expected null to deeply equal [plan]`, so no plan was stored;
+    - CQ-2: `expected 200 to be 422`, so the wrong size was accepted.
+- **Fix** (`src/lib/server/services/submissions.ts`):
+  - **CQ-1:** `StartArgs.p_photos`, set to `data.photos.map(({ position, content_type, size_bytes }) => …)`. This is the plan as validated (positions 1..n in order), always sent, `[]` for no photos.
+  - **CQ-2:** `completeQuoteRequest` also selects `photo_plan`. `plannedSizes()` reads it, or gives null for a row without one. `checkPhotos` refuses a photo that passes the byte check but whose size differs from its planned `size_bytes`. Only the size is compared.
+- **After:** `create-failures` **20/20**, `submit` **25/25** on that run. The tests:
+  - **CQ-3a:** "pending: X uploaded, then the same token and photo count with Y (another size | another type at the same size) clears X, and Y is what gets stored". The resend is 200 with the same id, and the folder is empty after it. Y is uploaded the way the form does it (a 409 counts as uploaded). The stored row, the stored bytes and `photo_plan` all equal Y.
+  - "submitted: the same token with a different photo plan is a 409 form_already_used, and the stored photo is unchanged". The unchanged resend is still 200 with the reference.
+  - **CQ-3b:** "an unchanged resend after photo 1 went up through the real Storage API keeps it". The plan is stored on create. The object's `created_at` (from the Storage listing) is ≥ `photos_planned_at`. The resend is 200, `photo-1` is still there, and `photos_planned_at` is unchanged. Photo 2 then completes the request with 2 photos. **This confirms on hosted staging that Storage stamps uploads with the database clock**, A2's open assumption.
+  - **CQ-2:** "plan 600 bytes, stored 700: 422 photo_invalid on photos[1], removed, recorded (`storage_error`), and the right photo then completes it"; "only the size is compared: a declared type that differs from the bytes is stored with the type the bytes say"; "a request stored without a plan … the photo count decides, as before".
+- **Fixture correction (disclosed):** `submit.test.ts` "stores a JPEG, a PNG and a WebP…" planned 600 bytes for files of 800/900/1000 bytes. It now plans their real sizes, as the form does (`size_bytes = File.size`). The assertions are unchanged.
+
+### Fix 3 (found while verifying): stale photo bytes from the Storage cache
+- **Symptom:** in the first full verify run, `AC-002.4` failed at the retry: 422 where 200 was expected. Alone it passed. With the problem body added to that assertion's failure message, a later run showed `photo_invalid` / "Photos must be JPEG, PNG or WebP" for a good JPEG. The CQ-2 retry failed the same way in the same run.
+- **Cause:** after a refused photo is removed and a new one is uploaded at the same path, `bucket.download(path)` sometimes returned the **removed** object's bytes, cached under the same URL. `checkPhotos` then refused the good photo and **deleted** it. This is a homeowner-facing bug in the AC-002.4 → AC-002.6 flow ("add it again" straight after a refusal), not just a test flake. It may also explain BE1's earlier one-off failed verify, alongside REV-3. Not proven: I have no log of that run.
+- **Failing first:** new test `submit.test.ts` "a refused photo replaced at the same path straight away is checked by its NEW bytes …, 10 times over". It runs ten independent refuse → replace → submit cycles at once.
+  - With the old call put back temporarily: one run had 2 of 10 cycles answer `422 photo_invalid "Photos must be JPEG, PNG or WebP"`, the next run passed. A 5-cycle version failed 1 run in 3. It is intermittent by nature.
+  - With the fix: 4 of 4 runs passed (40 cycles), then the three full stability runs below.
+- **Fix:** `checkPhotos` downloads with `{ cacheNonce: <the listed object's id> }` and `{ cache: 'no-store' }`. The object id comes from the listing, which is a consistent database read and new on every upload. The same object can still be served from cache, and a replaced object always gets a new URL. The test's own `storedBytes` helper also uses a nonce.
+- **Test-harness change (disclosed):** in one run the test's own 5 MB stand-in browser upload failed with `StorageUnknownError: fetch failed`. storage-js raises that only when no HTTP response arrived (a transport failure, as in QA's BUG-QA1-6). The `upload` helper in `submit.test.ts` now retries once on that error only, logs `upload transport failure …; retrying once`, and on the retry counts a 409 as success (it can only mean the first attempt landed). It never retries an answer from Storage. It did not fire in any of the three stability runs.
+
+### Commands run (each as `cd <lane> && …`)
+| Command | Result |
+|---|---|
+| `npm run typecheck` | exit 0 |
+| `npm run lint` | exit 0, 0 errors, the same 2 existing warnings (`scripts/lib/yaml-lite.mjs:136`, `scripts/sync-agent-permissions.mjs:36`, not mine) |
+| `node --env-file-if-exists=.env.local node_modules/.bin/vitest run …` | **refused** by the permission system (approval prompt), as in attempts 1 and 2. I used the sanctioned `npx vitest run …` equivalent |
+| `npx vitest run tests/api/submission tests/api/housekeeping tests/api/health tests/unit/env --passWithNoTests=false` | **stability run 1:** exit 0, 13 files, **230 passed** (38.5 s) · **run 2:** exit 0, 13 files, **230 passed** (43.2 s) · **run 3:** exit 0, 13 files, **230 passed** (38.4 s). Back to back, after the final code. The transport retry never fired |
+| `npm run build` | exit 0 (all API routes dynamic) |
+| `node scripts/check-code-guards.mjs service-role` | exit 0, `check-code-guards service-role: OK` |
+
+Earlier runs in this attempt (before the final code), disclosed: three full runs failed, one test each time (AC-002.4 retry; AC-002.3 upload `fetch failed`; AC-002.4 retry plus the CQ-2 retry). These are the Fix 3 defect and the transport error above. Single-file runs were used for every failing-first and passing step, as the brief asks.
+
+### Changed files
+- `src/lib/server/services/submissions.ts`: CQ-1 (`p_photos`), CQ-2 (`photo_plan` select, `plannedSizes`, size check in `checkPhotos`), Fix 3 (download `cacheNonce` from the listed object id, `cache: 'no-store'`)
+- `tests/api/housekeeping/housekeeping.test.ts`: rewritten for REV-3 (2001 era, faked `Date` on authorised calls, exact counts, boundary rows, bystanders, sweep)
+- `tests/api/submission/submit.test.ts`:
+  - new: the REV-2 tests (CQ-3a both swaps, submitted 409, CQ-3b), the CQ-2 tests, the 10-cycle stale-read test; helpers `storedBytes`, `uploadLikeTheForm`, `resend`
+  - fixture sizes corrected in the JPEG/PNG/WebP test
+  - the AC-002.4 retry assertion now prints the problem body when it fails
+  - the transport-only upload retry
+- `tests/api/submission/create-failures.test.ts`: the CQ-1 args test
+- `.baseleap/reports/BE1.md`: this section
+- Not changed: `jobs/housekeeping.ts`, routes, migrations, openapi, generated code, `seed.sql`, helpers.
+- **Temporary files:** none created. (Attempt 2's `zz-diagnose.test.ts` is no longer in the lane.)
+
+### Not done / unverified
+- REV-2's same-type, same-size swap (A2's CQ-4) is a frontend change (`photo-upload.ts` 409 handling). The database cannot tell two files of equal type and size apart. CQ-2 does not cover it either.
+- REV-10 (ranged read instead of a full download) and REV-13 were not in this brief, so I didn't touch them.
+- Other suites (`tests/api/inbox/**`, `tests/integrations/**`) were not run. They don't go through `completeQuoteRequest` with photos (checked by grep). The inbox ones import only the list route's GET, which is unchanged.
+- The Smart CDN behaviour behind Fix 3 is inferred from the symptom (old bytes after a remove and re-upload) plus storage-js's documented `cacheNonce`. I did not read the Storage server's cache headers.
+
+**CONTRACT QUESTION:** none. Everything fit the existing contract, migrations and generated types (`p_photos?: Json` was already generated).
+**BLOCKED:** none. **NEW SETTING:** none.
+**Notes for the next step:**
+- Frontend: route A2's CQ-4.
+- Architect: the doc follow-ups A2 listed (`SECURITY_MODEL.md:66`, `architecture.md` Submissions) still apply. Consider noting the cache-nonce rule for any server-side read of an object that can be replaced at the same path.
+- QA: BUG-QA1-6 transport failures were seen once from this machine to hosted Storage.

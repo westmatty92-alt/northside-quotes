@@ -4,6 +4,7 @@
 // the scheduled task at once under test, and the GHL seam (runGhlJobs) is replaced by a spy: no GoHighLevel call is possible.
 // Every row and file this file creates is tracked and deleted in afterAll (tests/helpers/staging.ts), which also proves it.
 // Acceptance criteria: AC-001.1, .6, .14, .15; AC-002.1 to .5; AC-009.9 (US-001, US-002, US-009).
+import { randomUUID } from 'node:crypto';
 import { beforeEach, describe, expect, it, vi } from 'vitest';
 import { POST as createPost } from '@/app/api/quote-requests/route';
 import { GET as submitGet, POST as submitPost } from '@/app/api/quote-requests/[request_id]/submission/route';
@@ -50,7 +51,15 @@ async function start(plan: Plan = [], overrides: Record<string, unknown> = {}): 
 
 /** The direct upload the browser makes to the private bucket with only the publishable key. */
 async function upload(id: string, position: number, bytes: Uint8Array, contentType: string): Promise<void> {
-  const { error } = await staging.anon().storage.from('quote-photos').upload(`${id}/photo-${position}`, bytes, { contentType, upsert: false });
+  const put = () => staging.anon().storage.from('quote-photos').upload(`${id}/photo-${position}`, bytes, { contentType, upsert: false });
+  let { error } = await put();
+  // One retry for a transport failure between this machine and hosted Storage ("fetch failed", QA's BUG-QA1-6), never for an
+  // answer from Storage. On the retry a 409 can only mean the first attempt landed.
+  if (error && (error as { name?: string }).name === 'StorageUnknownError') {
+    console.warn(`upload transport failure (${error.message}); retrying once`);
+    ({ error } = await put());
+    if (error && ((error as { statusCode?: string }).statusCode === '409' || /already exists|duplicate/i.test(error.message))) error = null;
+  }
   expect(error).toBeNull();
 }
 
@@ -93,6 +102,24 @@ async function bucketNames(id: string): Promise<string[]> {
   const { data } = await staging.db().storage.from('quote-photos').list(id);
   return (data ?? []).map((f) => f.name).sort();
 }
+async function storedBytes(id: string, position: number): Promise<Uint8Array> {
+  const { data, error } = await staging.db().storage.from('quote-photos').download(`${id}/photo-${position}`, { cacheNonce: randomUUID() }, { cache: 'no-store' });
+  expect(error).toBeNull();
+  return new Uint8Array(await data!.arrayBuffer());
+}
+
+/** The upload exactly as the form makes it: a 409 (an object is already at that path) counts as uploaded (src/components/request/photo-upload.ts). */
+async function uploadLikeTheForm(id: string, position: number, bytes: Uint8Array, contentType: string): Promise<'stored' | 'already_there'> {
+  const { error } = await staging.anon().storage.from('quote-photos').upload(`${id}/photo-${position}`, bytes, { contentType, upsert: false });
+  if (!error) return 'stored';
+  const e = error as { message: string; statusCode?: string; status?: number };
+  expect(e.statusCode === '409' || e.status === 409 || /already exists|duplicate/i.test(e.message)).toBe(true);
+  return 'already_there';
+}
+
+/** createQuoteRequest again with the same token and address (Send again on the same page). */
+const resend = (s: Started, body: Record<string, unknown>) =>
+  createPost(jsonRequest('/api/quote-requests', { headers: { 'x-form-token': s.token, 'x-real-ip': s.ip }, body }), undefined);
 
 describe('AC-001.1, AC-001.15, AC-002.5, AC-009.9: no photos, offers box left as loaded (unticked)', () => {
   it('stores the request with a reference, status New, consent no, no job; GHL is never called', async () => {
@@ -157,10 +184,11 @@ describe('AC-001.14: offers box ticked', () => {
 
 describe('AC-002.1: photos are checked by their bytes and stored with the request', () => {
   it('stores a JPEG, a PNG and a WebP with the type their bytes say and their real size', async () => {
+    // the plan states each file's real size, as the form does (size_bytes = File.size); REV-2 CQ-2 refuses a size that differs
     const s = await start([
-      { position: 1, content_type: 'image/jpeg', size_bytes: 600 },
-      { position: 2, content_type: 'image/png', size_bytes: 600 },
-      { position: 3, content_type: 'image/webp', size_bytes: 600 },
+      { position: 1, content_type: 'image/jpeg', size_bytes: 800 },
+      { position: 2, content_type: 'image/png', size_bytes: 900 },
+      { position: 3, content_type: 'image/webp', size_bytes: 1000 },
     ]);
     await upload(s.id, 1, jpegBytes(800), 'image/jpeg');
     await upload(s.id, 2, pngBytes(640, 480, 900), 'image/png');
@@ -236,8 +264,26 @@ describe('a bad or missing photo is refused with an error per photo, removed, an
 
     await upload(s.id, 1, jpegBytes(), 'image/jpeg'); // AC-002.6: send again and it completes
     const retry = await submit(s);
-    expect(retry.status).toBe(200);
-    expect(SubmitQuoteRequestResponse.parse(await retry.json()).photo_count).toBe(1);
+    const retryBody = await retry.text();
+    expect(retry.status, retryBody).toBe(200); // the problem body names the cause if this ever fails
+    expect(SubmitQuoteRequestResponse.parse(JSON.parse(retryBody)).photo_count).toBe(1);
+  });
+
+  it('a refused photo replaced at the same path straight away is checked by its NEW bytes (no stale read from the Storage cache), 10 times over', async () => {
+    // Before the fix, the submit after the replacement sometimes read the removed file back from the CDN and refused (and
+    // deleted) the good photo. It is intermittent on staging, so ten independent cycles run at once.
+    const cycles = await Promise.all(
+      Array.from({ length: 10 }, async () => {
+        const s = await start([{ position: 1, content_type: 'image/jpeg', size_bytes: 600 }]);
+        await upload(s.id, 1, textBytes(), 'image/jpeg');
+        await expectProblem(await submit(s), 422, 'photo_invalid');
+        await upload(s.id, 1, jpegBytes(600), 'image/jpeg');
+        const retry = await submit(s);
+        return { status: retry.status, body: await retry.text(), id: s.id };
+      }),
+    );
+    expect(cycles.map((c) => (c.status === 200 ? 200 : `${c.status} ${c.body}`))).toEqual(Array(10).fill(200));
+    for (const c of cycles) expect(await photos(c.id)).toEqual([{ position: 1, storage_path: `${c.id}/photo-1`, content_type: 'image/jpeg', size_bytes: 600 }]);
   });
 
   it('a PNG and a WebP that declare more than 12,000 pixels on a side are refused as photo_invalid (decompression bomb)', async () => {
@@ -284,6 +330,104 @@ describe('a bad or missing photo is refused with an error per photo, removed, an
     expect(problem.errors?.map((e) => e.field)).toEqual(['photos[1]', 'photos[3]']);
     expect(await bucketNames(s.id)).toEqual(['photo-2']);
     expect(await row(s.id)).toMatchObject({ state: 'pending' });
+  });
+});
+
+describe('REV-2: a photo swapped before Send again is the one stored, never the earlier upload (AC-002.1, AC-002.6)', () => {
+  it.each([
+    ['another size', { position: 1, content_type: 'image/jpeg', size_bytes: 601 }, jpegBytes(601), 'image/jpeg'],
+    ['another type at the same size', { position: 1, content_type: 'image/png', size_bytes: 600 }, pngBytes(1, 1, 600), 'image/png'],
+  ] as const)('pending: X uploaded, then the same token and photo count with Y (%s) clears X, and Y is what gets stored', async (_label, planY, bytesY, typeY) => {
+    const s = await start([{ position: 1, content_type: 'image/jpeg', size_bytes: 600 }]);
+    await upload(s.id, 1, jpegBytes(600), 'image/jpeg'); // X
+
+    const res = await resend(s, { ...s.body, photos: [planY] });
+    expect(res.status).toBe(200);
+    const again = CreateQuoteRequestResponse.parse(await res.json());
+    expect(again).toMatchObject({ request_id: s.id, submission_state: 'pending' });
+    expect(again.photo_uploads).toEqual([{ position: 1, bucket: 'quote-photos', path: `${s.id}/photo-1`, content_type: typeY }]);
+    expect(await bucketNames(s.id)).toEqual([]); // the changed plan is `updated`, which removes X
+
+    await uploadLikeTheForm(s.id, 1, bytesY, typeY); // Y; a 409 here would mean X is still there (the bug)
+    const done = await submit(s);
+    expect(done.status).toBe(200);
+    expect(await photos(s.id)).toEqual([{ position: 1, storage_path: `${s.id}/photo-1`, content_type: typeY, size_bytes: bytesY.length }]);
+    expect(await storedBytes(s.id, 1)).toEqual(bytesY);
+    expect((await row(s.id)).photo_plan).toEqual([planY]);
+  });
+
+  it('submitted: the same token with a different photo plan is a 409 form_already_used, and the stored photo is unchanged', async () => {
+    const plan: Plan = [{ position: 1, content_type: 'image/jpeg', size_bytes: 600 }];
+    const s = await start(plan);
+    await upload(s.id, 1, jpegBytes(600), 'image/jpeg');
+    expect((await submit(s)).status).toBe(200);
+
+    await expectProblem(await resend(s, { ...s.body, photos: [{ position: 1, content_type: 'image/jpeg', size_bytes: 601 }] }), 409, 'form_already_used');
+    const same = await resend(s, s.body); // the unchanged resend still answers with the reference
+    expect(same.status).toBe(200);
+    expect(CreateQuoteRequestResponse.parse(await same.json())).toMatchObject({ request_id: s.id, submission_state: 'submitted' });
+    expect(await photos(s.id)).toEqual([{ position: 1, storage_path: `${s.id}/photo-1`, content_type: 'image/jpeg', size_bytes: 600 }]);
+    expect(await bucketNames(s.id)).toEqual(['photo-1']);
+  });
+
+  it('CQ-3b: an unchanged resend after photo 1 went up through the real Storage API keeps it (Storage stamps uploads with the database clock)', async () => {
+    const plan: Plan = [
+      { position: 1, content_type: 'image/jpeg', size_bytes: 600 },
+      { position: 2, content_type: 'image/png', size_bytes: 600 },
+    ];
+    const s = await start(plan);
+    const pending = await row(s.id);
+    expect(pending.photo_plan).toEqual(plan); // CQ-1: the validated plan reached start_quote_request
+
+    await upload(s.id, 1, jpegBytes(600), 'image/jpeg'); // through the Storage API with the publishable key, as the browser does
+    const listed = (await staging.db().storage.from('quote-photos').list(s.id)).data ?? [];
+    expect(listed.map((f) => f.name)).toEqual(['photo-1']);
+    expect(listed[0]!.created_at).toEqual(expect.any(String));
+    expect(Date.parse(listed[0]!.created_at ?? '')).toBeGreaterThanOrEqual(Date.parse(pending.photos_planned_at)); // not "left over"
+
+    // AC-002.6: photo 2 failed; she taps Send again with nothing changed
+    const res = await resend(s, s.body);
+    expect(res.status).toBe(200);
+    expect(CreateQuoteRequestResponse.parse(await res.json())).toMatchObject({ request_id: s.id, submission_state: 'pending' });
+    expect(await bucketNames(s.id)).toEqual(['photo-1']); // replayed, not updated: the upload is kept
+    expect((await row(s.id)).photos_planned_at).toBe(pending.photos_planned_at);
+
+    await upload(s.id, 2, pngBytes(1, 1, 600), 'image/png');
+    const done = await submit(s);
+    expect(done.status).toBe(200);
+    expect(SubmitQuoteRequestResponse.parse(await done.json()).photo_count).toBe(2);
+  });
+});
+
+describe('REV-2 CQ-2: a stored photo whose size differs from the plan is refused (defence in depth)', () => {
+  it('plan 600 bytes, stored 700: 422 photo_invalid on photos[1], the object is removed and recorded, and the right photo then completes it', async () => {
+    const s = await start([{ position: 1, content_type: 'image/jpeg', size_bytes: 600 }]);
+    await upload(s.id, 1, jpegBytes(700), 'image/jpeg');
+    const problem = await expectProblem(await submit(s), 422, 'photo_invalid');
+    expect(problem.errors).toEqual([{ field: 'photos[1]', message: "This photo didn't upload. Please add it again." }]);
+    expect(await bucketNames(s.id)).toEqual([]);
+    expect(await row(s.id)).toMatchObject({ state: 'pending', reference: null });
+    expect(await photos(s.id)).toHaveLength(0);
+    expect((await events(s.id, 'photo_upload_failed')).map((e) => e.properties)).toEqual([{ reason: 'storage_error', photo_index: 1 }]);
+
+    await upload(s.id, 1, jpegBytes(600), 'image/jpeg');
+    expect((await submit(s)).status).toBe(200);
+    expect(await photos(s.id)).toEqual([{ position: 1, storage_path: `${s.id}/photo-1`, content_type: 'image/jpeg', size_bytes: 600 }]);
+  });
+
+  it('only the size is compared: a declared type that differs from the bytes is stored with the type the bytes say', async () => {
+    const s = await start([{ position: 1, content_type: 'image/jpeg', size_bytes: 600 }]);
+    await upload(s.id, 1, pngBytes(1, 1, 600), 'image/jpeg');
+    expect((await submit(s)).status).toBe(200);
+    expect((await photos(s.id))[0]).toMatchObject({ content_type: 'image/png', size_bytes: 600 });
+  });
+
+  it('a request stored without a plan (started before the route sent plans) is not compared: the photo count decides, as before', async () => {
+    const s = await start([{ position: 1, content_type: 'image/jpeg', size_bytes: 600 }]);
+    expect((await staging.db().from('quote_requests').update({ photo_plan: null }).eq('id', s.id)).error).toBeNull();
+    await upload(s.id, 1, jpegBytes(700), 'image/jpeg');
+    expect((await submit(s)).status).toBe(200);
+    expect((await photos(s.id))[0]).toMatchObject({ size_bytes: 700 });
   });
 });
 

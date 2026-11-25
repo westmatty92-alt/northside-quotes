@@ -8,6 +8,7 @@ import 'server-only';
 //
 // Services take plain values and throw ProblemError; the handlers hold no rules. One of the modules allowed to use the
 // service-role client (SECURITY_MODEL invariant 2). Database, Storage and zod text never reaches a response or a log line.
+import { randomUUID } from 'node:crypto';
 import { z } from 'zod';
 import { CreateQuoteRequestBody } from '@/lib/api/generated/public-form/public-form.zod';
 import type { QuoteRequestStarted, QuoteRequestSubmitted } from '@/lib/api/generated/model';
@@ -162,6 +163,8 @@ type StartArgs = {
   p_photo_count: number;
   p_ip_hash: string;
   p_marketing_consent: boolean;
+  /** The validated photo plan; the database compares it on a resend with the same token (REV-2, migration 0900/1000). */
+  p_photos: Array<{ position: number; content_type: string; size_bytes: number }>;
 };
 
 async function callStart(args: StartArgs): Promise<{ data: unknown; error: DbError | null }> {
@@ -229,6 +232,7 @@ export async function startQuoteRequest(input: StartInput): Promise<StartResult>
     // No address known: null, and the database accepts the request (AC-003.5). The cast is for the generated type only.
     p_ip_hash: (address === null ? null : spamKey) as string,
     p_marketing_consent: consent,
+    p_photos: data.photos.map(({ position, content_type, size_bytes }) => ({ position, content_type, size_bytes })),
   };
 
   let result = await callStart(args);
@@ -288,19 +292,32 @@ const PHOTO_MESSAGES = {
   too_large: 'Photos must be at most 5 MB and 12,000 pixels on each side',
 } as const;
 
+/** The planned size per position from quote_requests.photo_plan, or null when the row has no plan (started before plans were sent). */
+const PlanSizes = z.array(z.object({ position: z.number().int(), size_bytes: z.number().int() }));
+function plannedSizes(photoPlan: unknown): Map<number, number> | null {
+  const parsed = PlanSizes.safeParse(photoPlan);
+  return parsed.success ? new Map(parsed.data.map((p) => [p.position, p.size_bytes])) : null;
+}
+
 /**
  * Check every planned photo of a pending request: present, at most 5 MB, JPEG/PNG/WebP by its first bytes, PNG and WebP
- * at most 12,000 pixels a side. Every bad photo is removed and recorded as photo_upload_failed; a Storage failure is a 503.
+ * at most 12,000 pixels a side, and (REV-2) exactly the size the plan stated, when the request has a plan. Only the size is
+ * compared: the browser's declared type can differ from the sniffed one for a good photo. Every bad photo is removed and
+ * recorded as photo_upload_failed; a Storage failure is a 503.
  */
-async function checkPhotos(requestId: string, planned: number): Promise<StoredPhoto[]> {
+async function checkPhotos(requestId: string, planned: number, planSizes: Map<number, number> | null): Promise<StoredPhoto[]> {
   if (planned === 0) return [];
   const bucket = admin().storage.from(BUCKET);
   const listed = await bucket.list(requestId, { limit: 10 });
   if (listed.error) throw unavailable('storage', 'list');
   const sizes = new Map<string, number | undefined>();
+  // The object's id (new on every upload) is the download's cache nonce: a photo removed and uploaded again at the same path
+  // within the CDN's cache time was otherwise read back as the OLD bytes, refusing (and removing) the good photo.
+  const nonces = new Map<string, string>();
   for (const file of listed.data ?? []) {
     const size: unknown = file.metadata?.size;
     sizes.set(file.name, typeof size === 'number' ? size : undefined);
+    nonces.set(file.name, file.id ?? file.updated_at ?? randomUUID());
   }
 
   const stored: StoredPhoto[] = [];
@@ -323,7 +340,7 @@ async function checkPhotos(requestId: string, planned: number): Promise<StoredPh
     if (listedSize !== undefined && listedSize > MAX_PHOTO_BYTES) {
       verdict = { ok: false, reason: 'too_large' }; // refused on the listed size, without downloading it
     } else {
-      const downloaded = await bucket.download(path);
+      const downloaded = await bucket.download(path, { cacheNonce: nonces.get(`photo-${position}`) ?? randomUUID() }, { cache: 'no-store' });
       if (downloaded.error || !downloaded.data) {
         await recordPhotoUploadFailed(requestId, 'storage_error', position);
         throw unavailable('storage', 'download');
@@ -333,7 +350,13 @@ async function checkPhotos(requestId: string, planned: number): Promise<StoredPh
       verdict = inspectPhoto(head, size);
     }
 
-    if (verdict.ok) {
+    const expected = planSizes?.get(position);
+    if (verdict.ok && expected !== undefined && size !== expected) {
+      // not the file she planned (a left-over or swapped upload): refused so the right one is uploaded again
+      problems.push({ field, message: PHOTO_MESSAGES.missing, code: 'photo_invalid' });
+      failures.push({ reason: 'storage_error', position });
+      toRemove.push(path);
+    } else if (verdict.ok) {
       stored.push({ position, storage_path: path, content_type: verdict.contentType, size_bytes: size });
     } else {
       problems.push({ field, message: PHOTO_MESSAGES[verdict.reason], code: 'photo_invalid' });
@@ -377,12 +400,12 @@ export async function completeQuoteRequest(input: CompleteInput): Promise<Comple
   if (!UUID.test(input.requestId)) throw new ProblemError(404, 'not_found');
 
   const db = admin();
-  const found = await db.from('quote_requests').select('id, state, submission_key, photo_count').eq('id', input.requestId).maybeSingle();
+  const found = await db.from('quote_requests').select('id, state, submission_key, photo_count, photo_plan').eq('id', input.requestId).maybeSingle();
   if (found.error) throw dbProblem(found.error);
   if (!found.data) throw new ProblemError(404, 'not_found');
   if (found.data.submission_key !== nonce) throw new ProblemError(401, 'form_token_invalid');
 
-  const photos = found.data.state === 'pending' ? await checkPhotos(found.data.id, found.data.photo_count) : [];
+  const photos = found.data.state === 'pending' ? await checkPhotos(found.data.id, found.data.photo_count, plannedSizes(found.data.photo_plan)) : [];
   const completed = await db.rpc('complete_quote_request', { p_request_id: found.data.id, p_photos: photos });
   if (completed.error) throw dbProblem(completed.error);
   const result = CompleteRow.parse(completed.data);

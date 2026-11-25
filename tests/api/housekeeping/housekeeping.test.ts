@@ -4,10 +4,18 @@
 // secret is unset or short. With a good secret it purges pending requests older than 24 hours with their files, and every counter
 // row older than 24 hours, and touches nothing newer, nothing submitted, and no event. (US-002, US-003, US-004.)
 //
-// Staging is shared: the job purges ALL stale rows, as it is meant to, so counts are asserted as "at least what this file inserted".
-// Every row, file and event this file creates is deleted in afterAll (the events through psql, as the service role cannot).
+// Isolation on the shared staging database (REV-3): the job's cutoff is "the clock minus 24 hours", and the job takes no other
+// scope. Every row this file expects to be purged or kept is created in January 2001, and every authorised call runs the
+// production route and job unchanged with only `Date` faked to NOW (2001-01-03 12:00 UTC). The cutoff is then
+// 2001-01-02 12:00 UTC, so the purge can reach only this file's rows, never a real row or another run's fixtures. That is
+// proved by "bystander" rows that are stale in real time (created 25 to 26 hours ago, as other runs' fixtures are) and must
+// survive. Because nothing else on staging is from that era, the counts are asserted exactly.
+// Limit: two copies of THIS file running at the same moment share the era and can purge each other's rows (CI serialises the
+// staging-database jobs). A run cancelled before its afterAll is cleared by the sweep at the start of the next one.
+// Every row, file and event this file creates is tracked and deleted by setupStaging's afterAll (the events through psql, as the
+// service role cannot), which then proves nothing is left.
 import { randomBytes, randomUUID } from 'node:crypto';
-import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest';
+import { beforeAll, describe, expect, it, vi } from 'vitest';
 import { GET, POST, PUT } from '@/app/api/jobs/housekeeping/route';
 import { RunHousekeepingResponse } from '@/lib/api/generated/jobs/jobs.zod';
 import { captureOutput, expectProblem, jsonRequest } from '../../helpers/api';
@@ -16,13 +24,33 @@ import { setupStaging } from '../../helpers/staging';
 const staging = setupStaging();
 
 const HOUR = 60 * 60 * 1000;
+const MINUTE = 60 * 1000;
+/** The clock the authorised calls run with. Every fixture the purge may touch is from this era. */
+const NOW = Date.UTC(2001, 0, 3, 12);
+/** Nothing real is older than this; everything older is this file's (and is swept before the run). */
+const ERA_END = new Date(Date.UTC(2002, 0, 1)).toISOString();
+/** `ms` before NOW (this file's era). */
+const before = (ms: number) => new Date(NOW - ms).toISOString();
+/** `hours` before the real time (rows other runs own). */
 const ago = (hours: number) => new Date(Date.now() - hours * HOUR).toISOString();
 const hash = () => randomBytes(32).toString('hex');
 const REFERENCE_ALPHABET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
 const reference = () => `NQ-${Array.from(randomBytes(6), (b) => REFERENCE_ALPHABET[b % 31]).join('')}`;
+const TABLES = ['rate_limit_hits', 'spam_refusal_windows', 'sign_in_attempts', 'sign_in_pauses'] as const;
 
 const call = (authorization?: string) =>
   GET(jsonRequest('/api/jobs/housekeeping', { method: 'GET', headers: authorization === undefined ? {} : { authorization } }), undefined);
+
+/** Run `fn` with only Date faked to NOW (timers, fetch and TLS keep the real clock). */
+async function atNow<T>(fn: () => Promise<T>): Promise<T> {
+  vi.useFakeTimers({ toFake: ['Date'], now: NOW });
+  try {
+    return await fn();
+  } finally {
+    vi.useRealTimers();
+  }
+}
+const authorisedCall = () => atNow(() => call(`Bearer ${staging.secrets.cron}`));
 
 type Fixture = {
   stalePending: string;
@@ -34,6 +62,8 @@ type Fixture = {
   freshWindowEvent: string;
   oldEmailHash: string;
   freshEmailHash: string;
+  /** Stale in real time, outside this file's era: what another run's fixtures look like. */
+  bystander: { request: string; ipHash: string; emailHash: string };
 };
 let fx: Fixture;
 
@@ -63,7 +93,13 @@ async function putFile(id: string): Promise<void> {
   expect(error).toBeNull();
 }
 
-const exists = async (table: 'quote_requests', id: string) => ((await staging.db().from(table).select('id').eq('id', id)).data ?? []).length === 1;
+async function removeFiles(id: string): Promise<void> {
+  const files = await staging.db().storage.from('quote-photos').list(id, { limit: 10 });
+  const paths = (files.data ?? []).map((f) => `${id}/${f.name}`);
+  if (paths.length > 0) expect((await staging.db().storage.from('quote-photos').remove(paths)).error).toBeNull();
+}
+
+const exists = async (id: string) => ((await staging.db().from('quote_requests').select('id').eq('id', id)).data ?? []).length === 1;
 const hasFile = async (id: string) => ((await staging.db().storage.from('quote-photos').list(id)).data ?? []).length === 1;
 const hitCount = async (h: string) => ((await staging.db().from('rate_limit_hits').select('id').eq('ip_hash', h)).data ?? []).length;
 const windowCount = async (h: string) => ((await staging.db().from('spam_refusal_windows').select('id').eq('ip_hash', h)).data ?? []).length;
@@ -80,49 +116,75 @@ async function spamWindow(ipHash: string, createdAt: string): Promise<string> {
   return event.data!.id;
 }
 
-beforeAll(async () => {
-  // beforeAll of useStaging (env and secrets) is registered first, so it has run
-  const stalePending = await insertRequest(pendingRow(ago(26)));
-  await putFile(stalePending);
-  const freshPending = await insertRequest(pendingRow(ago(1)));
-  await putFile(freshPending);
-  const oldSubmitted = await insertRequest({ ...pendingRow(ago(30)), state: 'submitted', reference: reference(), submitted_at: ago(30), photo_count: 0 });
+/** Clear what an earlier run of this file left behind (cancelled before its afterAll): every row older than ERA_END is this file's. */
+async function sweepEarlierRuns(): Promise<void> {
+  const db = staging.db();
+  const windows = await db.from('spam_refusal_windows').select('event_id').lt('created_at', ERA_END);
+  expect(windows.error).toBeNull();
+  for (const w of windows.data ?? []) staging.trackEvent(w.event_id); // deleted with psql in afterAll
+  const old = await db.from('quote_requests').select('id').lt('created_at', ERA_END);
+  expect(old.error).toBeNull();
+  const ids = (old.data ?? []).map((r) => r.id);
+  for (const id of ids) await removeFiles(id);
+  if (ids.length > 0) expect((await db.from('quote_requests').delete().in('id', ids)).error).toBeNull();
+  for (const table of TABLES) expect((await db.from(table).delete().lt('created_at', ERA_END)).error).toBeNull();
+}
 
-  const oldHash = hash();
-  const freshHash = hash();
-  staging.trackHash(oldHash);
-  staging.trackHash(freshHash);
+beforeAll(async () => {
+  // beforeAll of setupStaging (env and secrets) is registered first, so it has run
+  await sweepEarlierRuns();
+
+  const stalePending = await insertRequest(pendingRow(before(26 * HOUR)));
+  await putFile(stalePending);
+  const freshPending = await insertRequest(pendingRow(before(1 * HOUR)));
+  await putFile(freshPending);
+  const oldSubmitted = await insertRequest({ ...pendingRow(before(30 * HOUR)), state: 'submitted', reference: reference(), submitted_at: before(30 * HOUR), photo_count: 0 });
+
+  const [oldHash, freshHash, oldEmailHash, freshEmailHash] = [hash(), hash(), hash(), hash()];
+  for (const h of [oldHash, freshHash, oldEmailHash, freshEmailHash]) staging.trackHash(h); // afterAll deletes counters and sign-in rows by these
   const rows = [
-    { ip_hash: oldHash, created_at: ago(25) },
-    { ip_hash: oldHash, created_at: ago(48) },
-    { ip_hash: freshHash, created_at: ago(1) },
+    { ip_hash: oldHash, created_at: before(24 * HOUR + MINUTE) }, // just past the 24-hour line
+    { ip_hash: oldHash, created_at: before(48 * HOUR) },
+    { ip_hash: freshHash, created_at: before(24 * HOUR - MINUTE) }, // just inside it
+    { ip_hash: freshHash, created_at: before(1 * HOUR) },
   ];
   expect((await staging.db().from('rate_limit_hits').insert(rows)).error).toBeNull();
-  const oldWindowEvent = await spamWindow(oldHash, ago(26));
-  const freshWindowEvent = await spamWindow(freshHash, ago(1));
+  const oldWindowEvent = await spamWindow(oldHash, before(26 * HOUR));
+  const freshWindowEvent = await spamWindow(freshHash, before(1 * HOUR));
 
-  const oldEmailHash = hash();
-  const freshEmailHash = hash();
   const attempts = [
-    { email_hash: oldEmailHash, ip_hash: oldHash, succeeded: false, created_at: ago(25) },
-    { email_hash: freshEmailHash, ip_hash: freshHash, succeeded: false, created_at: ago(1) },
+    { email_hash: oldEmailHash, ip_hash: oldHash, succeeded: false, created_at: before(25 * HOUR) },
+    { email_hash: freshEmailHash, ip_hash: freshHash, succeeded: false, created_at: before(1 * HOUR) },
   ];
   expect((await staging.db().from('sign_in_attempts').insert(attempts)).error).toBeNull();
   const pauses = [
-    { scope: 'email', key_hash: oldEmailHash, paused_until: ago(24), created_at: ago(25) },
-    { scope: 'email', key_hash: freshEmailHash, paused_until: new Date(Date.now() + HOUR).toISOString(), created_at: ago(1) },
+    { scope: 'email', key_hash: oldEmailHash, paused_until: before(24 * HOUR), created_at: before(25 * HOUR) },
+    { scope: 'email', key_hash: freshEmailHash, paused_until: new Date(NOW + HOUR).toISOString(), created_at: before(1 * HOUR) },
   ];
   expect((await staging.db().from('sign_in_pauses').insert(pauses)).error).toBeNull();
 
-  fx = { stalePending, freshPending, oldSubmitted, oldHash, freshHash, oldWindowEvent, freshWindowEvent, oldEmailHash, freshEmailHash };
-});
+  // other runs' fixtures: stale in real time, so the old test (which purged with the real clock) deleted them
+  const bystanderRequest = await insertRequest(pendingRow(ago(26)));
+  await putFile(bystanderRequest);
+  const [bystanderIp, bystanderEmail] = [hash(), hash()];
+  staging.trackHash(bystanderIp);
+  staging.trackHash(bystanderEmail);
+  expect((await staging.db().from('rate_limit_hits').insert({ ip_hash: bystanderIp, created_at: ago(25) })).error).toBeNull();
+  expect((await staging.db().from('sign_in_attempts').insert({ email_hash: bystanderEmail, ip_hash: bystanderIp, succeeded: false, created_at: ago(25) })).error).toBeNull();
+  expect((await staging.db().from('sign_in_pauses').insert({ scope: 'email', key_hash: bystanderEmail, paused_until: ago(24), created_at: ago(25) })).error).toBeNull();
 
-afterAll(async () => {
-  // the sign-in rows are not covered by the shared cleanup
-  if (!fx) return;
-  await staging.db().from('sign_in_attempts').delete().in('email_hash', [fx.oldEmailHash, fx.freshEmailHash]);
-  await staging.db().from('sign_in_pauses').delete().in('key_hash', [fx.oldEmailHash, fx.freshEmailHash]);
-  expect(await attemptCount(fx.oldEmailHash) + (await attemptCount(fx.freshEmailHash)) + (await pauseCount(fx.oldEmailHash)) + (await pauseCount(fx.freshEmailHash))).toBe(0);
+  fx = {
+    stalePending,
+    freshPending,
+    oldSubmitted,
+    oldHash,
+    freshHash,
+    oldWindowEvent,
+    freshWindowEvent,
+    oldEmailHash,
+    freshEmailHash,
+    bystander: { request: bystanderRequest, ipHash: bystanderIp, emailHash: bystanderEmail },
+  };
 });
 
 describe('S0 SEC-4 / invariant 12: Bearer undefined, empty and missing each give 401, and nothing is purged', () => {
@@ -137,7 +199,7 @@ describe('S0 SEC-4 / invariant 12: Bearer undefined, empty and missing each give
     const authorization = header?.replace('SECRET', staging.secrets.cron);
     let res: Response | undefined;
     await captureOutput(async () => {
-      res = await call(authorization);
+      res = await atNow(() => call(authorization)); // at NOW, so a refused call that purged would reach this file's rows
     });
     const problem = await expectProblem(res as Response, 401, 'unauthorized');
     expect(JSON.stringify(problem)).not.toContain(staging.secrets.cron);
@@ -154,7 +216,7 @@ describe('S0 SEC-4 / invariant 12: Bearer undefined, empty and missing each give
       for (const header of attempts) {
         let res: Response | undefined;
         await captureOutput(async () => {
-          res = await call(header);
+          res = await atNow(() => call(header));
         });
         await expectProblem(res as Response, 401, 'unauthorized');
       }
@@ -164,7 +226,7 @@ describe('S0 SEC-4 / invariant 12: Bearer undefined, empty and missing each give
   });
 
   it('none of the refused calls touched the stale rows', async () => {
-    expect(await exists('quote_requests', fx.stalePending)).toBe(true);
+    expect(await exists(fx.stalePending)).toBe(true);
     expect(await hasFile(fx.stalePending)).toBe(true);
     expect(await hitCount(fx.oldHash)).toBe(2);
     expect(await windowCount(fx.oldHash)).toBe(1);
@@ -180,21 +242,22 @@ describe('S0 SEC-4 / invariant 12: Bearer undefined, empty and missing each give
   });
 });
 
-describe('runHousekeeping with the right secret', () => {
-  it('purges pending requests and their files, and every counter row, older than 24 hours; the response matches the contract', async () => {
-    const res = await call(`Bearer ${staging.secrets.cron}`);
+describe('runHousekeeping with the right secret (the production route and job; only the clock is set to NOW)', () => {
+  it('purges exactly this file\'s stale pending request and its file, and its counter rows older than 24 hours; the response matches the contract', async () => {
+    const res = await authorisedCall();
     expect(res.status).toBe(200);
     expect(res.headers.get('content-type')).toBe('application/json');
     const result = RunHousekeepingResponse.parse(await res.json());
-    expect(Object.keys(result).sort()).toEqual(['pending_requests_purged', 'photos_purged', 'rate_limit_rows_purged', 'sign_in_rows_purged']);
-    expect(result.pending_requests_purged).toBeGreaterThanOrEqual(1);
-    expect(result.photos_purged).toBeGreaterThanOrEqual(1);
-    expect(result.rate_limit_rows_purged).toBeGreaterThanOrEqual(3); // two old hits and one old spam window
-    expect(result.sign_in_rows_purged).toBeGreaterThanOrEqual(2); // one old attempt and one old pause
+    expect(result).toEqual({
+      pending_requests_purged: 1,
+      photos_purged: 1,
+      rate_limit_rows_purged: 3, // two old hits and one old spam window
+      sign_in_rows_purged: 2, // one old attempt and one old pause
+    });
   });
 
-  it('removed the stale pending request and its file, the old hits, spam window, sign-in attempt and sign-in pause', async () => {
-    expect(await exists('quote_requests', fx.stalePending)).toBe(false);
+  it('removed the stale pending request and its file, the old hits (one a minute past 24 hours), spam window, sign-in attempt and sign-in pause', async () => {
+    expect(await exists(fx.stalePending)).toBe(false);
     expect(await hasFile(fx.stalePending)).toBe(false);
     expect(await hitCount(fx.oldHash)).toBe(0);
     expect(await windowCount(fx.oldHash)).toBe(0);
@@ -202,11 +265,11 @@ describe('runHousekeeping with the right secret', () => {
     expect(await pauseCount(fx.oldEmailHash)).toBe(0);
   });
 
-  it('kept everything newer than 24 hours, a submitted request however old, and every spam event (they hold no address)', async () => {
-    expect(await exists('quote_requests', fx.freshPending)).toBe(true);
+  it('kept everything newer than 24 hours (one a minute inside), a submitted request however old, and every spam event (they hold no address)', async () => {
+    expect(await exists(fx.freshPending)).toBe(true);
     expect(await hasFile(fx.freshPending)).toBe(true);
-    expect(await exists('quote_requests', fx.oldSubmitted)).toBe(true);
-    expect(await hitCount(fx.freshHash)).toBe(1);
+    expect(await exists(fx.oldSubmitted)).toBe(true);
+    expect(await hitCount(fx.freshHash)).toBe(2);
     expect(await windowCount(fx.freshHash)).toBe(1);
     expect(await attemptCount(fx.freshEmailHash)).toBe(1);
     expect(await pauseCount(fx.freshEmailHash)).toBe(1);
@@ -214,18 +277,26 @@ describe('runHousekeeping with the right secret', () => {
     expect(await eventExists(fx.freshWindowEvent)).toBe(true);
   });
 
-  it('is safe to run again: the second run purges none of this file\'s rows and still answers the contract', async () => {
-    const res = await call(`Bearer ${staging.secrets.cron}`);
+  it('REV-3: left alone the rows another run owns, although they are stale in real time (25 to 26 hours old)', async () => {
+    expect(await exists(fx.bystander.request)).toBe(true);
+    expect(await hasFile(fx.bystander.request)).toBe(true);
+    expect(await hitCount(fx.bystander.ipHash)).toBe(1);
+    expect(await attemptCount(fx.bystander.emailHash)).toBe(1);
+    expect(await pauseCount(fx.bystander.emailHash)).toBe(1);
+  });
+
+  it('is safe to run again: the second run purges nothing and still answers the contract', async () => {
+    const res = await authorisedCall();
     expect(res.status).toBe(200);
-    RunHousekeepingResponse.parse(await res.json());
-    expect(await exists('quote_requests', fx.freshPending)).toBe(true);
-    expect(await exists('quote_requests', fx.oldSubmitted)).toBe(true);
+    expect(RunHousekeepingResponse.parse(await res.json())).toEqual({ pending_requests_purged: 0, photos_purged: 0, rate_limit_rows_purged: 0, sign_in_rows_purged: 0 });
+    expect(await exists(fx.freshPending)).toBe(true);
+    expect(await exists(fx.oldSubmitted)).toBe(true);
   });
 
   it('logs ids and counts only (no request column, no address hash)', async () => {
     let res: Response | undefined;
     const output = await captureOutput(async () => {
-      res = await call(`Bearer ${staging.secrets.cron}`);
+      res = await authorisedCall();
     });
     expect((res as Response).status).toBe(200);
     for (const secret of [staging.secrets.cron, fx.oldHash, fx.freshHash, 'Housekeeping Tester', '4165550111', '@example.test']) expect(output).not.toContain(secret);
