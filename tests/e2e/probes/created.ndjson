@@ -30,3 +30,11 @@
 {"at":"2026-11-25T03:06:28.289Z","run":"iwpi5","reference":"NQ-V7PEGQ","name":"QA-PROBE iwpi5 storage B","note":"storage probe B: oversize, wrong type and a text file named photo-1 were refused first"}
 {"at":"2026-11-25T03:06:29.836Z","run":"iwpi5","reference":"NQ-244TKQ","name":"QA-PROBE iwpi5 storage A","note":"storage probe A: three photos, bucket attack attempts"}
 {"at":"2026-11-25T03:06:39.329Z","run":"iwpi5","reference":null,"name":"QA-PROBE iwpi5 boundary","note":"pending only: never submitted, invisible to staff, purged by housekeeping after 24 hours"}
+{"at":"2026-11-25T03:32:46.749Z","run":"k6jj1","reference":"NQ-3C453U","name":"QA-PROBE k6jj1 00 <img src=x onerror=window.__xss=1>","note":"burst of 20 parallel creates; script text in name, address and problem; offers value \"maybe\""}
+{"at":"2026-11-25T03:32:47.063Z","run":"k6jj1","reference":"NQ-DQA9HD","name":"QA-PROBE k6jj1 02 <img src=x onerror=window.__xss=1>","note":"burst of 20 parallel creates; script text in name, address and problem; offers value \"maybe\""}
+{"at":"2026-11-25T03:32:47.245Z","run":"k6jj1","reference":"NQ-V86EF8","name":"QA-PROBE k6jj1 13 <img src=x onerror=window.__xss=1>","note":"burst of 20 parallel creates; script text in name, address and problem; offers value \"maybe\""}
+{"at":"2026-11-25T03:32:47.432Z","run":"k6jj1","reference":"NQ-64AGFN","name":"QA-PROBE k6jj1 16 <img src=x onerror=window.__xss=1>","note":"burst of 20 parallel creates; script text in name, address and problem; offers value \"maybe\""}
+{"at":"2026-11-25T03:32:47.604Z","run":"k6jj1","reference":"NQ-R9X7XQ","name":"QA-PROBE k6jj1 18 <img src=x onerror=window.__xss=1>","note":"burst of 20 parallel creates; script text in name, address and problem; offers value \"maybe\""}
+{"at":"2026-11-25T03:43:08.744Z","run":"k6jj1","reference":"NQ-3W9SXD","name":"QA-PROBE k6jj1 storage B","note":"storage probe B: oversize, wrong type and a text file named photo-1 were refused first"}
+{"at":"2026-11-25T03:43:11.008Z","run":"k6jj1","reference":"NQ-6D9GHY","name":"QA-PROBE k6jj1 storage A","note":"storage probe A: three photos, bucket attack attempts"}
+{"at":"2026-11-25T03:43:20.392Z","run":"k6jj1","reference":null,"name":"QA-PROBE k6jj1 boundary","note":"pending only: never submitted, invisible to staff, purged by housekeeping after 24 hours"}

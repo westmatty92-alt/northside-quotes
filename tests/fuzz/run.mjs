@@ -39,6 +39,12 @@
 //      74b, 75 and 76 instead.
 //   4. Reports: junit and har. The HAR file is read after each run and every 5xx is printed with its Vercel request id
 //      and request body, so a ticket does not need a second run. Counts only use report files this run wrote.
+//   5. Second ledger run (staging dfaaa6c): 18 of 21 failures came from Schemathesis sending an EMPTY request_id, which turns
+//      the URL into a different valid route (405 on POST /quote-requests/submission, the list page for GET /quote-requests/).
+//      tests/fuzz/schemathesis.toml (passed with --config-file) pins request_id to one well-formed unknown uuid. No check is
+//      switched off; the cost (the id itself is no longer varied) is written in that file and is covered by probe PRB-04.
+//      The other 3 failures are contract gaps (version has no maximum, cursor shape) and are NOT hidden: they stay red until
+//      docs/openapi.yaml is amended.
 //
 // Exit codes: 0 no finding · 1 findings (a 5xx, a response that breaks the contract, an undocumented status) ·
 //             2 setup problem (missing variable name, refused host, no token) or a Schemathesis run that did not
@@ -65,6 +71,8 @@ try {
 const VENV_BIN = path.join(ROOT, '.baseleap/tools/venv/bin/schemathesis');
 const SUMMARY = path.join(ROOT, 'tests/fuzz/last-run.txt');
 const REPORTS = path.join(ROOT, '.baseleap/tools/fuzz-reports');
+const CONFIG = path.join(ROOT, 'tests/fuzz/schemathesis.toml');
+if (!fs.existsSync(CONFIG)) stop(2, 'tests/fuzz/schemathesis.toml is missing: the run is not valid without it (see its header).');
 
 function stop(code, message) {
   console.error(message);
@@ -202,7 +210,7 @@ function runOne(run) {
     const dir = path.join(REPORTS, run.name);
     fs.mkdirSync(dir, { recursive: true });
     const [cmd, ...pre] = st;
-    const args = [...pre, 'run', 'docs/openapi.yaml', ...run.args, ...extra, '--report', 'junit,har', '--report-dir', dir];
+    const args = [...pre, '--config-file', CONFIG, 'run', 'docs/openapi.yaml', ...run.args, ...extra, '--report', 'junit,har', '--report-dir', dir];
     const since = Date.now() - 1_000;
     echo(`\n## run: ${run.name}`);
     const child = spawn(cmd, args, { stdio: ['ignore', 'pipe', 'pipe'], env: { ...process.env, NO_COLOR: '1' } });

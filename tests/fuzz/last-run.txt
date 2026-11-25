@@ -1,459 +1,6 @@
-# Schemathesis 4.0.0 run 2026-11-25T03:07:17.825Z against https://northside-quotes-git-staging-baseleap.vercel.app/api
+# Schemathesis 4.0.0 run 2026-11-25T03:43:45.647Z against https://northside-quotes-git-staging-baseleap.vercel.app/api
 
 ## run: anonymous
-Schemathesis dev
-━━━━━━━━━━━━━━━━
-
-
- ✅  Loaded specification from docs/openapi.yaml (in 0.31s)                     
-
-     Base URL:         https://northside-quotes-git-staging-baseleap.verce…     
-     Specification:    Open API 3.1.0                                           
-     Operations:       11 selected / 15 total                                   
-
-
- ✅  API capabilities:                                                          
-
-     Supports NULL byte in headers:    ✘                                        
-
- ✅  Examples (in 3.09s)                                                        
-                                                                                
-     ✅  5 passed  ⏭   6 skipped                                                
-
- ❌  Coverage (in 17.04s)                                                       
-                                                                                
-     ❌ 11 failed                                                               
-
- ❌  Fuzzing (in 14.96s)                                                        
-                                                                                
-     ✅  1 passed  ❌ 10 failed                                                 
-
-=================================== FAILURES ===================================
-_____________________________ GET /quote-requests ______________________________
-1. Test Case ID: wzGsVg
-
-- Unsupported method incorrect response
-
-    Missing Allow header for unsupported method TRACE
-
-[405] Method Not Allowed:
-
-    `Method not allowed
-
-    NOT_ALLOWED
-
-    yul1::dwlql-1795576051383-e28256e056bf`
-
-Reproduce with: 
-
-    curl -X TRACE -H 'Authorization: [Filtered]' -H 'x-vercel-protection-bypass: $VERCEL_AUTOMATION_BYPASS_SECRET' 'https://northside-quotes-git-staging-baseleap.vercel.app/api/quote-requests?status=new&q=0&cursor=00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000&limit=50'
-
-2. Test Case ID: dSThes
-
-- Undocumented Content-Type
-
-    Received: text/plain; charset=utf-8
-    Documented: application/problem+json
-
-[400] Bad Request:
-
-    `400 Bad Request`
-
-Reproduce with: 
-
-    curl -X GET -H 'x-vercel-protection-bypass: $VERCEL_AUTOMATION_BYPASS_SECRET' -H '-k: ¢©ç6' -H 'dDTAZ!~z^tHx*o-F^ldF_1: '"'"'vofQ½' -H 'ipjl|T~#A: ' -H 'C8v*'"'"'E9D*8C.Ww5w: âG'"'"'îü' -H 'none: Ü.îh' -H 'i0x-2mM3vZ`: Â' -H 'Lj4Lg%: ü' -H 'Asy3: Ó8Á¥J' -H 'eE: 3` D°GS' -H 'Lgq: ' -H '`5vp72i: HPµ' -H 'x2: ' -H '%'"'"'G5c: X' -H '.N1fkNFbb*op3Lt: K' -H 'O: yR»ú2MÖeÊ]' -H 'IuqX-VA0.: &' -H 'NIL: W,:à^ìüEÞ±³'"'"'t¿MÄ\#¤º0¥-' 'https://northside-quotes-git-staging-baseleap.vercel.app/api/quote-requests?b%0EX%11%C3%BB%27y%C3%90%18-%C2%84=%7B%7D&status=new&limit=23&cursor=%C2%B7%F3%B0%AA%9C%F4%82%84%AA%C2%B1v%C3%A4%C3%B3%06790%C3%AB%C3%9E%14&q=%F0%9D%95%8B%F0%9D%95%99%F0%9D%95%96+%F0%9D%95%A2%F0%9D%95%A6%F0%9D%95%9A%F0%9D%95%94%F0%9D%95%9C+%F0%9D%95%93%F0%9D%95%A3%F0%9D%95%A0%F0%9D%95%A8%F0%9D%95%9F+%F0%9D%95%97%F0%9D%95%A0%F0%9D%95%A9+%F0%9D%95%9B%F0%9D%95%A6%F0%9D%95%9E%F0%9D%95%A1%F0%9D%95%A4+%F0%9D%95%A0%F0%9D%95%A7%F0%9D%95%96%F0%9D%95%A3+%F0%9D%95%A5%F0%9D%95%99%F0%9D%95%96+%F0%9D%95%9D%F0%9D%95%92%F0%9D%95%AB%F0%9D%95%AA+%F0%9D%95%95%F0%9D%95%A0%F0%9D%95%98'
-
-_____________________________ POST /quote-requests _____________________________
-1. Test Case ID: kLJOds
-
-- Missing header not rejected
-
-    Missing header not rejected (got 401, expected 406)
-
-[401] Unauthorized:
-
-    `{"type":"about:blank","title":"We couldn't send your request. Please try again.","status":401,"code":"form_token_invalid"}`
-
-Reproduce with: 
-
-    curl -X POST -H 'x-vercel-protection-bypass: $VERCEL_AUTOMATION_BYPASS_SECRET' -H 'Content-Type: application/json' -d '{"address": "00000", "email": "0@A.COM", "marketing_consent": false, "name": "00", "phone": "0", "photos": [], "problem": "0000000000", "urgency": "soon", "website": ""}' https://northside-quotes-git-staging-baseleap.vercel.app/api/quote-requests
-
-2. Test Case ID: AlNhhN
-
-- Rejected positive data
-
-    Allowed statuses: 2xx, 401, 403, 404, 5xx
-
-- Undocumented Content-Type
-
-    Received: text/plain; charset=utf-8
-    Documented: application/problem+json
-
-[400] Bad Request:
-
-    `400 Bad Request`
-
-Reproduce with: 
-
-    curl -X POST -H 'x-vercel-protection-bypass: $VERCEL_AUTOMATION_BYPASS_SECRET' -H 'X-Form-Token: [Filtered]' -H 'Content-Type: application/json' -d '{"address": "\ud922\udc84\u0096#Z\u00b4", "email": "N@OmTD.Xwb0-spnuxpWOzWirVcceTKvkZFW.Fh7c7.vXBf2vGc0VFbXq0Z.Y3M7.disH", "name": "__main__", "phone": "\u00a0:\uda8c\udf21%0Z", "problem": "\u00e0!\u1628}\u00ad\uda2c\udd8b\u00f2\u0086\u008cq\uaf30", "urgency": "flexible"}' https://northside-quotes-git-staging-baseleap.vercel.app/api/quote-requests
-
-_______________________ GET /quote-requests/{request_id} _______________________
-1. Test Case ID: KavFjI
-
-- Unsupported method incorrect response
-
-    Missing Allow header for unsupported method TRACE
-
-[405] Method Not Allowed:
-
-    `Method not allowed
-
-    NOT_ALLOWED
-
-    yul1::xjw2k-1795576054932-7e8154da5b9f`
-
-Reproduce with: 
-
-    curl -X TRACE -H 'Authorization: [Filtered]' -H 'x-vercel-protection-bypass: $VERCEL_AUTOMATION_BYPASS_SECRET' https://northside-quotes-git-staging-baseleap.vercel.app/api/quote-requests/6f1c2a9e-6c1d-4f0e-9a43-2a1f0c3b9d10
-
-2. Test Case ID: omO47S
-
-- Rejected positive data
-
-    Allowed statuses: 2xx, 401, 403, 404, 5xx
-
-- Undocumented HTTP status code
-
-    Received: 400
-    Documented: 200, 401, 404, 500
-
-[400] Bad Request:
-
-    `400 Bad Request`
-
-Reproduce with: 
-
-    curl -X GET -H 'x-vercel-protection-bypass: $VERCEL_AUTOMATION_BYPASS_SECRET' -H 'Authorization: [Filtered]' https://northside-quotes-git-staging-baseleap.vercel.app/api/quote-requests/11b06139-f871-45ce-0a45-76bdb06ecdb5
-
-_________________ POST /quote-requests/{request_id}/submission _________________
-1. Test Case ID: uaW8aD
-
-- Missing header not rejected
-
-    Missing header not rejected (got 401, expected 406)
-
-[401] Unauthorized:
-
-    `{"type":"about:blank","title":"We couldn't send your request. Please try again.","status":401,"code":"form_token_invalid"}`
-
-Reproduce with: 
-
-    curl -X POST -H 'x-vercel-protection-bypass: $VERCEL_AUTOMATION_BYPASS_SECRET' https://northside-quotes-git-staging-baseleap.vercel.app/api/quote-requests/6f1c2a9e-6c1d-4f0e-9a43-2a1f0c3b9d10/submission
-
-2. Test Case ID: GaEvC7
-
-- Rejected positive data
-
-    Allowed statuses: 2xx, 401, 403, 404, 5xx
-
-- Undocumented Content-Type
-
-    Received: text/plain; charset=utf-8
-    Documented: application/problem+json
-
-[400] Bad Request:
-
-    `400 Bad Request`
-
-Reproduce with: 
-
-    curl -X POST -H 'x-vercel-protection-bypass: $VERCEL_AUTOMATION_BYPASS_SECRET' -H 'X-Form-Token: [Filtered]' https://northside-quotes-git-staging-baseleap.vercel.app/api/quote-requests/11b06139-f871-45ce-0a45-76bdb06ecdb5/submission
-
-___________________ GET /quote-requests/{request_id}/photos ____________________
-1. Test Case ID: jADv4g
-
-- Unsupported method incorrect response
-
-    Missing Allow header for unsupported method TRACE
-
-[405] Method Not Allowed:
-
-    `Method not allowed
-
-    NOT_ALLOWED
-
-    yul1::5f97c-1795576055764-8f9ce25d9634`
-
-Reproduce with: 
-
-    curl -X TRACE -H 'Authorization: [Filtered]' -H 'x-vercel-protection-bypass: $VERCEL_AUTOMATION_BYPASS_SECRET' https://northside-quotes-git-staging-baseleap.vercel.app/api/quote-requests/0/photos
-
-2. Test Case ID: VdBasH
-
-- Rejected positive data
-
-    Allowed statuses: 2xx, 401, 403, 404, 5xx
-
-- Undocumented HTTP status code
-
-    Received: 400
-    Documented: 200, 401, 404, 500
-
-[400] Bad Request:
-
-    `400 Bad Request`
-
-Reproduce with: 
-
-    curl -X GET -H 'x-vercel-protection-bypass: $VERCEL_AUTOMATION_BYPASS_SECRET' -H 'Authorization: [Filtered]' https://northside-quotes-git-staging-baseleap.vercel.app/api/quote-requests/11b06139-f871-45ce-0a45-76bdb06ecdb5/photos
-
-____________________ PUT /quote-requests/{request_id}/quote ____________________
-1. Test Case ID: 44G03J
-
-- Unsupported method incorrect response
-
-    Missing Allow header for unsupported method TRACE
-
-[405] Method Not Allowed:
-
-    `Method not allowed
-
-    NOT_ALLOWED
-
-    yul1::q6zhn-1795576055994-594e18c611b3`
-
-Reproduce with: 
-
-    curl -X TRACE -H 'Authorization: [Filtered]' -H 'x-vercel-protection-bypass: $VERCEL_AUTOMATION_BYPASS_SECRET' -H 'Content-Type: application/json' -d '{"note": null, "price_cents": null, "version": 1}' https://northside-quotes-git-staging-baseleap.vercel.app/api/quote-requests/0/quote
-
-2. Test Case ID: UqU9k9
-
-- Rejected positive data
-
-    Allowed statuses: 2xx, 401, 403, 404, 5xx
-
-- Undocumented Content-Type
-
-    Received: text/plain; charset=utf-8
-    Documented: application/problem+json
-
-[400] Bad Request:
-
-    `400 Bad Request`
-
-Reproduce with: 
-
-    curl -X PUT -H 'x-vercel-protection-bypass: $VERCEL_AUTOMATION_BYPASS_SECRET' -H 'Authorization: [Filtered]' -H 'Content-Type: application/json' -d '{"note": "\u0005\udb6c\udf79\ud97d\udd3da\u00a3\u00d3\u00ef2\udabb\udd00\u00a3\u0097\u0096\udbb3\udc80", "price_cents": null, "version": 63631705830503}' https://northside-quotes-git-staging-baseleap.vercel.app/api/quote-requests/11b06139-f871-45ce-0a45-76bdb06ecdb5/quote
-
-_______________ POST /quote-requests/{request_id}/status-changes _______________
-1. Test Case ID: BlNL0M
-
-- Unsupported method incorrect response
-
-    Missing Allow header for unsupported method TRACE
-
-[405] Method Not Allowed:
-
-    `Method not allowed
-
-    NOT_ALLOWED
-
-    yul1::lgzpw-1795576056201-fc7136d97da8`
-
-Reproduce with: 
-
-    curl -X TRACE -H 'Authorization: [Filtered]' -H 'x-vercel-protection-bypass: $VERCEL_AUTOMATION_BYPASS_SECRET' -H 'Content-Type: application/json' -d '{"to_status": "new", "version": 1}' https://northside-quotes-git-staging-baseleap.vercel.app/api/quote-requests/0/status-changes
-
-2. Test Case ID: ltR549
-
-- Rejected positive data
-
-    Allowed statuses: 2xx, 401, 403, 404, 5xx
-
-- Undocumented Content-Type
-
-    Received: text/plain; charset=utf-8
-    Documented: application/problem+json
-
-[400] Bad Request:
-
-    `400 Bad Request`
-
-Reproduce with: 
-
-    curl -X POST -H 'x-vercel-protection-bypass: $VERCEL_AUTOMATION_BYPASS_SECRET' -H 'Authorization: [Filtered]' -H 'Content-Type: application/json' -d '{"to_status": "new", "version": 1687381385382380550179543211573248}' https://northside-quotes-git-staging-baseleap.vercel.app/api/quote-requests/180a99ec-00ee-6460-197f-8ddf51e85d05/status-changes
-
-______________ POST /quote-requests/{request_id}/ghl-copy-retries ______________
-1. Test Case ID: r9UcCr
-
-- Unsupported method incorrect response
-
-    Missing Allow header for unsupported method TRACE
-
-[405] Method Not Allowed:
-
-    `Method not allowed
-
-    NOT_ALLOWED
-
-    yul1::wfv9l-1795576057377-0510392bd5e4`
-
-Reproduce with: 
-
-    curl -X TRACE -H 'Authorization: [Filtered]' -H 'x-vercel-protection-bypass: $VERCEL_AUTOMATION_BYPASS_SECRET' https://northside-quotes-git-staging-baseleap.vercel.app/api/quote-requests/0/ghl-copy-retries
-
-2. Test Case ID: 9KeSNb
-
-- Rejected positive data
-
-    Allowed statuses: 2xx, 401, 403, 404, 5xx
-
-- Undocumented HTTP status code
-
-    Received: 400
-    Documented: 200, 401, 404, 409, 500
-
-[400] Bad Request:
-
-    `400 Bad Request`
-
-Reproduce with: 
-
-    curl -X POST -H 'x-vercel-protection-bypass: $VERCEL_AUTOMATION_BYPASS_SECRET' -H 'Authorization: [Filtered]' https://northside-quotes-git-staging-baseleap.vercel.app/api/quote-requests/11b06139-f871-45ce-0a45-76bdb06ecdb5/ghl-copy-retries
-
-__________________________ GET /weekly-counts/current __________________________
-1. Test Case ID: yHlbWe
-
-- Unsupported method incorrect response
-
-    Missing Allow header for unsupported method TRACE
-
-[405] Method Not Allowed:
-
-    `Method not allowed
-
-    NOT_ALLOWED
-
-    yul1::xjw2k-1795576057651-839565200365`
-
-Reproduce with: 
-
-    curl -X TRACE -H 'Authorization: [Filtered]' -H 'x-vercel-protection-bypass: $VERCEL_AUTOMATION_BYPASS_SECRET' https://northside-quotes-git-staging-baseleap.vercel.app/api/weekly-counts/current
-
-2. Test Case ID: g7cClV
-
-- Undocumented HTTP status code
-
-    Received: 400
-    Documented: 200, 401, 500
-
-[400] Bad Request:
-
-    `400 Bad Request`
-
-Reproduce with: 
-
-    curl -X GET -H 'x-vercel-protection-bypass: $VERCEL_AUTOMATION_BYPASS_SECRET' -H 'S: ëÂ¿.<Z¯A' https://northside-quotes-git-staging-baseleap.vercel.app/api/weekly-counts/current
-
-________________________________ GET /staff/me _________________________________
-1. Test Case ID: LkYwHJ
-
-- Unsupported method incorrect response
-
-    Missing Allow header for unsupported method TRACE
-
-[405] Method Not Allowed:
-
-    `Method not allowed
-
-    NOT_ALLOWED
-
-    yul1::wfv9l-1795576057885-270cc1cab42d`
-
-Reproduce with: 
-
-    curl -X TRACE -H 'Authorization: [Filtered]' -H 'x-vercel-protection-bypass: $VERCEL_AUTOMATION_BYPASS_SECRET' https://northside-quotes-git-staging-baseleap.vercel.app/api/staff/me
-
-2. Test Case ID: 2bZXnv
-
-- Undocumented HTTP status code
-
-    Received: 400
-    Documented: 200, 401, 500
-
-[400] Bad Request:
-
-    `400 Bad Request`
-
-Reproduce with: 
-
-    curl -X GET -H 'x-vercel-protection-bypass: $VERCEL_AUTOMATION_BYPASS_SECRET' -H 'S: ëÂ¿.<Z¯A' https://northside-quotes-git-staging-baseleap.vercel.app/api/staff/me
-
-_________________________________ GET /health __________________________________
-1. Test Case ID: tZuJlY
-
-- Unsupported method incorrect response
-
-    Missing Allow header for unsupported method TRACE
-
-[405] Method Not Allowed:
-
-    `Method not allowed
-
-    NOT_ALLOWED
-
-    yul1::9b4gx-1795576058533-1face02d5184`
-
-Reproduce with: 
-
-    curl -X TRACE -H 'x-vercel-protection-bypass: $VERCEL_AUTOMATION_BYPASS_SECRET' https://northside-quotes-git-staging-baseleap.vercel.app/api/health
-
-=================================== WARNINGS ===================================
-
-Missing authentication: 6 operations returned authentication errors
-
-401 Unauthorized (6 operations):
-  - GET /quote-requests
-  - GET /quote-requests/{request_id}
-  - POST /quote-requests
-  + 3 more
-
-💡 Use --auth or -H to provide authentication credentials
-
-=================================== SUMMARY ====================================
-
-API Operations:
-  Selected: 11/15
-  Tested: 11
-
-Test Phases:
-  ✅ API probing
-  ✅ Examples
-  ❌ Coverage
-  ❌ Fuzzing
-  ⏭  Stateful (disabled)
-
-Failures:
-  ❌ Missing header not rejected: 2
-  ❌ Rejected positive data: 7
-  ❌ Undocumented Content-Type: 5
-  ❌ Undocumented HTTP status code: 5
-  ❌ Unsupported method incorrect response: 9
-
-Warnings:
-  ⚠️ Missing authentication: 6 operations returned only 401/403 responses
-
-Test cases:
-  142 generated, 21 found 28 unique failures
-
-Reports:
-  - JUNIT: /home/admin/baseleap/rehearsal/northside-quotes/.baseleap/tools/fuzz-reports/anonymous/junit-20261124T220717Z.xml
-
-Seed: 323506924148610966906916798263810564450
-
-====================== 28 failures, 6 warnings in 35.26s =======================
-
-## run: staff
 Schemathesis dev
 ━━━━━━━━━━━━━━━━
 
@@ -469,21 +16,173 @@ Schemathesis dev
 
      Supports NULL byte in headers:    ✘                                        
 
- ✅  Examples (in 2.24s)                                                        
+ ✅  Examples (in 1.79s)                                                        
                                                                                 
      ✅  5 passed  ⏭   6 skipped                                                
 
- ❌  Coverage (in 8.50s)                                                        
+ ❌  Coverage (in 79.25s)                                                       
                                                                                 
-     ❌ 11 failed                                                               
+     ✅  7 passed  ❌  4 failed                                                 
 
- ❌  Fuzzing (in 25.31s)                                                        
+ ✅  Fuzzing (in 38.13s)                                                        
                                                                                 
-     ✅  6 passed  ❌  5 failed                                                 
+     ✅ 11 passed                                                               
+
+=================================== FAILURES ===================================
+_________________ POST /quote-requests/{request_id}/submission _________________
+1. Test Case ID: dGtIpc
+
+- Accepted negative data
+
+    Allowed statuses: 400, 401, 403, 404, 406, 422, 428, 5xx
+
+- Undocumented HTTP status code
+
+    Received: 405
+    Documented: 200, 400, 401, 404, 422, 500, 503
+
+[405] Method Not Allowed:
+
+    `{"type":"about:blank","title":"Method not allowed","status":405,"code":"method_not_allowed"}`
+
+Reproduce with: 
+
+    curl -X POST -H 'X-Form-Token: [Filtered]' -H 'x-vercel-protection-bypass: $VERCEL_AUTOMATION_BYPASS_SECRET' -H 'Authorization: [Filtered]' https://northside-quotes-git-staging-baseleap.vercel.app/api/quote-requests/submission
+
+____________________ PUT /quote-requests/{request_id}/quote ____________________
+1. Test Case ID: o4b7ib
+
+- Accepted negative data
+
+    Allowed statuses: 400, 401, 403, 404, 406, 422, 428, 5xx
+
+- Undocumented HTTP status code
+
+    Received: 405
+    Documented: 200, 400, 401, 404, 409, 422, 500
+
+[405] Method Not Allowed:
+
+    `{"type":"about:blank","title":"Method not allowed","status":405,"code":"method_not_allowed"}`
+
+Reproduce with: 
+
+    curl -X PUT -H 'Authorization: [Filtered]' -H 'x-vercel-protection-bypass: $VERCEL_AUTOMATION_BYPASS_SECRET' -H 'X-Form-Token: [Filtered]' -H 'Content-Type: application/json' -d '{"note": null, "price_cents": null, "version": 1}' https://northside-quotes-git-staging-baseleap.vercel.app/api/quote-requests/quote
+
+_______________ POST /quote-requests/{request_id}/status-changes _______________
+1. Test Case ID: 2Pr89T
+
+- Accepted negative data
+
+    Allowed statuses: 400, 401, 403, 404, 406, 422, 428, 5xx
+
+- Undocumented HTTP status code
+
+    Received: 405
+    Documented: 201, 200, 400, 401, 404, 409, 422, 500
+
+[405] Method Not Allowed:
+
+    `{"type":"about:blank","title":"Method not allowed","status":405,"code":"method_not_allowed"}`
+
+Reproduce with: 
+
+    curl -X POST -H 'Authorization: [Filtered]' -H 'x-vercel-protection-bypass: $VERCEL_AUTOMATION_BYPASS_SECRET' -H 'X-Form-Token: [Filtered]' -H 'Content-Type: application/json' -d '{"to_status": "new", "version": 1}' https://northside-quotes-git-staging-baseleap.vercel.app/api/quote-requests/status-changes
+
+______________ POST /quote-requests/{request_id}/ghl-copy-retries ______________
+1. Test Case ID: wwkkUD
+
+- Accepted negative data
+
+    Allowed statuses: 400, 401, 403, 404, 406, 422, 428, 5xx
+
+- Undocumented HTTP status code
+
+    Received: 405
+    Documented: 200, 401, 404, 409, 500
+
+[405] Method Not Allowed:
+
+    `{"type":"about:blank","title":"Method not allowed","status":405,"code":"method_not_allowed"}`
+
+Reproduce with: 
+
+    curl -X POST -H 'Authorization: [Filtered]' -H 'x-vercel-protection-bypass: $VERCEL_AUTOMATION_BYPASS_SECRET' -H 'X-Form-Token: [Filtered]' https://northside-quotes-git-staging-baseleap.vercel.app/api/quote-requests/ghl-copy-retries
+
+=================================== WARNINGS ===================================
+
+Missing authentication: 10 operations returned authentication errors
+
+401 Unauthorized (10 operations):
+  - GET /quote-requests
+  - GET /quote-requests/{request_id}
+  - GET /quote-requests/{request_id}/photos
+  + 7 more
+
+💡 Use --auth or -H to provide authentication credentials
+
+=================================== SUMMARY ====================================
+
+API Operations:
+  Selected: 11/15
+  Tested: 11
+
+Test Phases:
+  ✅ API probing
+  ✅ Examples
+  ❌ Coverage
+  ✅ Fuzzing
+  ⏭  Stateful (disabled)
+
+Failures:
+  ❌ Accepted negative data: 4
+  ❌ Undocumented HTTP status code: 4
+
+Warnings:
+  ⚠️ Missing authentication: 10 operations returned only 401/403 responses
+
+Test cases:
+  526 generated, 4 found 8 unique failures
+
+Reports:
+  - JUNIT: /home/admin/baseleap/rehearsal/northside-quotes/.baseleap/tools/fuzz-reports/anonymous/junit-20261124T224345Z.xml
+  - HAR: /home/admin/baseleap/rehearsal/northside-quotes/.baseleap/tools/fuzz-reports/anonymous/har-20261124T224345Z.json
+
+Seed: 119772163980635960154596904093965812473
+
+====================== 8 failures, 10 warnings in 119.32s ======================
+
+## run: staff
+Schemathesis dev
+━━━━━━━━━━━━━━━━
+
+
+ ✅  Loaded specification from docs/openapi.yaml (in 0.18s)                     
+
+     Base URL:         https://northside-quotes-git-staging-baseleap.verce…     
+     Specification:    Open API 3.1.0                                           
+     Operations:       11 selected / 15 total                                   
+
+
+ ✅  API capabilities:                                                          
+
+     Supports NULL byte in headers:    ✘                                        
+
+ ✅  Examples (in 2.01s)                                                        
+                                                                                
+     ✅  5 passed  ⏭   6 skipped                                                
+
+ ❌  Coverage (in 67.38s)                                                       
+                                                                                
+     ✅  5 passed  ❌  6 failed                                                 
+
+ ❌  Fuzzing (in 45.62s)                                                        
+                                                                                
+     ✅  8 passed  ❌  3 failed                                                 
 
 =================================== FAILURES ===================================
 _____________________________ GET /quote-requests ______________________________
-1. Test Case ID: UhA8A7
+1. Test Case ID: 7hu5eV
 
 - Rejected positive data
 
@@ -495,223 +194,182 @@ _____________________________ GET /quote-requests ______________________________
 
 Reproduce with: 
 
-    curl -X GET -H 'Authorization: [Filtered]' -H 'x-vercel-protection-bypass: $VERCEL_AUTOMATION_BYPASS_SECRET' 'https://northside-quotes-git-staging-baseleap.vercel.app/api/quote-requests?status=new&q=0&cursor=00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000'
-
-_____________________________ POST /quote-requests _____________________________
-1. Test Case ID: CjvvjK
-
-- Missing header not rejected
-
-    Missing header not rejected (got 401, expected 406)
-
-[401] Unauthorized:
-
-    `{"type":"about:blank","title":"We couldn't send your request. Please try again.","status":401,"code":"form_token_invalid"}`
-
-Reproduce with: 
-
-    curl -X POST -H 'x-vercel-protection-bypass: $VERCEL_AUTOMATION_BYPASS_SECRET' -H 'Authorization: [Filtered]' -H 'Content-Type: application/json' -d '{"address": "00000", "email": "0@A.COM", "marketing_consent": false, "name": "00", "phone": "0", "photos": [], "problem": "0000000000", "urgency": "soon", "website": ""}' https://northside-quotes-git-staging-baseleap.vercel.app/api/quote-requests
-
-2. Test Case ID: 6oyt8m
-
-- Rejected positive data
-
-    Allowed statuses: 2xx, 401, 403, 404, 5xx
-
-- Undocumented Content-Type
-
-    Received: text/plain; charset=utf-8
-    Documented: application/problem+json
-
-[400] Bad Request:
-
-    `400 Bad Request`
-
-Reproduce with: 
-
-    curl -X POST -H 'x-vercel-protection-bypass: $VERCEL_AUTOMATION_BYPASS_SECRET' -H 'Authorization: [Filtered]' -H 'X-Form-Token: [Filtered]' -H 'Content-Type: application/json' -d '{"address": "]\u00f7\udad2\udee9\u009698\u00eeGv", "email": "#o*ffQI4#YH'"'"'j|&j_&AsB@rh.Fr", "name": "S\u00ed\u00d4\u00d3\u00b7\u0000\u0006", "phone": "G", "problem": "\u00d5\ud9f0\uddff\ud985\udc11\u007fN\u00bc\ud9ba\udc69\u00a2\u00f3\ud995\ude86+\u00a4\u009f\u0012\u0007\u000b", "urgency": "flexible", "marketing_consent": -1.3031983473285923e-96}' https://northside-quotes-git-staging-baseleap.vercel.app/api/quote-requests
+    curl -X GET -H 'Authorization: [Filtered]' -H 'x-vercel-protection-bypass: $VERCEL_AUTOMATION_BYPASS_SECRET' -H 'X-Form-Token: [Filtered]' 'https://northside-quotes-git-staging-baseleap.vercel.app/api/quote-requests?status=new&q=0&cursor=00000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000000'
 
 _______________________ GET /quote-requests/{request_id} _______________________
-1. Test Case ID: srQYTC
+1. Test Case ID: FClXEE
 
-- Missing header not rejected
+- Response violates schema
 
-    Missing header not rejected (got 404, expected 401)
+    Additional properties are not allowed ('data', 'next_cursor' were unexpected)
 
-[404] Not Found:
+    Schema:
 
-    `{"type":"about:blank","title":"Not found","status":404,"code":"not_found"}`
+        {
+            "type": "object",
+            "additionalProperties": false,
+            "required": [
+                "id",
+                "reference",
+                "name",
+                "phone",
+                "email",
+                "address",
+                "problem",
+                "urgency",
+                "status",
+                "status_changed_at",
+                "submitted_at",
+                "price_cents",
+                "currency",
+                "note",
+                "photo_count",
+            // Output truncated...
+        }
+
+    Value:
+
+        {
+            "data": [
+                {
+                    "id": "9c59cad5-4635-4099-babe-cab4dc1e7fc2",
+                    "reference": "NQ-6D9GHY",
+                    "name": "QA-PROBE k6jj1 storage A",
+                    "urgency": "flexible",
+                    "status": "new",
+                    "submitted_at": "2026-11-25T03:43:10.915Z",
+                    "version": 1
+                },
+                {
+                    "id": "37b305a6-ba82-48ec-8a12-5c791809a584",
+                    "reference": "NQ-3W9SXD",
+                    "name": "QA-PROBE k6jj1 storage B",
+                    "urgency": "flexible",
+                    "status": "new",
+                    "submitted_at": "2026-11-25T03:43:08.696Z",
+                    "version": 1
+            // Output truncated...
+        }
+
+- Accepted negative data
+
+    Allowed statuses: 400, 401, 403, 404, 406, 422, 428, 5xx
+
+[200] OK:
+
+    `{"data":[{"id":"9c59cad5-4635-4099-babe-cab4dc1e7fc2","reference":"NQ-6D9GHY","name":"QA-PROBE k6jj1 storage A","urgency":"flexible","status":"new","submitted_at":"2026-11-25T03:43:10.915Z","version":1},{"id":"37b305a6-ba82-48ec-8a12-5c791809a584","reference":"NQ-3W9SXD","name":"QA-PROBE k6jj1 storage B","urgency":"flexible","status":"new","submitted_at":"2026-11-25T03:43:08.696Z","version":1},{"id":"96d6cd60-ad32-4e99-8823-a98b9f782741","reference":"NQ-R9X7XQ","name":"QA-PROBE k6jj1 18 <img src=x onerror=w // Output truncated...`
 
 Reproduce with: 
 
-    curl -X GET -H 'x-vercel-protection-bypass: $VERCEL_AUTOMATION_BYPASS_SECRET' https://northside-quotes-git-staging-baseleap.vercel.app/api/quote-requests/6f1c2a9e-6c1d-4f0e-9a43-2a1f0c3b9d10
+    curl -X GET -H 'Authorization: [Filtered]' -H 'x-vercel-protection-bypass: $VERCEL_AUTOMATION_BYPASS_SECRET' -H 'X-Form-Token: [Filtered]' https://northside-quotes-git-staging-baseleap.vercel.app/api/quote-requests/
 
 _________________ POST /quote-requests/{request_id}/submission _________________
-1. Test Case ID: SK9vnH
+1. Test Case ID: TwmO2I
 
-- Missing header not rejected
+- Accepted negative data
 
-    Missing header not rejected (got 401, expected 406)
+    Allowed statuses: 400, 401, 403, 404, 406, 422, 428, 5xx
 
-[401] Unauthorized:
+- Undocumented HTTP status code
 
-    `{"type":"about:blank","title":"We couldn't send your request. Please try again.","status":401,"code":"form_token_invalid"}`
-
-Reproduce with: 
-
-    curl -X POST -H 'x-vercel-protection-bypass: $VERCEL_AUTOMATION_BYPASS_SECRET' -H 'Authorization: [Filtered]' https://northside-quotes-git-staging-baseleap.vercel.app/api/quote-requests/6f1c2a9e-6c1d-4f0e-9a43-2a1f0c3b9d10/submission
-
-2. Test Case ID: 0zFjPu
-
-- Rejected positive data
-
-    Allowed statuses: 2xx, 401, 403, 404, 5xx
-
-- Undocumented Content-Type
-
-    Received: text/plain; charset=utf-8
-    Documented: application/problem+json
-
-[400] Bad Request:
-
-    `400 Bad Request`
-
-Reproduce with: 
-
-    curl -X POST -H 'x-vercel-protection-bypass: $VERCEL_AUTOMATION_BYPASS_SECRET' -H 'Authorization: [Filtered]' -H 'X-Form-Token: [Filtered]' https://northside-quotes-git-staging-baseleap.vercel.app/api/quote-requests/dba8f209-8c3c-c4ae-2a07-1c37459ca087/submission
-
-___________________ GET /quote-requests/{request_id}/photos ____________________
-1. Test Case ID: TdUxno
-
-- Missing header not rejected
-
-    Missing header not rejected (got 404, expected 401)
-
-[404] Not Found:
-
-    `{"type":"about:blank","title":"Not found","status":404,"code":"not_found"}`
-
-Reproduce with: 
-
-    curl -X GET -H 'x-vercel-protection-bypass: $VERCEL_AUTOMATION_BYPASS_SECRET' https://northside-quotes-git-staging-baseleap.vercel.app/api/quote-requests/0/photos
-
-____________________ PUT /quote-requests/{request_id}/quote ____________________
-1. Test Case ID: 3lmcBL
-
-- Missing header not rejected
-
-    Missing header not rejected (got 404, expected 401)
-
-[404] Not Found:
-
-    `{"type":"about:blank","title":"Not found","status":404,"code":"not_found"}`
-
-Reproduce with: 
-
-    curl -X PUT -H 'x-vercel-protection-bypass: $VERCEL_AUTOMATION_BYPASS_SECRET' -H 'Content-Type: application/json' -d '{"note": null, "price_cents": null, "version": 1}' https://northside-quotes-git-staging-baseleap.vercel.app/api/quote-requests/0/quote
-
-2. Test Case ID: 0My23I
-
-- Server error
-
-[500] Internal Server Error:
-
-    `{"type":"about:blank","title":"Something went wrong","status":500,"code":"internal_error"}`
-
-Reproduce with: 
-
-    curl -X PUT -H 'x-vercel-protection-bypass: $VERCEL_AUTOMATION_BYPASS_SECRET' -H 'Authorization: [Filtered]' -H 'Content-Type: application/json' -d '{"note": "", "price_cents": 6895, "version": 367499305219}' https://northside-quotes-git-staging-baseleap.vercel.app/api/quote-requests/f2330d60-377e-ded3-54a9-c03e3122ff76/quote
-
-_______________ POST /quote-requests/{request_id}/status-changes _______________
-1. Test Case ID: NHjN6F
-
-- Missing header not rejected
-
-    Missing header not rejected (got 404, expected 401)
-
-[404] Not Found:
-
-    `{"type":"about:blank","title":"Not found","status":404,"code":"not_found"}`
-
-Reproduce with: 
-
-    curl -X POST -H 'x-vercel-protection-bypass: $VERCEL_AUTOMATION_BYPASS_SECRET' -H 'Content-Type: application/json' -d '{"to_status": "new", "version": 1}' https://northside-quotes-git-staging-baseleap.vercel.app/api/quote-requests/0/status-changes
-
-2. Test Case ID: 38TdB5
-
-- Server error
-
-[500] Internal Server Error:
-
-    `{"type":"about:blank","title":"Something went wrong","status":500,"code":"internal_error"}`
-
-Reproduce with: 
-
-    curl -X POST -H 'x-vercel-protection-bypass: $VERCEL_AUTOMATION_BYPASS_SECRET' -H 'Authorization: [Filtered]' -H 'Content-Type: application/json' -d '{"to_status": "new", "version": 10000000001}' https://northside-quotes-git-staging-baseleap.vercel.app/api/quote-requests/eb791f76-f29b-c0fb-6f33-8fee5e681922/status-changes
-
-______________ POST /quote-requests/{request_id}/ghl-copy-retries ______________
-1. Test Case ID: MCsZtP
-
-- Missing header not rejected
-
-    Missing header not rejected (got 404, expected 401)
-
-[404] Not Found:
-
-    `{"type":"about:blank","title":"Not found","status":404,"code":"not_found"}`
-
-Reproduce with: 
-
-    curl -X POST -H 'x-vercel-protection-bypass: $VERCEL_AUTOMATION_BYPASS_SECRET' https://northside-quotes-git-staging-baseleap.vercel.app/api/quote-requests/0/ghl-copy-retries
-
-__________________________ GET /weekly-counts/current __________________________
-1. Test Case ID: mwjpPk
-
-- Missing header not rejected
-
-    Missing header not rejected (got 200, expected 401)
-
-[200] OK:
-
-    `{"week_start":"2026-11-23T05:00:00.000Z","week_end":"2026-11-30T05:00:00.000Z","time_zone":"America/Toronto","requests":107,"won":10,"lost":1}`
-
-Reproduce with: 
-
-    curl -X GET -H 'x-vercel-protection-bypass: $VERCEL_AUTOMATION_BYPASS_SECRET' https://northside-quotes-git-staging-baseleap.vercel.app/api/weekly-counts/current
-
-________________________________ GET /staff/me _________________________________
-1. Test Case ID: A0aAfU
-
-- Missing header not rejected
-
-    Missing header not rejected (got 200, expected 401)
-
-[200] OK:
-
-    `{"user_id":"ee801439-1c77-4ad2-90a9-29bf8e7ef5f4","display_name":"Owner"}`
-
-Reproduce with: 
-
-    curl -X GET -H 'x-vercel-protection-bypass: $VERCEL_AUTOMATION_BYPASS_SECRET' https://northside-quotes-git-staging-baseleap.vercel.app/api/staff/me
-
-_________________________________ GET /health __________________________________
-1. Test Case ID: JRxNt7
-
-- Unsupported method incorrect response
-
-    Missing Allow header for unsupported method TRACE
+    Received: 405
+    Documented: 200, 400, 401, 404, 422, 500, 503
 
 [405] Method Not Allowed:
 
-    `Method not allowed
-
-    NOT_ALLOWED
-
-    yul1::hpq9s-1795576084905-f1e428a2c2ea`
+    `{"type":"about:blank","title":"Method not allowed","status":405,"code":"method_not_allowed"}`
 
 Reproduce with: 
 
-    curl -X TRACE -H 'x-vercel-protection-bypass: $VERCEL_AUTOMATION_BYPASS_SECRET' -H 'Authorization: [Filtered]' https://northside-quotes-git-staging-baseleap.vercel.app/api/health
+    curl -X POST -H 'X-Form-Token: [Filtered]' -H 'x-vercel-protection-bypass: $VERCEL_AUTOMATION_BYPASS_SECRET' -H 'Authorization: [Filtered]' https://northside-quotes-git-staging-baseleap.vercel.app/api/quote-requests/submission
+
+____________________ PUT /quote-requests/{request_id}/quote ____________________
+1. Test Case ID: WoAFrx
+
+- Accepted negative data
+
+    Allowed statuses: 400, 401, 403, 404, 406, 422, 428, 5xx
+
+- Undocumented HTTP status code
+
+    Received: 405
+    Documented: 200, 400, 401, 404, 409, 422, 500
+
+[405] Method Not Allowed:
+
+    `{"type":"about:blank","title":"Method not allowed","status":405,"code":"method_not_allowed"}`
+
+Reproduce with: 
+
+    curl -X PUT -H 'Authorization: [Filtered]' -H 'x-vercel-protection-bypass: $VERCEL_AUTOMATION_BYPASS_SECRET' -H 'X-Form-Token: [Filtered]' -H 'Content-Type: application/json' -d '{"note": null, "price_cents": null, "version": 1}' https://northside-quotes-git-staging-baseleap.vercel.app/api/quote-requests/quote
+
+2. Test Case ID: aBn9T6
+
+- Rejected positive data
+
+    Allowed statuses: 2xx, 401, 403, 404, 5xx
+
+[422] Unprocessable Entity:
+
+    `{"type":"about:blank","title":"Some answers need fixing","status":422,"code":"validation_failed","errors":[{"field":"version","message":"Reload the request and try again"}]}`
+
+Reproduce with: 
+
+    curl -X PUT -H 'x-vercel-protection-bypass: $VERCEL_AUTOMATION_BYPASS_SECRET' -H 'Authorization: [Filtered]' -H 'X-Form-Token: [Filtered]' -H 'Content-Type: application/json' -d '{"note": null, "price_cents": 5885, "version": 2105115929671166353997824}' https://northside-quotes-git-staging-baseleap.vercel.app/api/quote-requests/3bc09515-fdaf-b968-15b2-ae99d89cc23d/quote
+
+_______________ POST /quote-requests/{request_id}/status-changes _______________
+1. Test Case ID: 7eqNGB
+
+- Accepted negative data
+
+    Allowed statuses: 400, 401, 403, 404, 406, 422, 428, 5xx
+
+- Undocumented HTTP status code
+
+    Received: 405
+    Documented: 201, 200, 400, 401, 404, 409, 422, 500
+
+[405] Method Not Allowed:
+
+    `{"type":"about:blank","title":"Method not allowed","status":405,"code":"method_not_allowed"}`
+
+Reproduce with: 
+
+    curl -X POST -H 'Authorization: [Filtered]' -H 'x-vercel-protection-bypass: $VERCEL_AUTOMATION_BYPASS_SECRET' -H 'X-Form-Token: [Filtered]' -H 'Content-Type: application/json' -d '{"to_status": "new", "version": 1}' https://northside-quotes-git-staging-baseleap.vercel.app/api/quote-requests/status-changes
+
+2. Test Case ID: avfPG5
+
+- Rejected positive data
+
+    Allowed statuses: 2xx, 401, 403, 404, 5xx
+
+[422] Unprocessable Entity:
+
+    `{"type":"about:blank","title":"Some answers need fixing","status":422,"code":"validation_failed","errors":[{"field":"version","message":"Reload the request and try again"}]}`
+
+Reproduce with: 
+
+    curl -X POST -H 'x-vercel-protection-bypass: $VERCEL_AUTOMATION_BYPASS_SECRET' -H 'Authorization: [Filtered]' -H 'X-Form-Token: [Filtered]' -H 'Content-Type: application/json' -d '{"to_status": "won", "version": 1450319450464376832}' https://northside-quotes-git-staging-baseleap.vercel.app/api/quote-requests/e0b295ad-e9a8-dc82-1964-9f050693065d/status-changes
+
+______________ POST /quote-requests/{request_id}/ghl-copy-retries ______________
+1. Test Case ID: QU8Iub
+
+- Accepted negative data
+
+    Allowed statuses: 400, 401, 403, 404, 406, 422, 428, 5xx
+
+- Undocumented HTTP status code
+
+    Received: 405
+    Documented: 200, 401, 404, 409, 500
+
+[405] Method Not Allowed:
+
+    `{"type":"about:blank","title":"Method not allowed","status":405,"code":"method_not_allowed"}`
+
+Reproduce with: 
+
+    curl -X POST -H 'Authorization: [Filtered]' -H 'x-vercel-protection-bypass: $VERCEL_AUTOMATION_BYPASS_SECRET' -H 'X-Form-Token: [Filtered]' https://northside-quotes-git-staging-baseleap.vercel.app/api/quote-requests/ghl-copy-retries
 
 =================================== WARNINGS ===================================
 
@@ -746,25 +404,25 @@ Test Phases:
   ⏭  Stateful (disabled)
 
 Failures:
-  ❌ Server error: 2
-  ❌ Missing header not rejected: 9
+  ❌ Response violates schema: 1
+  ❌ Accepted negative data: 5
   ❌ Rejected positive data: 3
-  ❌ Undocumented Content-Type: 2
-  ❌ Unsupported method incorrect response: 1
+  ❌ Undocumented HTTP status code: 4
 
 Warnings:
   ⚠️ Missing authentication: 2 operations returned only 401/403 responses
   ⚠️ Missing valid test data: 5 operations repeatedly returned 404 responses
 
 Test cases:
-  131 generated, 15 found 17 unique failures, 12 skipped
+  423 generated, 8 found 13 unique failures, 42 skipped
 
 Reports:
-  - JUNIT: /home/admin/baseleap/rehearsal/northside-quotes/.baseleap/tools/fuzz-reports/staff/junit-20261124T220753Z.xml
+  - JUNIT: /home/admin/baseleap/rehearsal/northside-quotes/.baseleap/tools/fuzz-reports/staff/junit-20261124T224545Z.xml
+  - HAR: /home/admin/baseleap/rehearsal/northside-quotes/.baseleap/tools/fuzz-reports/staff/har-20261124T224545Z.json
 
-Seed: 176832961998963409097142393018833185738
+Seed: 133711511789908254787399394867324682202
 
-====================== 17 failures, 2 warnings in 36.20s =======================
+====================== 13 failures, 2 warnings in 115.17s ======================
 
 ## run: jobs
 Schemathesis dev
@@ -782,7 +440,7 @@ Schemathesis dev
 
      Supports NULL byte in headers:    ✘                                        
 
- ✅  Fuzzing (in 1.02s)                                                         
+ ✅  Fuzzing (in 1.07s)                                                         
                                                                                 
      ✅ 2 passed                                                                
 
@@ -816,14 +474,15 @@ Test cases:
   2 generated, 2 passed
 
 Reports:
-  - JUNIT: /home/admin/baseleap/rehearsal/northside-quotes/.baseleap/tools/fuzz-reports/jobs/junit-20261124T220830Z.xml
+  - JUNIT: /home/admin/baseleap/rehearsal/northside-quotes/.baseleap/tools/fuzz-reports/jobs/junit-20261124T224741Z.xml
+  - HAR: /home/admin/baseleap/rehearsal/northside-quotes/.baseleap/tools/fuzz-reports/jobs/har-20261124T224741Z.json
 
-Seed: 272820132725363733147940242107247359429
+Seed: 325380349770778402961178092599805911984
 
-============================= 2 warnings in 1.17s ==============================
+============================= 2 warnings in 1.21s ==============================
 
 ## summary
-anonymous: exit 1, 11 test cases, 11 failures, 0 errors
-staff: exit 1, 11 test cases, 11 failures, 0 errors
+anonymous: exit 1, 11 test cases, 4 failures, 0 errors
+staff: exit 1, 11 test cases, 6 failures, 0 errors
 jobs: exit 0, 2 test cases, 0 failures, 0 errors
 FINDINGS: see the failures above; each prints a curl reproduction.

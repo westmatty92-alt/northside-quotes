@@ -1,5 +1,43 @@
 # QA2 run report: permission probes, API boundaries and fuzz on the staging preview
 
+## Fuzz, second ledger run at `dfaaa6c` (2026-11-24, 03:43 UTC on the 25th): triage of all 21 failures, not re-run
+
+**Verdict: the fuzz is still FAIL (exit 1), correctly: 3 findings are contract gaps that stay red until `docs/openapi.yaml` is amended; the other 18 were one fuzz-configuration cause, changed in `tests/fuzz/**` and not yet re-run. No product defect, no new ticket, no permission boundary crossed, no 5xx.** The 5xx result is the thing the earlier fixes were for: `not_a_server_error` is on for every operation in every run and found nothing. Output: `tests/fuzz/last-run.txt` (Schemathesis 4.0.0, staging `northside-quotes-git-staging-baseleap.vercel.app`, jobs run 2 of 2 passed). Per the instruction, the fuzz was not re-run; evidence below is the run output plus the HAR files in `.baseleap/tools/fuzz-reports/` (git-ignored).
+
+**Counting note.** The run prints 21 failures, not 12: anonymous 8 (4 cases, each failing two checks), staff 13 (8 cases). The "Accepted negative data" lines (anonymous 4, staff 5) are in the output next to each "Undocumented HTTP status code" and were not in the brief's list. By cause there are five groups.
+
+| # | What Schemathesis reported | Failures | Root cause | Bucket |
+|---|---|---|---|---|
+| G1 | `POST .../submission`, `PUT .../quote`, `POST .../status-changes`, `POST .../ghl-copy-retries`: 405 "Undocumented HTTP status code" plus "Accepted negative data" | anonymous 8, staff 8 = **16** | Coverage phase sends an **empty `request_id`**. The URL loses the segment (the reproductions show `/api/quote-requests/submission`, `/quote`, `/status-changes`, `/ghl-copy-retries`; the HAR holds exactly those four URLs). Those URLs belong to the route `/quote-requests/{id}` with the id `submission` etc., which has no POST or PUT, so the app correctly answers its documented 405 problem+json. Schemathesis judges that answer against the operation it thinks it is testing. | **3, fuzz configuration** |
+| G2 | `GET /quote-requests/{request_id}`: "Response violates schema" (`data`, `next_cursor` not allowed) plus "Accepted negative data" (200) | staff **2** | Same empty id: the URL becomes `/api/quote-requests/`, which is the list route; the 200 body is a valid `QuoteRequestPage` (the names in it are `QA-PROBE` data from the probes). It is the right answer for the list route and the wrong shape for the detail schema, because the wrong operation was called. | **3, fuzz configuration** |
+| G3 | `PUT /quote-requests/{request_id}/quote`: "Rejected positive data", 422 naming `version`, for `version` 2105115929671166353997824 | staff **1** | The contract has no upper bound on `version`; the database column and both function arguments are 32-bit `integer`; the server (BUG-QA2-4 ruling) answers 422 above 2,147,483,647. | **1, contract gap** |
+| G4 | `POST /quote-requests/{request_id}/status-changes`: "Rejected positive data", 422 naming `version`, for 1450319450464376832 | staff **1** | Same as G3. | **1, contract gap** |
+| G5 | `GET /quote-requests`: "Rejected positive data", **400 `bad_request`**, for `cursor` = 200 zeros (`status=new&q=0`) | staff **1** | Not a `version` finding, contrary to the brief: this is CQ-QA2-2 from the first run, unchanged. The cursor is `c1.` plus base64url of a time and an id; the contract calls any string of up to 200 characters valid. The 400 is documented and right. | **1, contract gap** |
+
+**Product defects: none.** The one candidate was G2's schema violation. It is not a response-shape bug: the list route returned a valid list page to a list request. Unverified: whether `/api/quote-requests/` is served directly or through a redirect (the HAR has no 3xx). Either way it is not a defect that affects a user, and staff could read the same data from `GET /quote-requests`.
+
+### Bucket 1: contract amendment for bl-architect (exact changes in `.baseleap/reports/QA2-errors.md`, CA-1 and CA-2)
+
+- **CA-1 (G3, G4):** add `maximum: 2147483647` to `QuoteSave.version` and `StatusChangeCreate.version` (and, for symmetry, to the three `version` fields in responses). Checked against `supabase/migrations/20261120000300_quote_requests.sql` (`version integer`) and the backend's `INT32_MAX` validation (read in the backend worktree: `src/lib/server/services/quote-requests.ts`, 422 naming `version` before any database call). It tightens a request constraint on a locked contract (additive-only), so the orchestrator rules. The generated Zod schemas and fakers change with it (bl-architect regenerates).
+- **CA-2 (G5):** describe the cursor's refusal and its shape on `components/parameters/Cursor`. **This does not make the finding go away:** a pattern cannot express "decodes to a valid time and id", so Schemathesis will still generate pattern-valid strings (`c1.` plus some base64url) that the server rightly 400s. The finding clears only when the architect rules that a 400 for a cursor this API did not issue is the contract, after which QA scopes `positive_data_acceptance` off for `GET /quote-requests` alone. QA has not done that and will not before the ruling.
+
+### Bucket 3: what changed in `tests/fuzz/**` (G1, G2; 18 of 21 failures)
+
+- **New `tests/fuzz/schemathesis.toml`:** `[parameters] request_id = "00000000-0000-4000-8000-000000000000"`, a well-formed uuid no request has, applied to every phase and every operation (verified by reading the installed Schemathesis 4.0.0: `generation/overrides.py` applies config `parameters` by name to path parameters, and `builder.add_coverage` applies those overrides to coverage cases; `config/schema.json` allows the key). No secret in it.
+- **`tests/fuzz/run.mjs`:** passes `--config-file tests/fuzz/schemathesis.toml` before `run`, refuses to start (exit 2) if the file is missing, header comment records the reason. `run.sh` unchanged. `npx eslint tests/fuzz` passes.
+- **Why not a hook:** a `filter_path_parameters` hook exists in 4.0.0 but is not applied to coverage-phase cases (they are built directly in `generation/hypothesis/builder.py`, not through the strategy), so it would not have fixed this.
+- **Why not "document 405":** adding a 405 to those four operations would clear the 8 "undocumented status" lines and leave the 8 "accepted negative data" lines (405 is not one of Schemathesis's rejection statuses: 400, 401, 403, 404, 406, 422, 428, 5xx), and it would put in the contract a status that no real request to those operations receives.
+- **Cost, stated plainly:** Schemathesis no longer varies the id itself (non-uuid text, empty, very long). The 500s from the first run were all body cases, so validation runs before the lookup and bodies are still fuzzed. Malformed ids are covered by `PRB-04` (never a 5xx, nothing leaked), and unlisted methods by `PRB-05` (405 problem+json with `Allow`, 16 methods). Not covered by anything now: `GET /api/quote-requests/` (empty id) returning the list page; harmless, and one probe line if the architect wants it pinned. **No check is excluded by this change.** `EXCLUDED_CHECKS` is still only `unsupported_method` and `missing_required_header`.
+- **Unverified:** that Schemathesis accepts the file as written (read, not run). A bad file makes it exit 1 or 2 with "Failed to load configuration file", which the script reports as findings or NOT PROVEN, never as a pass.
+
+### What the next run should show
+
+Anonymous: 0 failures. Staff: exactly 3 failures, all "Rejected positive data": `PUT .../quote` and `POST .../status-changes` (until CA-1 is applied), and `GET /quote-requests` cursor (until CA-2 is ruled). Jobs: 2 of 2. Anything else is new. After CA-1: the two `version` findings must become passes (negative data above the maximum answered 422, which is in Schemathesis's rejection list); if the server answers 409 for any value above 2,147,483,647 they turn into "Accepted negative data", which would then be a product ticket. QA follow-up then: tighten `PRB-45` to require 422 (not 409 or 422) for values above 2,147,483,647.
+
+---
+
+(Older sections follow, newest first.)
+
 ## Status update, 2026-11-24 (2026-11-25 UTC): BUG-QA2-4 RESOLVED at `dfaaa6c`, PRB-45 and PRB-74b pass
 
 - **Commit under test:** `dfaaa6cb35cb27d58086ced223fa4091096238ab` (`dfaaa6c`), read from `/api/health` (status `ok`) at 03:22 UTC by `PRB-00`. The first read, minutes earlier, still reported `bb54c17`; the second read (after about 2 minutes of waiting) reported `dfaaa6c`. The probe run started seconds after that read.

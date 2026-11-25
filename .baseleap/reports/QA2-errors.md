@@ -1,5 +1,67 @@
 # QA2 tickets: permission probes and API boundaries on the staging preview
 
+## Second ledger fuzz run at `dfaaa6c` (2026-11-24): no ticket; 2 contract amendments for bl-architect; the rest was fuzz configuration
+
+**No new ticket. No product defect, no 5xx, no Critical.** 21 failures in 5 groups (anonymous 8, staff 13; jobs passed). Full table and evidence: `docs/qa-reports/QA2-run.md`, top section. Output: `tests/fuzz/last-run.txt`. The fuzz was not re-run. Product defects: none (the one candidate, a response-shape violation on `GET /quote-requests/{id}`, was a list page returned to a request the fuzzer built with an empty id, so the list route answered).
+
+**Correction to the brief:** of the 3 "Rejected positive data" in the staff run, 2 are the `version` 422 (G3, G4) and 1 is the `cursor` 400 on `GET /quote-requests` (G5, CQ-QA2-2 from the first run, unchanged).
+
+### Bucket 1, contract amendment (for bl-architect; the orchestrator rules because the contract is locked)
+
+**CA-1: `version` has no upper bound (G3 `PUT /quote-requests/{request_id}/quote`, G4 `POST /quote-requests/{request_id}/status-changes`; closes CQ-QA2-1).**
+Server: answers 422 `validation_failed` naming `version` above 2,147,483,647 (the BUG-QA2-4 ruling; backend validation `z.int().min(1).max(2_147_483_647)`; database column and both function arguments are `integer`). Contract: `minimum: 1` only. Schemathesis therefore sends large integers as valid input and calls the 422 "Rejected positive data". Change in `docs/openapi.yaml` (`components/schemas`):
+
+```yaml
+    QuoteSave:            # properties.version, line ~1164
+        version:
+          type: integer
+          minimum: 1
+          maximum: 2147483647      # add
+    StatusChangeCreate:   # properties.version, line ~1174
+        version:
+          type: integer
+          minimum: 1
+          maximum: 2147483647      # add
+```
+
+For symmetry (no effect on the fuzz result), the same `maximum: 2147483647` on `QuoteRequestSummary.version` (~851), `QuoteRequestDetail.version` (~1023) and `StatusChangeResult.version` (~1189). Both operations already document 422 (`ValidationError`), so no response change. Side effects for the architect: the generated Zod schemas and fakers change (`src/lib/api/generated/*`). After it lands: values above the maximum are generated as negative data and must answer 422; a 409 for any of them would turn into "Accepted negative data", a product ticket. QA then tightens `PRB-45` from "409 or 422" to 422 for values above 2,147,483,647.
+
+**CA-2: the cursor is "opaque" but only cursors this API issued are accepted (G5 `GET /quote-requests`; closes CQ-QA2-2).**
+Server: `400 bad_request` for any cursor not exactly what it writes (`c1.` plus base64url of a UTC time and an id, 200 characters at most). The 400 is already documented on the operation. Change in `components/parameters/Cursor`:
+
+```yaml
+    Cursor:
+      name: cursor
+      in: query
+      description: >-
+        Opaque cursor from the previous page's next_cursor. A value this API did not issue
+        (wrong prefix, not decodable, not the shape it writes) is refused with 400 bad_request.
+      schema:
+        type: string
+        maxLength: 200
+        pattern: '^c1\.[A-Za-z0-9_-]+$'     # add (prefix and alphabet of what the server issues)
+```
+
+**This will not by itself turn the staff run green.** A pattern cannot say "decodes to a calendar-valid time and a uuid", so the fuzzer still generates strings like `c1.AAAA` that match, are valid by the schema, and are rightly refused with 400: one "Rejected positive data" on `GET /quote-requests` remains. What closes it is a ruling that a 400 for a non-issued cursor is the contract; then QA switches `positive_data_acceptance` off for `GET /quote-requests` only (scoped in the fuzz config, no other operation, no other check) and says so in the report. Not done now: no check is excluded ahead of a ruling.
+
+### Bucket 2, product defect: none
+
+### Bucket 3, fuzz configuration (fixed in `tests/fuzz/**`; 18 of 21 failures)
+
+**G1 (16) and G2 (2): an empty `request_id` makes the URL a different, valid route.** In the coverage phase Schemathesis sends an empty path id as negative data; the segment disappears:
+- `POST /api/quote-requests/submission`, `PUT /api/quote-requests/quote`, `POST /api/quote-requests/status-changes`, `POST /api/quote-requests/ghl-copy-retries` hit `/quote-requests/{id}` with the id `submission` etc., which has no such method: **405 `method_not_allowed` problem+json**, the documented behaviour for an unlisted method (contract description, probed by `PRB-05`). Reported as "Undocumented HTTP status code" (405 not in the operation's list) and "Accepted negative data" (405 is not in Schemathesis's rejection statuses). 4 operations x 2 runs x 2 checks = 16.
+- `GET /api/quote-requests/` (empty id, staff run) is the list route: 200 `{data, next_cursor}`, a valid list page. Judged against the detail schema: "Response violates schema" and "Accepted negative data". 2.
+
+Repro of the cause (staff token not needed for the 405s): `curl -s -X POST "$STAGING_URL/api/quote-requests/submission" -H "x-vercel-protection-bypass: $VERCEL_AUTOMATION_BYPASS_SECRET"` gives 405. Not run in this session; it is the reproduction line Schemathesis printed.
+
+Change: new `tests/fuzz/schemathesis.toml` pins `request_id` to a well-formed uuid no request has (`00000000-0000-4000-8000-000000000000`), and `tests/fuzz/run.mjs` passes it with `--config-file`. It was chosen over (a) documenting 405 on those operations, which would clear 8 of the 16 and leave the "accepted negative data" half, and put a status in the contract that no real request to them gets; (b) a `filter_path_parameters` hook, which Schemathesis 4.0.0 does not apply to coverage cases. **No check was excluded; `not_a_server_error` stays on.** Cost: the id itself is no longer varied by the fuzzer; `PRB-04` (malformed ids) and `PRB-05` (405s) cover it. Whether Schemathesis accepts the file is unverified until the next run.
+
+### Expected next run (so that anything else is recognised as new)
+
+Anonymous 0 failures; staff exactly the three "Rejected positive data" (version on `PUT quote` and `POST status-changes` until CA-1; cursor until CA-2 is ruled); jobs 2 of 2.
+
+---
+
 ## Status, 2026-11-24 (2026-11-25 UTC): BUG-QA2-4 RESOLVED at `dfaaa6c`; no open ticket from the probes, no new ticket
 
 - **Commit under test:** `dfaaa6cb35cb27d58086ced223fa4091096238ab`, from `/api/health` (status `ok`). **Staging URL:** https://northside-quotes-git-staging-baseleap.vercel.app
