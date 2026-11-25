@@ -1,7 +1,7 @@
 {
   "id": "SCR-08-photo-viewer",
   "width": 1280,
-  "path": "/requests/41902f20-6dad-4b6a-b5b4-53a0e1967df3",
+  "path": "/requests/631fbbda-e850-4cd7-aad7-ed33ce514383",
   "title": "Request detail | Northside",
   "screenshot": "1280/SCR-08-photo-viewer.png",
   "axe": {
@@ -29,7 +29,7 @@
     "reference and name line": {
       "x": 16,
       "y": 42.25,
-      "width": 331,
+      "width": 310,
       "height": 21
     },
     "Close": {

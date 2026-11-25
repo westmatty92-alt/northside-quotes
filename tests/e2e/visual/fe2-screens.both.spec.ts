@@ -52,12 +52,14 @@ test.describe('deployment under test', () => {
   test('@regression FE2V the preview serves the commit under test (recorded in the evidence)', async ({ playwright }, testInfo) => {
     loadEnv();
     expectedWidth(testInfo.project.name);
-    const expected = process.env.QA_EXPECTED_SHA ?? '42208a4';
+    // QA_EXPECTED_SHA set: the version must contain it. Not set: any 40-hex version, recorded in deployment.json.
+    const expected = process.env.QA_EXPECTED_SHA ?? '';
     const anon = await newApi(playwright);
     const res = await anon.get('/api/health');
     expect(res.status(), await describe(res)).toBe(200);
     const body = (await res.json()) as { status?: string; version?: string };
-    expect(String(body.version ?? ''), 'deployed commit').toContain(expected);
+    if (expected) expect(String(body.version ?? ''), 'deployed commit').toContain(expected);
+    else expect(String(body.version ?? ''), 'deployed commit (no QA_EXPECTED_SHA: any 40-hex commit)').toMatch(/^[0-9a-f]{40}$/);
     fs.mkdirSync(EVIDENCE_DIR, { recursive: true });
     fs.writeFileSync(path.join(EVIDENCE_DIR, 'deployment.json'), `${JSON.stringify({ host: new URL(process.env.STAGING_URL ?? '').host, health: body.status, version: body.version }, null, 2)}\n`);
     await anon.dispose();

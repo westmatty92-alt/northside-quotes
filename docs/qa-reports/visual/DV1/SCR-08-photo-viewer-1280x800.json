@@ -1,9 +1,9 @@
 {
   "id": "SCR-08-photo-viewer",
   "viewport": "1280 x 800",
-  "path": "/requests/41902f20-6dad-4b6a-b5b4-53a0e1967df3",
+  "path": "/requests/631fbbda-e850-4cd7-aad7-ed33ce514383",
   "title": "Request detail | Northside",
-  "commit_prefix": "42208a4",
+  "commit_prefix": "unset",
   "screenshots": [
     "SCR-08-photo-viewer-1280x800.png"
   ],
@@ -17,7 +17,7 @@
   "page_size": {
     "document_scroll_width": 1280,
     "document_client_width": 1280,
-    "document_scroll_height": 1396
+    "document_scroll_height": 1387
   },
   "sideways_scroll": false,
   "layout": {
@@ -36,7 +36,7 @@
     "reference and name line": {
       "x": 16,
       "y": 42.25,
-      "width": 331,
+      "width": 310,
       "height": 21
     },
     "Close": {

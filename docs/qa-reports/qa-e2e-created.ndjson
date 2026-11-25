@@ -1,0 +1,10 @@
+{"at":"2026-11-25T22:24:27.255Z","reference":"NQ-6RXNKK","name":"QA-E2E oxsdn Spine Dana Whitfield","note":"done spine: 3 photos, offers unticked"}
+{"at":"2026-11-25T22:24:43.201Z","reference":"NQ-XU5ZCD","name":"QA-E2E oxsdn Zoë O'Brien <script>alert(1)</script>","note":"ticked offers, XSS name, no photos"}
+{"at":"2026-11-25T22:24:50.589Z","reference":"NQ-4XTMVT","name":"QA-E2E oxsdn Back-resend A Alex Morgan","note":"back-and-resend A"}
+{"at":"2026-11-25T22:24:54.786Z","reference":"NQ-SUJ223","name":"QA-E2E oxsdn Back-resend B Alex Morgan","note":"back-and-resend B"}
+{"at":"2026-11-25T22:25:23.240Z","reference":"NQ-U9DRMA","name":"QA-E2E oxsdn Double-tap Sam Patel","note":"double tap, 3 x 5,242,880 byte photos"}
+{"at":"2026-11-25T22:34:39.329Z","reference":"NQ-DHS7Z8","name":"Dana Whitfield QA-E2E oxsdn DV1","note":"DV1 evidence for SCR-02: 1 photo, offers unticked"}
+{"at":"2026-11-25T22:35:50.155Z","reference":"NQ-EDD9MT","name":"QA-E2E oxsdn Upload-drop Robin Singh","note":"photo 2 upload dropped, then resent"}
+{"at":"2026-11-25T22:35:58.543Z","reference":"NQ-X5ZDJT","name":"QA-E2E oxsdn Swap-resend Riley Chen","note":"photo 2 dropped, swapped for a PNG, resent with the same token"}
+{"at":"2026-11-25T22:36:05.017Z","reference":"NQ-X4XTZ6","name":"QA-E2E oxsdn Consent missing Pat Lee","note":"direct call, offers value missing"}
+{"at":"2026-11-25T22:36:09.023Z","reference":"NQ-FE2Y99","name":"QA-E2E oxsdn Consent maybe Pat Lee","note":"direct call, offers value maybe"}

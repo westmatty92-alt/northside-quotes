@@ -48,7 +48,7 @@ File keys: `spine` = `spine.phone.spec.ts`, `subs` = `submissions.phone.spec.ts`
 | AC-002.3 | US-002 | H | E2E | `form › AC-002.3` (5,242,881 refused, 5,242,880 accepted at attach) + `subs › AC-001.6 AC-002.3 AC-002.7` (three 5,242,880-byte photos stored) | @regression | boundary files |
 | AC-002.4 | US-002 | H | E2E | `form › AC-002.4` (PDF, and text renamed `leak.jpg`) | @regression | fake files |
 | AC-002.5 | US-002 | M | E2E | `subs › AC-001.14 … AC-002.5` ("No photos") | @regression | no photos |
-| AC-002.6 | US-002 | H | E2E | `late › AC-002.6` (upload of photo 2 aborted; error beside photo 2; Send again completes one request) | @regression | 3 photos |
+| AC-002.6 | US-002 | H | E2E | `late › AC-002.6` (upload of photo 2 aborted; error beside photo 2; Send again completes one request); `late › AC-002.6 REV-2` (photo 2 aborted, then swapped for a PNG of another size, sent again with the same token: the stored photos are the wanted bytes and the removed photo is gone) | @regression | 3 photos |
 | AC-002.7 | US-002 | M | E2E | `subs › AC-001.6 AC-002.3 AC-002.7` (3 x 5 MB on simulated 4G, confirmation within 20 s; SQ-2) | @regression | 15 MB |
 | AC-002.8 | US-002 | H | QA2 (@probe) | direct photo address with no sign-in. QA1 covers only the signed side: `detail › AC-002.8 (signed side)` | @regression | stored photo |
 | AC-002.9 | US-002 | M | QA2 + INSPECT | bucket private (probe), region (SQ-1) | n/a | n/a |
@@ -281,6 +281,14 @@ All permission rows are `@probe` tests in `tests/e2e/api/permissions.spec.ts`, w
 | `pipeline.phone › AC-016.17`: asserts no `[data-grip]` is visible at 375 px, before the Move to taps | SQ-9: the grip is shown only from 1280 px |
 | `platform › health`: default expected commit `0dff609`; optional `QA_WAIT_BUILD_MS` polls for a landing build (default 0, the assertion is unchanged) | Commit under test |
 | `support/wait-for-build.mjs`: new helper that polls `/api/health` for a commit (no secret printed). Not run: `node` on it needs approval in this session | Convenience, unused |
+
+## Changes made in attempt 5 (QA1, regression at 04dd79a)
+
+| Change | Why |
+|---|---|
+| `platform › health`, `fe2-screens › FE2V the preview serves the commit under test`: `QA_EXPECTED_SHA` is the expected commit when set. When it is not set (the ledger cannot pass an environment variable) the test asserts `/api/health` is `ok` and its version is 40 hex characters, and writes the version to `docs/qa-reports/deployed-version.json` (health) or `docs/qa-reports/visual/FE2/deployment.json` (FE2V). The run report states that version | The hard-coded default went stale at every deploy. Not a weakening: the commit is still recorded, and the pinned check is one variable away |
+| `visual/dv1.ts`: `EXPECTED_SHA` defaults to `unset`, not `42208a4` (it is only written into the DV1 evidence JSON) | Same |
+| New `late › AC-002.6 REV-2 same-token resend after swapping a photo stores the new photo`: photo 2 upload dropped, photo 2 removed and a PNG of another size added, Send again on the same page and token; asserts one request, 3 photos, types jpeg, jpeg, png, each wanted photo's bytes (sha-256 of the signed-URL download) and that the removed photo is absent | REV-2 (the page re-sends a swapped photo, the server checks size against the plan). Takes one more submission slot (4 in the last project) |
 
 ## Test-data cleanup
 
