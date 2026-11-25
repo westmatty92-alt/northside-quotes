@@ -198,6 +198,21 @@ describe('what start_quote_request is called with', () => {
     expect(fake.rpc.mock.calls.find(([name]) => name === 'start_quote_request')![1]).toMatchObject({ p_marketing_consent: true });
   });
 
+  it('REV-2 CQ-1: passes the validated photo plan (position, type, size only) as p_photos, and [] for no photos', async () => {
+    script({ start: { data: created, error: null } });
+    const plan = [
+      { position: 1, content_type: 'image/jpeg', size_bytes: 1234 },
+      { position: 2, content_type: 'image/webp', size_bytes: 5_242_880 },
+    ];
+    await post(body({ photos: plan }));
+    expect(fake.rpc.mock.calls.find(([name]) => name === 'start_quote_request')![1]).toMatchObject({ p_photo_count: 2, p_photos: plan });
+
+    fake.rpc.mockClear();
+    script({ start: { data: created, error: null } });
+    await post(body({ photos: [] }));
+    expect(fake.rpc.mock.calls.find(([name]) => name === 'start_quote_request')![1]).toMatchObject({ p_photo_count: 0, p_photos: [] });
+  });
+
   it('passes no address hash when no address is known, so the database accepts the request (AC-003.5)', async () => {
     script({ start: { data: created, error: null } });
     await post(body(), { ip: null });

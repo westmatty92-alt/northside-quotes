@@ -219,7 +219,7 @@ test.describe('staff write boundaries and stored script text @probe', () => {
     await expectNone(testInfo, failures, 'invalid text in staff inputs');
   });
 
-  test('@probe PRB-45 BUG-QA2-4 a huge version (above the 32-bit integer limit) on a quote save or a status change is 409 stale_version or 422 naming version, never a 5xx, and changes nothing', async ({ playwright }, testInfo) => {
+  test('@probe PRB-45 BUG-QA2-4 a version above 2147483647 on a quote save or a status change is 422 naming version (409 is a bug), 2147483647 itself is a valid stale version (409), never a 5xx, and changes nothing', async ({ playwright }, testInfo) => {
     const owner = await appApi(playwright, await staffToken(playwright, 'owner'));
     const items = await probeRequests(owner);
     const target = items[4] ?? items[0];
@@ -235,8 +235,11 @@ test.describe('staff write boundaries and stored script text @probe', () => {
         ['an unknown request id', newUuid()],
       ];
       for (const [whose, id] of requests) {
-        const allowed = whose === 'an existing request' ? [409, 422] : [404, 409, 422];
         for (const version of hugeVersions) {
+          // Contract (A3): version has maximum 2147483647, inclusive. Above it is 422 naming version, for any request id (a 409
+          // there is a product bug). At the maximum the value is valid, so it is a stale version (409), or 404 for an unknown id.
+          const atMaximum = version === '2147483647';
+          const allowed = atMaximum ? (whose === 'an existing request' ? [409] : [404, 409]) : [422];
           const calls: Array<[string, string, string, string]> = [
             ['PUT quote', 'PUT', `/api/quote-requests/${id}/quote`, `{"price_cents":6895,"note":"","version":${version}}`],
             ['POST status change', 'POST', `/api/quote-requests/${id}/status-changes`, `{"to_status":"${otherStatus}","version":${version}}`],

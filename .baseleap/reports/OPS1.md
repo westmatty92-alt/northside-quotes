@@ -110,3 +110,43 @@ Commit 6ae29ebc6bd64342d86ee25048382eaf9f66c1a3 is the head of `staging`, so /ap
 "Health shows the new commit" is not proof that a settings change has been picked up. The smoke script already requires `/` to be 200 for this reason; the runbook's "after changing a variable" step should say: redeploy after the last edit, then check `/` and `/sign-in`, not `/api/health`.
 
 **Files changed:** only this report (appended; Attempt 1 untouched). Not committed: it is untracked together with other reports in the working tree, and the orchestrator commits reports.
+
+## REV-3 CI fix — 2026-11-25
+**Status:** partial. The edits are made and every verify command I was allowed to run passes; actionlint and the installer were refused in this session, so **actionlint is unverified by me** and the ledger runs it.
+**Read:** the REV-3 entry and the "Requested checks" item 1 of `.baseleap/reviews/REV1.md`, `.github/workflows/ci.yml`, `qa-smoke.yml`, the head of `release.yml`, `package.json` scripts, `tests/integrations/**` in the main tree and the backend worktree.
+
+**Files changed (both mine):**
+- `.github/workflows/ci.yml`
+  - Removed the workflow-level `concurrency: { group: ci-${{ github.ref }}, cancel-in-progress: true }` (replaced by a comment saying why). Reason: a workflow-level `cancel-in-progress` cancels the whole run, including `api-tests` halfway, before its cleanup, which REV-3 names as a source of orphan fixtures.
+  - `verify`, `security` and `workflows` each get a job-level per-ref group with cancel-in-progress true: `ci-verify-${{ github.ref }}`, `ci-security-${{ github.ref }}`, `ci-workflows-${{ github.ref }}`. Each job has its own group name on purpose: one shared per-ref name at job level would make the jobs of the same run queue behind each other.
+  - `api-tests` gets job-level `concurrency: { group: staging-db, cancel-in-progress: false }`.
+  - `api-tests` command changed from `npm test -- tests/api` to `npm test -- tests/api tests/integrations/ghl/db.test.ts tests/integrations/routes/db.test.ts`.
+- `.github/workflows/qa-smoke.yml` — the `smoke` job's job-level concurrency changed from `{ group: qa-smoke, cancel-in-progress: true }` to `{ group: staging-db, cancel-in-progress: false }`. That job runs QA's `@smoke` Playwright suite with the staging service-role key and the QA owner and helper logins, so it writes to the staging database. The `gate` job does not touch the database and has no concurrency group, as before.
+- Not changed: `release.yml` (production only, keeps `release-production`) and `uptime.yml` (read-only smoke of production). Neither touches the staging database (grep for "staging" in `uptime.yml` shows only a comment). No new `uses:` lines, so every action pin is unchanged (full 40-character SHAs); every file still has top-level `permissions: contents: read`; no permission was widened.
+
+**Why the explicit test list rather than plain `npm test`:** `test:offline` is `vitest run src/ tests/unit/ tests/integrations/ --exclude 'tests/integrations/**/db.test.ts'`, so the db tests are exactly what `verify` leaves out. Plain `npm test` would also re-run `src/` and `tests/unit/` (already in `verify`) in a job with real staging credentials. The explicit list matches the split.
+
+**Acceptance criteria:**
+- Every job that writes to the staging database shares one global group, never cancelled while running → `ci.yml` `api-tests` and `qa-smoke.yml` `smoke` both use `group: staging-db`, `cancel-in-progress: false` (concurrency groups are repository-wide, so they exclude each other across workflows). Inspection only; nothing has run on GitHub.
+- verify/lint/build keep per-ref concurrency → `verify` (which holds lint and build), `security`, `workflows` keep per-ref groups.
+- GHL DB tests in CI → `api-tests` command above.
+- Pins and permissions unchanged → no `uses:` line touched; top-level `permissions` untouched.
+
+**Commands run:**
+- `node scripts/env-check.mjs --manifest-only` → exit 0; `✓ environments match the manifest`, with the same `declared-unused: SITE_URL` warning as before.
+- `node scripts/env-check.mjs --self-test` → exit 0; `self-test passed: 24 of 24 fixtures behaved`. (This parses the workflows and checks for a permissions block.)
+- `test -s .github/workflows/{ci,release,qa-smoke,uptime}.yml && test -s docs/runbook.md` → exit 0.
+- `! grep -rn 'SUPABASE_ACCESS_TOKEN' .github vercel.json infra docs/runbook.md .env.example` → exit 0. `! grep -rn 'db push' .github` → exit 0.
+
+**Could not do / unverified:**
+- **`bash scripts/install-scanners.sh actionlint && .baseleap/tools/bin/actionlint`: refused in this session** ("requires approval"), both as the chained line and as the two commands separately. The binary at `.baseleap/tools/bin/actionlint` (installed 2026-11-20, version marker present) exists, but I could not run it. The edits are plain `concurrency:` mappings and one changed `run:` line, so I expect it clean, but that is **unverified**. The ledger runs it.
+- The ledger's `! grep -rEn 'uses: [^@ ]+@(v[0-9.]+|main|master)\s*$' .github/workflows` was refused on a second attempt in this session (it was accepted once, with no output). I added no `uses:` line, so it is unchanged.
+- `node -e "const v=require('./vercel.json')…"`: refused (as in Attempt 1). `vercel.json` is not touched by this change.
+- Nothing has run on GitHub. The behaviour of the two groups is from GitHub's documented rules, not observed.
+
+**Findings and caveats (for the orchestrator):**
+1. **`tests/integrations/routes/db.test.ts` does not exist in the main tree yet.** It is in the backend worktree (`northside-quotes-wt-backend/tests/integrations/routes/`, next to `ghl-copy-retries.test.ts` and `ghl-sync.test.ts`). I listed it anyway, as asked. Vitest filters are OR-ed, so a filter that matches no file does no harm while another matches; until the backend lane merges, `api-tests` runs `tests/api` and `ghl/db.test.ts` only. Once merged, `test:offline` already excludes it (the pattern is `tests/integrations/**/db.test.ts`), so it runs only in `api-tests`. The other two files in `routes/` are not `db.test.ts`, so `test:offline` runs them: confirm with backend that they are offline tests.
+2. **A queued run can show as cancelled.** With `cancel-in-progress: false`, GitHub keeps one running and one waiting run per group; a third arrival replaces the waiting one, which ends as "cancelled". `api-tests` is a required check on `main`, so a superseded waiting run can show a cancelled check on an older commit. The newest commit is never the one dropped. If that is noisy, the fix is a different design (a lock job or a merge queue), which is Matthew's call. I did not weaken anything to avoid it.
+3. **QA's smoke job now queues behind `api-tests`** (and the reverse), and no longer cancels an older waiting smoke run in favour of a newer one beyond the single-waiting-slot rule above. A `staging` deployment check can therefore start a few minutes later while an `api-tests` run is in progress. Its 20-minute timeout counts from when it starts running, not from when it waits.
+4. **Still open from REV-3, not mine:** the backend half (run the housekeeping file against the local stack or a Supabase branch, or give `runHousekeeping` a scope; sweep stale tagged fixtures at the start of `api-tests`). This change removes overlap between CI runs; it does not stop a developer's local run, or a run from the orchestrator, from using the same database.
+5. `docs/runbook.md` does not describe CI concurrency, so it needed no edit.

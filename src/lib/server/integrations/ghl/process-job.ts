@@ -65,14 +65,62 @@ async function currentStage(requestId: string, fallback: string | null, reads: J
   return isStage(stage) ? stage : null;
 }
 
+/**
+ * The most passes one attempt makes before it gives up and retries (REV-1). Each extra pass
+ * needs the stage to have moved again during the previous one (a human action against two provider calls), so 3
+ * is generous; it keeps the attempt inside the 120 s lease (at most 6 tag calls of 10 s) and bounds the calls.
+ */
+export const MAX_STAGE_PASSES = 3;
+
+/**
+ * Puts the stage tag on a contact and keeps it there (REV-1, AC-017.6, AC-017.15).
+ *
+ * Reading the stage once and then calling the provider is a race: the lease only protects the database settle, so
+ * a slow earlier attempt could land its calls after a newer attempt's and leave the OLD stage on the contact.
+ * So every pass is: apply the stage read, then READ AGAIN after the calls returned. The attempt ends only when the
+ * read made after its own last call equals what it applied. An attempt whose read went stale therefore applies the
+ * newer stage itself, after its own stale calls, and no call of any attempt can land last with a stale stage:
+ * a stale pass is always followed by a read that sees the newer change (it was committed before that read, because
+ * the pass's calls landed after it). Two attempts applying the same stage commute (add one, remove three others).
+ *
+ * `fallback` is what the first read used when the database answered null; the re-reads use the same one.
+ * Returns 'converged', 'moving' (still changing after MAX_STAGE_PASSES: the attempt must retry, not succeed)
+ * or 'unreadable' (the database gave no usable stage).
+ */
+async function applyStage(
+  contactId: string,
+  requestId: string,
+  first: Stage,
+  fallback: string | null,
+  reads: JobReads,
+  client: GhlClient,
+): Promise<'converged' | 'moving' | 'unreadable'> {
+  let applied = first;
+  for (let pass = 1; ; pass += 1) {
+    await client.addTags(contactId, tagsToAdd(applied));
+    await client.removeTags(contactId, otherStageTags(applied));
+    const latest = await currentStage(requestId, fallback, reads);
+    if (latest === null) return 'unreadable';
+    if (latest === applied) return 'converged';
+    if (pass >= MAX_STAGE_PASSES) return 'moving';
+    applied = latest;
+  }
+}
+
+/** The verdict of an attempt that applied a stage: success only when the stage held still after the last call. */
+function stageVerdict(outcome: 'converged' | 'moving' | 'unreadable', success: Verdict): Verdict {
+  if (outcome === 'converged') return success;
+  // 'moving': the retry (5 min) re-reads and applies the newest stage. If this job was superseded meanwhile, the
+  // database ignores the result and the newer change's own job carries the newest stage.
+  return serverError(outcome === 'moving' ? 'stage_moving' : 'stage');
+}
+
 /** Link to a contact that already exists: tags only, never a contact field (OQ-19A, AC-009.5, AC-017.14). */
 async function link(contactId: string, request: RequestRow, reads: JobReads, client: GhlClient): Promise<Verdict> {
   if (!isContactId(contactId)) return serverError('contact_id');
   const stage = await currentStage(request.id, request.status, reads);
   if (stage === null) return serverError('stage');
-  await client.addTags(contactId, tagsToAdd(stage));
-  await client.removeTags(contactId, otherStageTags(stage));
-  return { kind: 'succeeded', contactId };
+  return stageVerdict(await applyStage(contactId, request.id, stage, request.status, reads, client), { kind: 'succeeded', contactId });
 }
 
 async function contactCopy(job: ClaimedJob, request: RequestRow, reads: JobReads, client: GhlClient): Promise<Verdict> {
@@ -84,7 +132,10 @@ async function contactCopy(job: ClaimedJob, request: RequestRow, reads: JobReads
   const found = await client.findDuplicateContact({ email: request.email, phone: request.phone });
   if (found !== null) return link(found.id, request, reads, client);
 
-  // 3. Create, carrying `quote-request` and the stage tag of the request's status now.
+  // 3. Create, carrying `quote-request` and the stage tag of the request's status now. No re-read after the
+  // create (REV-1): a status change meanwhile queues a stage-tag job, and that job waits until this copy has
+  // linked the contact, then applies the newest stage itself. A tag call after a create that succeeded could
+  // lose the new contact's id if it failed, which is worse than the 5 minute wait.
   const stage = await currentStage(request.id, request.status, reads);
   if (stage === null) return serverError('stage');
   try {
@@ -118,10 +169,9 @@ async function stageTag(job: ClaimedJob, request: RequestRow, reads: JobReads, c
   }
   if (!isContactId(contactId)) return serverError('contact_id');
 
-  // Every attempt re-reads the stage, so a late retry never puts back an older one (AC-017.15).
+  // Every attempt reads the stage before AND after its calls (applyStage), so neither a late retry nor a slow
+  // earlier attempt puts back an older stage (AC-017.6, AC-017.15, REV-1).
   const stage = await currentStage(request.id, job.target_status, reads);
   if (stage === null) return serverError('stage');
-  await client.addTags(contactId, tagsToAdd(stage));
-  await client.removeTags(contactId, otherStageTags(stage));
-  return { kind: 'succeeded' };
+  return stageVerdict(await applyStage(contactId, request.id, stage, job.target_status, reads, client), { kind: 'succeeded' });
 }

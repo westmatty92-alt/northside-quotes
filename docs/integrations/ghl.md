@@ -43,13 +43,34 @@ The client refuses, before any network call, a contact id that is not `^[A-Za-z0
 ## How the runner works (INT1)
 `runGhlJobs(options)` in `index.ts` calls `runGhlJobsWith` in `runner.ts`, the one integration file that uses the service-role client (SECURITY_MODEL invariant 2).
 1. `claim_ghl_job` leases **one** due job with a new `lease_id` (contact copies first). Stop when nothing is due, `limit` jobs were claimed, or fewer than 60 s of the 300 s budget remain (`RUN_BUDGET_MS`, `RUN_RESERVE_MS`).
-2. `process-job.ts` decides: no consent → `abandon` (a trigger already forbids such a job; this is the second lock). Contact copy: `find_ghl_contact_match` → GHL duplicate search → create (a 400 on create repeats the search once). Stage tag: wait for the copy, else add `quote-request` + the stage from `ghl_stage_for_request`, remove the other three.
+2. `process-job.ts` decides: no consent → `abandon` (a trigger already forbids such a job; this is the second lock). Contact copy: `find_ghl_contact_match` → GHL duplicate search → create (a 400 on create repeats the search once). Stage tag: wait for the copy, else add `quote-request` + the stage from `ghl_stage_for_request`, remove the other three, **then read the stage again and converge** (next section).
 3. `finish_ghl_job(job, lease_id, outcome, error_class, contact_id)` settles it. If the lease was lost or the job superseded, the database returns the row unchanged and the runner logs `lease_lost` and moves on.
 4. The database writes the metrics events (`ghl_sync_*`, `ghl_tag_sync_*`); the runner writes none. Its log line carries ids, the outcome, the error class and the status code only (`log.ts` allow-list).
 
 A bug inside one job settles it as one failed attempt (`server_error`, bounded retries) and the run continues. A database failure stops the run with `GhlStoreError` (operation and SQLSTATE only); callers wrap it in `after()`.
 
-**No retry loop and no breaker table in the client**, on purpose: retries are the jobs table's (the contract's backoff), and the 120 s lease is sized for three single-attempt 10 s calls.
+**No retry loop and no breaker table in the client**, on purpose: retries are the jobs table's (the contract's backoff), and the 120 s lease is sized for three single-attempt 10 s calls (a stage attempt of up to 3 passes makes at most 6 tag calls, 60 s).
+
+### Stage convergence: the contact ends on the most recent change, in any order or speed (REV-1, AC-017.6, AC-017.15)
+**The problem.** The lease protects only the database settle (`finish_ghl_job` ignores a late result). The calls to GHL have already happened by then, so a slow earlier attempt that read "quoted" could land its tag calls after a newer attempt that read "won", leaving the contact on Quoted while the app says Won, and nothing would repair it until the next status change.
+
+**The design (no database change).** Every attempt that tags a contact (a stage-tag job, and the contact copy when it links an existing contact) runs `applyStage` in `process-job.ts`:
+1. Read the stage (`ghl_stage_for_request`), add `quote-request` + that stage tag, remove the other three.
+2. **Read the stage again after the calls returned.** Same answer: done, the job succeeds.
+3. Different answer: apply the newer stage (go to 1). At most `MAX_STAGE_PASSES` (3) applications per attempt.
+4. Still changing after the third pass: the attempt does **not** succeed. It settles as `retry` with `error_class: server_error` and log `code: stage_moving`; the database retries it in 5 minutes and the retry re-reads. (If the job was superseded meanwhile the settle is ignored, and the newer change's own job carries the newest stage.)
+
+**Why it converges.** A pass whose read went stale landed its calls after the newer change was committed, so the read it makes afterwards sees that change and the attempt applies it after its own stale calls. The last call to land for a contact is therefore always from a pass whose stage was current when it was read after the call. Two passes that apply the same stage commute (add one tag, remove three others), and a transient state in between (for example neither stage tag after two interleaved remove calls) is repaired by the pass that follows. For two requests that share one contact the same holds, because `ghl_stage_for_request` answers per contact (last change wins across its consented requests, ruling 2A).
+
+**Cost.** One extra `ghl_stage_for_request` read per attempt and no extra GHL call when the stage held still (the usual case); at most two extra GHL calls per extra pass.
+
+**What is not re-read, and why.**
+- *Create* (no contact exists yet): a status change during the create queues a stage-tag job, which waits ("wait", no attempt counted) until the copy has linked the contact, then applies the newest stage. A tag call after a successful create could fail and lose the new contact's id, which is worse than the wait.
+- *The job's own lease or `superseded` state*: not checked. The stage is the truth, not the job. A superseded attempt that finishes its calls still re-reads and applies the newest stage, which is the same thing its replacement applies.
+
+**Residual window (known, not closed here).** When a copy **links** an existing contact, `finish_ghl_job` stamps `ghl_linked_at = now()` after the calls, and that stamp is what makes the linking request the "most recent change". A request already on that contact that changes status in the few milliseconds between the link's last GHL call and that settle can land its tag last, so the contact shows that request's stage until the next change of either request. Closing it needs the database to queue a stage-tag job when a link settles (SQL, the architect's): see CONTRACT QUESTION in the INT1 report, "Attempt 2: REV-1". It does not affect the case REV-1 describes (an earlier job overwriting a later status change).
+
+**How it is tested (offline).** `tests/integrations/ghl/stage-race.test.ts` reproduces the race with the simulator's `slow` mode: runner A reads "quoted" and is slow on its first call (or its second), the stage moves to "won", runner B finishes first, A lands late; the contact must end on `quote-won` with the owner's own tag kept. Same for two requests on one contact, for a link whose request moves to Won during the calls, a stable stage (two GHL calls, two reads) and a stage that never holds still (6 calls, then a retry with `stage_moving`).
 
 ## What users see when it is down
 See the contract's "When the platform is down". In short: the request and the status change are always saved; staff see "Waiting to retry" or "Copy to GoHighLevel failed" / "Stage tag failed" on SCR-06. Homeowners see nothing.

@@ -6,19 +6,27 @@
 //      change, daylight saving) is tested with absolute numbers in an ISOLATED week: a week in a far-future year that no other
 //      row touches, read through app_private.weekly_counts_at(instant), the function behind the route (the route calls it with
 //      now()). Rows are placed on exact boundaries.
-//   2. The route itself, for the current week, is compared with an independent count made with the service role, read at a
-//      quiet moment (the same number before and after the route call), and every row this file seeds or moves is checked
-//      one by one for being counted or not.
+//   2. The route serves only the current week (NG-10: no parameter, weekly_counts() calls weekly_counts_at(now())), so the
+//      current week is proven in links that are each exact on a busy database, with no waiting for a quiet moment (REV-4):
+//      a. the route makes exactly one database call, weekly_counts() with no arguments and the caller's own token, and
+//         returns that row unchanged (the real answer captured on the wire, and a stubbed one with distinct numbers);
+//      b. in ONE repeatable-read transaction (one snapshot, so concurrent writers cannot get in between), weekly_counts() as
+//         this staff member under RLS equals weekly_counts_at(now()) and equals an independent count with plain queries,
+//         and the function's numbers minus the rows that are not this test's (the baseline, read in the same snapshot) are
+//         exactly what this test's own rows must contribute;
+//      c. b holds while a concurrent writer keeps changing the current week (tests/helpers/busy-week.ts).
+//      Each row this file seeds or moves is also checked one by one for being counted or not.
 //   AC-008.1  requests, won and lost this week      AC-008.2  a status change shows in the count    AC-008.3  Sunday 23:59:59 vs Monday 00:00:00
 //   AC-008.4  won this week, submitted last week    AC-008.5  won then lost in one week             AC-008.6  the daylight saving weeks
 //   AC-008.7  a week with no activity is 0, 0, 0    AC-008.8  the count failing is a 500 the screen shows as "Count unavailable"
 import { randomInt } from 'node:crypto';
 import { afterEach, beforeAll, beforeEach, describe, expect, it, vi } from 'vitest';
+import { startWeekWriter } from '../../helpers/busy-week';
 import { POST as statusPost } from '@/app/api/quote-requests/[request_id]/status-changes/route';
 import { GET, POST } from '@/app/api/weekly-counts/current/route';
 import { GetCurrentWeeklyCountResponse } from '@/lib/api/generated/weekly-count/weekly-count.zod';
 import { captureOutput, expectProblem } from '../../helpers/api';
-import { idParams, inboxTools, psqlOutput, staffRequest, type SeedOptions, type StaffSession } from '../../helpers/inbox';
+import { idParams, inboxTools, psqlOutput, psqlOutputAsync, staffRequest, type SeedOptions, type StaffSession } from '../../helpers/inbox';
 import { setupStaging } from '../../helpers/staging';
 
 const spies = vi.hoisted(() => ({ pending: [] as Promise<unknown>[], runGhlJobs: vi.fn() }));
@@ -73,7 +81,6 @@ function toronto(instant: string) {
 }
 
 const plus = (instant: string, ms: number) => new Date(Date.parse(instant) + ms).toISOString();
-const sleep = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
 const hoursBetween = (a: string, b: string) => (Date.parse(b) - Date.parse(a)) / 3_600_000;
 
 // ---- the route -----------------------------------------------------------------------------------------------------------
@@ -96,18 +103,85 @@ async function move(id: string, to: 'new' | 'quoted' | 'won' | 'lost', version: 
   await Promise.all(spies.pending.splice(0));
 }
 
-// ---- the independent count (service role, plain queries; not the function under test) ------------------------------------------
+// ---- one snapshot of the current week (one repeatable-read transaction) ---------------------------------------------------------
 
-async function independentCount(start: string, end: string): Promise<Counts> {
-  const db = staging.db();
-  const head = { count: 'exact', head: true } as const;
-  const [requests, won, lost] = await Promise.all([
-    db.from('quote_requests').select('id', head).eq('state', 'submitted').gte('submitted_at', start).lt('submitted_at', end),
-    db.from('quote_requests').select('id', head).eq('state', 'submitted').eq('status', 'won').gte('status_changed_at', start).lt('status_changed_at', end),
-    db.from('quote_requests').select('id', head).eq('state', 'submitted').eq('status', 'lost').gte('status_changed_at', start).lt('status_changed_at', end),
-  ]);
-  for (const part of [requests, won, lost]) expect(part.error).toBeNull();
-  return { requests: requests.count ?? -1, won: won.count ?? -1, lost: lost.count ?? -1 };
+const UUID = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/;
+
+type Snapshot = {
+  start: string;
+  end: string;
+  /** app_private.is_staff() was true inside the transaction, so the staff part really ran as this staff member under RLS. */
+  asStaff: boolean;
+  /** weekly_counts() (what the route calls) returned exactly the row of weekly_counts_at(now()). */
+  delegates: boolean;
+  /** weekly_counts() as this staff member. */
+  fn: Counts;
+  /** The independent count: plain queries on quote_requests as the database owner, not the function under test. */
+  all: Counts;
+  /** The baseline: the independent count of every row that is NOT one of `ours`. */
+  others: Counts;
+};
+
+/** The claims PostgREST would set for this staff member's token (sub and session_id are what is_staff() reads). */
+function staffClaims(): string {
+  const payload = JSON.parse(Buffer.from(staff.token.split('.')[1] ?? '', 'base64url').toString('utf8')) as { sub?: unknown; session_id?: unknown };
+  expect(payload.sub).toBe(staff.id);
+  expect(payload.session_id).toMatch(UUID);
+  return JSON.stringify({ sub: payload.sub, role: 'authenticated', session_id: payload.session_id });
+}
+
+/**
+ * Everything read in ONE repeatable-read transaction, so it is one snapshot: rows other runs write or delete meanwhile are
+ * either in every number or in none. Nothing is retried and nothing waits for a quiet database.
+ */
+async function snapshot(ours: string[]): Promise<Snapshot> {
+  for (const id of ours) expect(id).toMatch(UUID);
+  const mine = `array[${ours.map((id) => `'${id}'`).join(',')}]::uuid[]`;
+  const inWeek = (column: string) => `${column} >= :'w_ws'::timestamptz and ${column} < :'w_we'::timestamptz`;
+  const utc = (column: string) => `to_char(${column} at time zone 'UTC', 'YYYY-MM-DD"T"HH24:MI:SS"Z"')`;
+  const rules = (extra: string) =>
+    [
+      `count(*) filter (where ${extra} and ${inWeek('submitted_at')})`,
+      `count(*) filter (where ${extra} and status = 'won' and ${inWeek('status_changed_at')})`,
+      `count(*) filter (where ${extra} and status = 'lost' and ${inWeek('status_changed_at')})`,
+    ].join(', ');
+  const out = await psqlOutputAsync(
+    [
+      'begin isolation level repeatable read read only;',
+      'set local role authenticated;',
+      `set local request.jwt.claims to '${staffClaims().replaceAll("'", "''")}';`,
+      `select ${utc('w.week_start')} as ws, ${utc('w.week_end')} as we, w.requests, w.won, w.lost, app_private.is_staff() as staff,`,
+      '       (w.week_start, w.week_end, w.requests, w.won, w.lost) = (a.week_start, a.week_end, a.requests, a.won, a.lost) as same',
+      '  from public.weekly_counts() w cross join app_private.weekly_counts_at(now()) a \\gset w_',
+      `select :'w_ws', :'w_we', :'w_requests', :'w_won', :'w_lost', :'w_staff', :'w_same';`,
+      'reset role;',
+      `select ${rules('true')}, ${rules(`id <> all(${mine})`)} from public.quote_requests where state = 'submitted';`,
+      'commit;',
+    ].join('\n'),
+  );
+  const [first = '', second = ''] = out.trim().split('\n');
+  const [start = '', end = '', fr, fw, fl, staffFlag, same] = first.split('|');
+  const [ar, aw, al, or, ow, ol] = second.split('|').map(Number);
+  return {
+    start,
+    end,
+    asStaff: staffFlag === 't',
+    delegates: same === 't',
+    fn: { requests: Number(fr), won: Number(fw), lost: Number(fl) },
+    all: { requests: ar ?? -1, won: aw ?? -1, lost: al ?? -1 },
+    others: { requests: or ?? -1, won: ow ?? -1, lost: ol ?? -1 },
+  };
+}
+
+/**
+ * The checks every snapshot must pass, and what this test's own rows contribute to the function's numbers: the function's
+ * numbers minus the baseline of everyone else's rows, both from the same snapshot.
+ */
+function contribution(s: Snapshot): Counts {
+  expect(s.asStaff, 'the staff part ran as a staff member').toBe(true);
+  expect(s.delegates, 'weekly_counts() is weekly_counts_at(now())').toBe(true);
+  expect(s.fn, 'weekly_counts() equals the independent count of the same snapshot').toEqual(s.all);
+  return { requests: s.fn.requests - s.others.requests, won: s.fn.won - s.others.won, lost: s.fn.lost - s.others.lost };
 }
 
 /** Is this stored request counted in this week, as requests, as won, as lost? (the three rules, applied in JS to the stored row) */
@@ -121,24 +195,6 @@ async function counted(id: string, start: string, end: string): Promise<{ reques
     won: submitted && data?.status === 'won' && inWeek(data?.status_changed_at ?? null),
     lost: submitted && data?.status === 'lost' && inWeek(data?.status_changed_at ?? null),
   };
-}
-
-/**
- * The route's answer and the independent count of the same week, taken while nothing else changed it (the independent count
- * is the same before and after the route call). Retries while other files write; fails only if it never gets a quiet moment.
- */
-async function quietComparison() {
-  for (let attempt = 0; attempt < 60; attempt += 1) {
-    const first = await route();
-    const before = await independentCount(first.week_start, first.week_end);
-    const api = await route();
-    const after = await independentCount(first.week_start, first.week_end);
-    if (before.requests === after.requests && before.won === after.won && before.lost === after.lost && api.week_start === first.week_start) {
-      return { api, independent: after };
-    }
-    await sleep(500);
-  }
-  throw new Error('the current week kept changing for 30 seconds: no quiet moment to compare the route with the independent count');
 }
 
 describe('the route: this week, Monday 00:00 to the next Monday 00:00 in America/Toronto', () => {
@@ -161,7 +217,7 @@ describe('the route: this week, Monday 00:00 to the next Monday 00:00 in America
     expect(GetCurrentWeeklyCountResponse.parse(await res.json()).week_start).toBe(plain.week_start);
   });
 
-  it('the three numbers are exactly the independent count of requests, won and lost in that week, with rows of every kind present', async () => {
+  it('AC-008.1: with rows of every kind present, the numbers equal the independent count, and this test\'s own rows contribute exactly 5 requests, 2 won and 2 lost', async () => {
     const week = await route();
     const lastWeek = plus(week.week_start, -3 * 86_400_000);
     const now = new Date().toISOString();
@@ -182,36 +238,108 @@ describe('the route: this week, Monday 00:00 to the next Monday 00:00 in America
 
     for (const item of made) expect(await counted(item.id, week.week_start, week.week_end), item.name).toEqual(item.expected);
 
-    const { api, independent } = await quietComparison();
-    expect({ requests: api.requests, won: api.won, lost: api.lost }).toEqual(independent);
-    // this test's own rows alone contribute 5 requests, 2 won and 2 lost, so the global numbers are at least that
-    expect(api.requests).toBeGreaterThanOrEqual(made.filter((m) => m.expected.requests).length);
-    expect(api.won).toBeGreaterThanOrEqual(made.filter((m) => m.expected.won).length);
-    expect(api.lost).toBeGreaterThanOrEqual(made.filter((m) => m.expected.lost).length);
+    const s = await snapshot(made.map((m) => m.id));
+    expect({ start: s.start, end: s.end }).toEqual({ start: week.week_start.replace('.000Z', 'Z'), end: week.week_end.replace('.000Z', 'Z') });
+    // exact, whatever else is in the week: this test's own rows contribute 5 requests, 2 won and 2 lost
+    expect(contribution(s)).toEqual({ requests: 5, won: 2, lost: 2 });
   });
 
-  it('AC-008.2 and AC-008.5: marking a request won, then lost, through the real status route moves it between the counts, and the route agrees with the independent count each time', async () => {
+  it('AC-008.2 and AC-008.5: marking a request won, then lost, through the real status route moves it between the counts by exactly one', async () => {
     const request = await ib.seed({ name: `${ib.tag} flow` });
-    const { api: start } = await quietComparison();
-    expect(await counted(request.id, start.week_start, start.week_end)).toEqual({ requests: true, won: false, lost: false });
+    const week = await route();
+    const step = async (expected: Counts) => {
+      expect(await counted(request.id, week.week_start, week.week_end)).toEqual({ requests: expected.requests === 1, won: expected.won === 1, lost: expected.lost === 1 });
+      expect(contribution(await snapshot([request.id]))).toEqual(expected);
+    };
+    await step({ requests: 1, won: 0, lost: 0 });
 
     await move(request.id, 'won', 1);
-    const won = await quietComparison();
-    expect(await counted(request.id, won.api.week_start, won.api.week_end)).toEqual({ requests: true, won: true, lost: false });
-    expect({ requests: won.api.requests, won: won.api.won, lost: won.api.lost }).toEqual(won.independent);
+    await step({ requests: 1, won: 1, lost: 0 });
 
     await move(request.id, 'lost', 2); // won on Tuesday, lost on Wednesday: won counts 0 for it, lost counts 1
-    const lost = await quietComparison();
-    expect(await counted(request.id, lost.api.week_start, lost.api.week_end)).toEqual({ requests: true, won: false, lost: true });
-    expect({ requests: lost.api.requests, won: lost.api.won, lost: lost.api.lost }).toEqual(lost.independent);
+    await step({ requests: 1, won: 0, lost: 1 });
 
     await move(request.id, 'lost', 3, 200); // the same status again changes nothing
-    expect(await counted(request.id, lost.api.week_start, lost.api.week_end)).toEqual({ requests: true, won: false, lost: true });
+    await step({ requests: 1, won: 0, lost: 1 });
 
     await move(request.id, 'quoted', 3); // out of both
-    const quoted = await quietComparison();
-    expect(await counted(request.id, quoted.api.week_start, quoted.api.week_end)).toEqual({ requests: true, won: false, lost: false });
-    expect({ requests: quoted.api.requests, won: quoted.api.won, lost: quoted.api.lost }).toEqual(quoted.independent);
+    await step({ requests: 1, won: 0, lost: 0 });
+  });
+
+  it('the route makes one database call, weekly_counts() with no arguments and the caller\'s own token, and returns that row unchanged', async () => {
+    const real = globalThis.fetch;
+    const calls: Array<{ method: string; body: string; authorization: string | null; rows: unknown }> = [];
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
+      const sent = new Request(input, init);
+      const res = await real(input, init);
+      if (new URL(sent.url).pathname.endsWith('/rpc/weekly_counts')) {
+        calls.push({ method: sent.method, body: await sent.text(), authorization: sent.headers.get('authorization'), rows: await res.clone().json() });
+      }
+      return res;
+    });
+    const body = await route();
+    expect(calls).toHaveLength(1);
+    const [call] = calls;
+    expect(call?.method).toBe('POST');
+    expect(['', '{}']).toContain(call?.body); // no week argument: only the current week (NG-10)
+    expect(call?.authorization).toBe(`Bearer ${staff.token}`); // the user-scoped client, so RLS applies (not the service role)
+    const rows = call?.rows as Array<{ week_start: string; week_end: string; requests: number; won: number; lost: number }>;
+    expect(rows).toHaveLength(1);
+    const [row] = rows;
+    expect(body).toEqual({
+      week_start: new Date(row?.week_start ?? '').toISOString(),
+      week_end: new Date(row?.week_end ?? '').toISOString(),
+      time_zone: 'America/Toronto',
+      requests: row?.requests,
+      won: row?.won,
+      lost: row?.lost,
+    });
+  });
+
+  it('the route puts each column in its own field (distinct numbers, the timestamp text PostgREST sends)', async () => {
+    const fetchThrough = globalThis.fetch;
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async (input, init) => {
+      const sent = new Request(input, init);
+      if (new URL(sent.url).pathname.endsWith('/rpc/weekly_counts')) {
+        const row = { week_start: '2031-03-10T04:00:00+00:00', week_end: '2031-03-17T04:00:00+00:00', requests: 1234, won: 56, lost: 7 };
+        return new Response(JSON.stringify([row]), { status: 200, headers: { 'content-type': 'application/json' } });
+      }
+      return fetchThrough(input, init);
+    });
+    expect(await route()).toEqual({ week_start: '2031-03-10T04:00:00.000Z', week_end: '2031-03-17T04:00:00.000Z', time_zone: 'America/Toronto', requests: 1234, won: 56, lost: 7 });
+  });
+
+  it('weekly_counts(), called as a staff member under RLS, is weekly_counts_at(now()) (the function the isolated-week tests prove) and equals the independent count, in one snapshot', async () => {
+    const week = await route();
+    const s = await snapshot([]);
+    expect(contribution(s)).toEqual({ requests: 0, won: 0, lost: 0 });
+    expect({ start: s.start, end: s.end }).toEqual({ start: week.week_start.replace('.000Z', 'Z'), end: week.week_end.replace('.000Z', 'Z') });
+  });
+
+  it('stays exact while another writer keeps changing the current week (no quiet moment needed)', async () => {
+    const now = new Date().toISOString();
+    const lastWeek = plus((await route()).week_start, -2 * 86_400_000);
+    const mine = await ib.seedMany([
+      { name: `${ib.tag} busy new` },
+      { name: `${ib.tag} busy won`, status: 'won', statusChangedAt: now },
+      { name: `${ib.tag} busy old lost`, submittedAt: lastWeek, status: 'lost', statusChangedAt: now },
+    ]);
+    const writer = startWeekWriter(staging, ib);
+    const totals: string[] = [];
+    try {
+      for (let i = 0; i < 5; i += 1) {
+        const before = writer.writes();
+        const s = await snapshot(mine.map((m) => m.id));
+        expect(contribution(s)).toEqual({ requests: 2, won: 1, lost: 1 });
+        totals.push(JSON.stringify(s.all));
+        expect((await route()).time_zone).toBe('America/Toronto');
+        // the writer really wrote while this snapshot was read and the route answered
+        expect(writer.writes()).toBeGreaterThan(before);
+      }
+    } finally {
+      await writer.stop();
+    }
+    expect(new Set(totals).size).toBeGreaterThan(1); // the week's totals changed between snapshots, yet every check was exact
   });
 });
 

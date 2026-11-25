@@ -103,3 +103,39 @@ All simulator error bodies and statuses for undocumented situations are invented
 **CONTRACT QUESTION / for the architect (package.json and vitest config are not mine):** the strict behaviour has a side effect. `npm test` and `npm run test:offline` (which includes `tests/integrations/`, described as "no database") now FAIL in any environment without the two staging variables, including a CI job without staging secrets. Before wiring this into CI, either give that job the staging secrets, or move DB-touching integration tests out of `test:offline` (a folder such as `tests/db/` that the DB-backed job runs). I left `package.json` and `vitest.config.ts` alone.
 
 **Notes for the next step:** none beyond the above. INT2 should not depend on DB tests passing until this is unblocked.
+
+## Attempt 2: REV-1 — 2026-11-25
+**Status:** done for REV-1. Lane: `/home/admin/baseleap/rehearsal/northside-quotes-wt-backend`. No git, no rm, no migration touched. Read: the REV-1 section of `.baseleap/reviews/REV1.md` (plus its two table rows that mention REV-1), `process-job.ts`, `runner.ts`, `mapping.ts`, `tests/integrations/ghl/{runner.test.ts,helpers.ts}`, `tests/mocks/ghl/simulator.mjs`, and the SQL of `change_quote_request_status`, `claim_ghl_job`, `finish_ghl_job`, `ghl_stage_for_request` in `supabase/migrations/20261120000600_functions.sql` (read only).
+
+**The design (no database change needed).** The stage is read once and then applied, and the lease only protects the database settle, so a slow earlier attempt could land its GHL calls after a newer attempt's. Fix: every attempt that tags a contact now runs `applyStage` (`process-job.ts`): apply the stage it read, then **read `ghl_stage_for_request` again after the calls returned**. Same answer: succeed. Different: apply the newer stage and check again, at most `MAX_STAGE_PASSES = 3` applications. Still moving after that: the attempt does not succeed; it settles as `retry` / `server_error` with log `code: stage_moving` (the database retries in 5 min; if the job was superseded the settle is ignored and the newer change's own job carries the newest stage).
+- Why it converges: a pass whose read went stale landed its calls after the newer change committed, so its re-read sees that change and the attempt applies it after its own stale calls. The last call to land is always from a pass whose stage was current when read after the call. Passes applying the same stage commute. A transient "no stage tag at all" (two interleaved remove calls, seen in the test) is repaired by the next pass.
+- Applies to the stage-tag job and to `link()` (a copy that links an existing contact). Two requests on one contact converge too because `ghl_stage_for_request` answers per contact.
+- Not re-read, deliberately: the **create** path (a status change during a create queues a stage-tag job that waits for the link, then applies the newest stage; a tag call after a successful create could fail and lose the new contact's id), and the job's own lease/superseded state (the stage is the truth; a superseded attempt applies the same stage its replacement does).
+- Cost: one extra RPC read per attempt, no extra GHL call when the stage held still.
+- Why not the other option (serialise per contact): it needs a per-contact claim, which is SQL.
+- Documented in `docs/integrations/ghl.md`, section "Stage convergence".
+
+**The reproducing test (`tests/integrations/ghl/stage-race.test.ts`, simulator `slow` mode)**
+- Written first, run against the unchanged runner: `npx vitest run tests/integrations/ghl/stage-race.test.ts --passWithNoTests=false` → **exit 1, 4 failed of 4**. Each failed on the final assertion only (the check made while B had finished and A had not landed passed), with A overwriting B: first-call-slow ended `['quote-quoted','quote-request','vip']`; second-call-slow ended `['quote-request','vip']` (no stage tag at all); the shared-contact case ended `quote-quoted`; the link case ended `quote-quoted`, expected `quote-won`.
+- After the fix, same command → **exit 0, 6 passed of 6** (the 4 above plus 2 new: "a stage that holds still" = same 2 GHL calls, 2 reads, success; "a stage that never holds still" = exactly `2 * MAX_STAGE_PASSES` calls, then a retry with `stage_moving`).
+- Scenario: A reads "quoted" and is slow (first call, then second call, in two cases); the stage moves to "won"; B reads "won" and finishes first; A lands late. A's settle is simulated as `superseded`, as the database does. The contact must end with `quote-request`, `quote-won` and the owner's own `vip` tag.
+
+**Commands (each as `cd <lane> && …`)**
+- `npm run typecheck` → exit 0
+- `npm run lint` → exit 0 (0 errors; the same 2 warnings in `scripts/lib/yaml-lite.mjs` and `scripts/sync-agent-permissions.mjs`, not mine)
+- `node --env-file-if-exists=.env.local node_modules/.bin/vitest run tests/integrations/ghl --passWithNoTests=false` → **refused by the session ("requires approval"); not run in that form**. Fallback as the brief allows: `npx vitest run tests/integrations/ghl --passWithNoTests=false` → exit 0, **6 files, 105 passed, 0 failed, 0 skipped**. Separately `npx vitest run tests/integrations/ghl/db.test.ts` → exit 0, 13 passed: the staging env helper found the staging variables this time, so **the 13 database tests ran against the staging project and passed** (they did not in Attempt 1 or Pass 2). The new tests are offline.
+- `npm run build` → exit 0
+- `node scripts/check-code-guards.mjs service-role` → exit 0 ("OK")
+
+**Files changed**
+- `src/lib/server/integrations/ghl/process-job.ts` — `applyStage` (apply, re-read, converge), `MAX_STAGE_PASSES`, `stageVerdict`; used by `stageTag` and `link`; comment on why the create path is not re-read
+- `tests/integrations/ghl/stage-race.test.ts` — NEW, 6 tests
+- `docs/integrations/ghl.md` — runner step 2 amended; new "Stage convergence" section (problem, design, why it converges, cost, what is not re-read, residual window, tests); lease sizing note
+- `.baseleap/reports/INT1.md` — this section
+- No change to `runner.ts`, the simulator, the helpers, any existing test, any migration, any config.
+
+**Could not do / unverified:** live behaviour (no live call; the simulator only proves our logic, not GHL's ordering of concurrent calls). The proof of convergence assumes a GHL call that has returned has been applied (read-your-writes within one caller), which the simulator guarantees and the docs do not state: add it to the unverified-live list if Matthew wants a live check.
+
+**CONTRACT QUESTION (optional hardening, NOT needed for REV-1; architect, SQL):** when a contact copy **links** an existing contact, `finish_ghl_job` stamps `ghl_linked_at = now()` after the GHL calls, and that stamp is what makes the linking request the most recent change. Another request already on that contact that changes status in the milliseconds between the link's last call and that settle can land its tag last, so the contact shows its stage until the next change. Suggested change in `finish_ghl_job` (`supabase/migrations/20261120000600_functions.sql`, contact_copy branch after the `ghl_contact_id` update): insert a pending `stage_tag` job for the request (target_status = its status) when the link succeeded on a contact that already had another consented request linked, so one more attempt re-applies the stage after the stamp. Until then the window is documented in `docs/integrations/ghl.md`. This was not changed here; migrations are not mine.
+
+**Notes for the next step:** `MAX_STAGE_PASSES` is exported from `process-job.ts`. A job that exhausts it shows in the failed-jobs list with `last_error_class = server_error` and the log code `stage_moving`; nothing new for DevOps to wire.
