@@ -67,7 +67,8 @@ Any new feature, fix or change request on a client that already has work built o
 1. **Read the client's system map**, `docs/sops/system-map.md`: what is live and where, every connection between systems, which system owns which records, and what must not change. If it's missing or older than the last release, the first step of the change is `bl-docs` rebuilding it from the repo, `docs/integrations/README.md` and the deployed-systems record.
 2. **Read the ledger history** for this client: past plans and their gates, `decision` events, accepted risks, escalations and what was rejected and why.
 3. **Write an impact note** into the change request, `.baseleap/inputs/change-<n>.md`: what the change touches, the ripples on other parts (reported, never applied silently), the locked decisions it brushes against, and what must not change.
-4. Then plan it as a `plan --amend` with its own scope gate, so the PM, designer and architect each do their part. The impact note is part of that gate's packet.
+4. If the change touches anything people see, have `bl-designer` make a **feature preview** (`stack-hitl` §3b) showing the change in place.
+5. Then plan it as a `plan --amend` with its own scope gate, so the PM, designer and architect each do their part. The impact note and the preview are part of that gate's packet.
 
 ## 5. Keep your own context clean
 
