@@ -15,10 +15,10 @@
   "layout": {
     "viewport": "1280 x 800",
     "photo": {
-      "x": 160,
-      "y": 42.375,
-      "width": 960,
-      "height": 720
+      "x": 211.171875,
+      "y": 80.75,
+      "width": 857.65625,
+      "height": 643.234375
     },
     "title \"Photo 2 of 3\"": {
       "x": 16,
@@ -51,9 +51,5 @@
       "height": 44
     }
   },
-  "covered": [
-    "the photo covers reference and name line (187 x 21 px)",
-    "the photo covers Previous photo (96 x 22 px)",
-    "the photo covers Next photo (96 x 22 px)"
-  ]
+  "covered": []
 }

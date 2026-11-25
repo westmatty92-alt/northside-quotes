@@ -52,7 +52,7 @@ test.describe('deployment under test', () => {
   test('@regression FE2V the preview serves the commit under test (recorded in the evidence)', async ({ playwright }, testInfo) => {
     loadEnv();
     expectedWidth(testInfo.project.name);
-    const expected = process.env.QA_EXPECTED_SHA ?? '0dff609';
+    const expected = process.env.QA_EXPECTED_SHA ?? '42208a4';
     const anon = await newApi(playwright);
     const res = await anon.get('/api/health');
     expect(res.status(), await describe(res)).toBe(200);

@@ -1,8 +1,25 @@
 # FE2V tickets
 
-One ticket. Found on the staging preview, commit 0dff609, 2026-11-24.
+Status at the re-run (staging commit 42208a4, 2026-11-24): BUG-FE2V-1 RESOLVED; BUG-FE2V-2 OPEN (minor, new).
 
-## BUG-FE2V-1 · SCR-08 photo viewer at 1280 x 800: the photo frame covers the Previous / Next buttons and the reference line
+## BUG-FE2V-2 · The Move to button's accessible name does not gain ", saving" while a move is saving (OPEN, minor)
+
+- **Severity:** Minor (the card shows the word "Saving" and the button is `aria-disabled`; nothing is lost, the spec'd name is missing)
+- **AC / test:** AC-016.13 (the card shows Saving), `docs/design-specs.md` MoveToMenu: accessible name "Move to another status, NQ-7K3M9P, saving" while it saves. Evidence test: `tests/e2e/visual/dv1-evidence.desktop.spec.ts` > "DV1 SCR-05 the Move to button in its Saving state at 1280 px". It records the name and does not fail on it (the DV1 captures are not gates), and `tests/e2e/support/ui.ts` `moveButton()` accepts the name with or without ", saving", so no existing test fails.
+- **Steps to reproduce:**
+  1. Sign in as the owner on the staging preview, 1280 x 800, open Pipeline.
+  2. Hold the status-change request (a Playwright route that waits), then use a card's Move to menu to choose another status.
+  3. While the card shows "Saving", read the Move to button's accessible name.
+- **Expected:** "Move to another status, NQ-xxxxxx, saving" (design-specs, MoveToMenu).
+- **Actual:** "Move to another status, NQ-GBG78M" (unchanged). The button has `aria-disabled="true"` and a dashed border; the card has a status region reading "Saving".
+- **Evidence:** `docs/qa-reports/visual/DV1/SCR-05-move-to-saving-1280x800.json` (`move_to_saving_accessible_name`, `accessible_name_says_saving: false`), `.png` and `-card.png`.
+- **Class hint and owner:** `ui` -> frontend (or `spec` -> designer if the status-region announcement is meant to replace the name suffix; the spec text and the mockup state sheet say the suffix).
+- **Signature suggestion:** `FE2 MoveToMenu saving state: accessible name lacks ", saving" suffix (design-specs MoveToMenu)`
+- **Regression test:** the recorded boolean `accessible_name_says_saving` in the DV1 evidence JSON. If frontend fixes it, tell QA and the evidence test can assert it.
+
+## BUG-FE2V-1 · SCR-08 photo viewer at 1280 x 800: the photo frame covers the Previous / Next buttons and the reference line (RESOLVED at 42208a4)
+
+**Resolution, re-run at 42208a4 (2026-11-24):** `npx playwright test tests/e2e/visual` exits 0, and the SCR-08 test (the overlap assertion, unchanged) passes at 1280 x 800 and at 390 x 844, first try, no retry. Measurements at 1280 x 800: `covered` is `[]`; the photo is 857.7 x 643.2 px (4:3), y 80.8 to 724.0; Previous / Next photo (240 x 44) start at y 740, a 16 px gap; the reference line (y 42.3 to 63.3) and Close are above the frame. Extra, at 1280 x 720: photo 751 x 563.3, y 80.8 to 644.0, buttons at y 660 (16 px gap), `covered` `[]`, the dialog does not scroll. Evidence: `docs/qa-reports/visual/FE2/1280/SCR-08-photo-viewer.json`, `docs/qa-reports/visual/DV1/SCR-08-photo-viewer-1280x{800,720}.json/.png`. The original report follows.
 
 - **Severity:** Important (a control is partly hidden on an ordinary laptop window; no data is lost)
 - **AC / test:** AC-012.1, design-specs SCR-08 "Layout" (Previous / Next at the bottom, reachable). Failing test: `tests/e2e/visual/fe2-screens.both.spec.ts` > "FE2V SCR-08 photo viewer, opened with the "View photo 2" button", project `desktop`. The `phone-staff` (390 x 844) run of the same test passes.
