@@ -207,6 +207,8 @@ export type Database = {
           note: string | null;
           phone: string;
           photo_count: number;
+          photo_plan: Json | null;
+          photos_planned_at: string;
           price_cents: number | null;
           problem: string;
           reference: string | null;
@@ -237,6 +239,8 @@ export type Database = {
           note?: string | null;
           phone: string;
           photo_count?: number;
+          photo_plan?: Json | null;
+          photos_planned_at?: string;
           price_cents?: number | null;
           problem: string;
           reference?: string | null;
@@ -266,6 +270,8 @@ export type Database = {
           note?: string | null;
           phone?: string;
           photo_count?: number;
+          photo_plan?: Json | null;
+          photos_planned_at?: string;
           price_cents?: number | null;
           problem?: string;
           reference?: string | null;
@@ -558,6 +564,7 @@ export type Database = {
           p_name: string;
           p_phone: string;
           p_photo_count: number;
+          p_photos?: Json;
           p_problem: string;
           p_submission_key: string;
           p_urgency: string;

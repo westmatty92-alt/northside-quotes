@@ -20,3 +20,22 @@
 # No check is switched off by this file.
 [parameters]
 request_id = "00000000-0000-4000-8000-000000000000"
+
+# positive_data_acceptance is off for ONE operation: GET /quote-requests (operationId listQuoteRequests). Nothing else.
+#
+# Why (architect ruling, A3, staging 4b20835): a cursor the API did not issue is answered 400 bad_request, and that is the
+# contract (docs/openapi.yaml, components/parameters/Cursor, now with the pattern ^c1\.[A-Za-z0-9_-]+$ and a 400
+# description). A pattern cannot say "decodes to a valid time and id", so Schemathesis still generates cursors that match
+# the pattern and are not ones the API issued, and the server rightly answers 400. The check reads that documented 400 as
+# "rejected positive data". It is a statement about what a schema pattern can express, not about the product.
+# What stays on for this operation: not_a_server_error, status_code_conformance, content_type_conformance,
+# response_schema_conformance, response_headers_conformance, negative_data_rejection. Every other operation keeps
+# positive_data_acceptance too (this is how the two `version` findings are judged after the A3 maximum).
+# Matched by operationId, a single filter: include-path and include-method together would be an OR in Schemathesis 4.0.0
+# (two separate include filters) and would switch the check off for every GET and for POST /quote-requests as well.
+# Bad cursors are also probed by PRB-66 (list parameters at their edges, never a 5xx), which this change does not touch.
+[[operations]]
+include-operation-id = "listQuoteRequests"
+
+[operations.checks.positive_data_acceptance]
+enabled = false
