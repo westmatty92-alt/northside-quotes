@@ -1,6 +1,8 @@
 # Visual review DV1: built app against the Northside mockups and DESIGN.md
 
-**Verdict: BLOCKED** (1 Important open, 0 Critical, 7 Minor). The brand, the two tabs, the unticked offers box and the "Not copied: no offers consent" label all match the design. The block is one shared defect (F-01): every "paused" button, including the Saving Move to button, collapses to about 23 px tall. It is a one-line fix in `src/components/ui/button.tsx`. Re-review after the fix needs only F-01 and the evidence gaps listed under "Coverage and limits".
+**Verdict (current, after the re-review at `42208a4`): APPROVED** (0 Critical, 0 Important open; 7 Minor open or unverified, listed for Gate 3). See "Re-review at 42208a4" at the end of this file. The first-review text below is kept as written and is superseded where the re-review says so.
+
+**First-review verdict (at `0dff609`, now superseded): BLOCKED** (1 Important open, 0 Critical, 7 Minor). The brand, the two tabs, the unticked offers box and the "Not copied: no offers consent" label all match the design. The block is one shared defect (F-01): every "paused" button, including the Saving Move to button, collapses to about 23 px tall. It is a one-line fix in `src/components/ui/button.tsx`. Re-review after the fix needs only F-01 and the evidence gaps listed under "Coverage and limits".
 
 **Staging URL:** https://northside-quotes-git-staging-baseleap.vercel.app
 **Commit under review:** `0dff609` (confirmed by QA's `docs/qa-reports/visual/FE2/deployment.json`: health ok, version `0dff6097e8e258c64507911f58543c0c1258f64f`)
@@ -117,3 +119,85 @@ I could not capture the staging preview myself. `VERCEL_AUTOMATION_BYPASS_SECRET
 | F-08 | Minor | bl-frontend | Name the off-scale constants. |
 
 **To flip to APPROVED:** F-01 fixed and re-captured; Matthew or devops puts `VERCEL_AUTOMATION_BYPASS_SECRET` in my shell (or QA adds SCR-05 and SCR-04 at a viewport-sized capture) so the evidence gaps above are closed on staging. Minor findings go to Gate 3 as a list.
+
+---
+
+# Re-review at 42208a4
+
+**Verdict: APPROVED.** 0 Critical, 0 Important open. F-01 (the only Important) is closed on staging, F-05 is closed, and the screens I could not see before (SCR-05, SCR-08 at 1280, SCR-01, SCR-02) match the design with no regression. Seven Minor items remain (F-02, F-03, F-04, F-06, F-07, F-08, plus BUG-FE2V-2 ruled Minor below) and go to Gate 3 as a list.
+
+**Staging URL:** https://northside-quotes-git-staging-baseleap.vercel.app
+**Commit under review:** `42208a4` (full hash `42208a49aaaf21477fd369360f6a17caed80254f`, read by QA from `/api/health` and saved in `docs/qa-reports/visual/FE2/deployment.json`; every DV1 capture JSON carries `commit_prefix: 42208a4`)
+**Reviewer:** bl-designer · **Step:** DV1 (re-review) · **Date:** 2026-11-24
+**Evidence:** QA's captures of the real staging preview, signed in with QA's saved session: `docs/qa-reports/visual/DV1/*` (SCR-01, 02, 04, 05, 08 and the Saving state) and `docs/qa-reports/visual/FE2/{390,1280}/*` (SCR-03, 04, 06, 07, 08), plus QA's "Re-run at 42208a4" in `.baseleap/reports/FE2V.md`. I did not sign in, did not send any password, and did not capture staging myself. Compared against `docs/design/screens/SCR-0N-{mobile,desktop}.png`. Every screenshot named below was opened.
+
+## 1. Status of the first-review findings
+
+| ID | First ruling | Now | Evidence |
+|---|---|---|---|
+| **F-01** paused buttons collapse to about 23 px | Important | **CLOSED** | LIVE: `DV1/SCR-05-move-to-saving-1280x800.json` measures the Saving Move to at **44 px** high (CSS `min-height` 44 px, `height` 44 px, 234 px wide, same as normal), `border_style: dashed`, `aria-disabled: "true"`. The card crop `…-card.png` shows the dashed Move to button at full height and the card not jumping, as in mockup panel C. SCR-08 Previous photo and Next photo (also paused-capable buttons) measure 44 px and sit level (`SCR-08-photo-viewer-1280x720.json`). CODE: `northside-quotes-wt-frontend/src/components/ui/button.tsx` now has `minHeight = { primary: 'min-h-12', secondary: 'min-h-11' }` applied outside the paused switch (line 65) and `pausedLook` is border, colour and cursor only, which is the fix I directed. Only the Move to button was measured while paused on staging; Send request "Sending", Sign in pending, Save price "Saving" and the others are covered by the same single component (code), not by their own staging capture: unverified individually. |
+| **F-05** "View photo N" chip wraps at 390 | Minor | **CLOSED** | LIVE `FE2/390/SCR-06-unticked.png` (a request with 3 photos): each tile reads "View photo 1", "View photo 2", "View photo 3" on one line, inside its tile. |
+| F-02 line heights 1 to 7 px off | Minor | **Still open (Minor, Gate 3)** | `src/app/theme.css` still has no `line-height` tokens (0 matches). Visible only as the known drift: SCR-02 display job tag 87 px high at 1280 against 80 px in the mockup, and SCR-01 headings a few px lower. Nothing clipped or misaligned. Fix starts with the designer (export script), as ruled. |
+| F-03 reference tag not underlined | Minor | **Still open, and now seen on SCR-05 too** | LIVE `DV1/SCR-04-requests-1280x800.png`: names underlined, the "NQ-…" tags not. LIVE `DV1/SCR-05-pipeline-1280x800.png` and the 390 capture: the same on every card, where the mockup underlines both. Not a regression (same root cause as before, same component). |
+| F-04 Move to menu plainer and wider than drawn | Minor | **Unchanged, not re-verified** | No QA capture opens the menu on staging. Status from the first review stands (LANE screenshots only). |
+| F-06 note hint left-aligned | Minor | **Still open** | LIVE `FE2/390/SCR-06-unticked.png`: "Up to 1,000 characters." is left under the note field; the mockup right-aligns it. |
+| F-07 SCR-07 spec text disagrees with DESIGN.md | Minor (doc) | **Still open, mine** | Design-doc fix (design-specs SCR-07 layout line and the mockup, 44 px number and 15 px label). No code change. The build is right. SCR-07 on staging again shows the 44 px figures (`FE2/1280/SCR-07-weekly-strip.png`, and the strip at the top of SCR-04 and SCR-05). |
+| F-08 off-scale spacing utilities | Minor | **Unchanged, not re-checked** | I did not re-scan the frontend diff in this pass. No raw hex or arbitrary values were found in the first review; nothing in the new captures suggests otherwise. |
+
+## 2. Screens I could not see before
+
+All four are reviewed from QA's staging captures at 42208a4. Axe on every one of them: 0 serious or critical, 0 minor or moderate, 0 console errors, 0 failed requests, no sideways scroll (read from each sidecar JSON).
+
+### SCR-05 Pipeline (390 and 1280, viewport-sized): matches, no finding
+- **1280:** teal top bar with Requests and Pipeline as two tabs, Pipeline underlined; page title; weekly strip (79, 10, 1) with Won and Lost icons plus words; the instruction line verbatim from the spec; four Fog columns (New, Quoted, Won, Lost), each with its icon and word; cards with the job tag, name, urgency badge with icon and word, time, drag handle, and a full-width Move to button at 44 px. Same hierarchy, order and grouping as `SCR-05-desktop.png`. No List / Board switch.
+- **390:** one column; strip as three tiles with the date beside "THIS WEEK" on one row; the New / Quoted / Won / Lost jump control; column cards stacked; fixed bottom tab bar with Pipeline marked (Fog fill, teal top rule). Same as `SCR-05-mobile.png`. The phone card name and Move to button are full width.
+- **Allowed differences:** real QA test names (long, they wrap to two lines), 79 requests this week, and the page height (11,658 px at 1280, 14,729 px at 390) because each column lists up to 50 cards, as designed (AC-016.x "50 and Show more").
+- **Not seen:** an Emergency card (copper bar and icon) on the Pipeline, and the "Show more" button at the foot of a long column. The seeded data in these captures has no Emergency card on the board. Both were verified on the earlier SCR-04 and LANE evidence only. Unverified on staging; not a blocker.
+
+### SCR-08 Photo viewer at 1280 (800 and 720 high): matches, F-overlap resolved
+- At 1280 x 800 the photo is 858 x 643 (4:3) at y 81 to 724, Previous photo and Next photo at y 740 with a 16 px gap, level and 44 px high. At 1280 x 720 the photo is 751 x 563, buttons at y 660, 16 px gap, `covered: []`, no dialog scroll. Close sits top right at 44 px. "Photo 2 of 3" title and the reference and name line are present. Matches the mockup structure. The earlier overlap QA found is gone. At 390 (FE2): photo full width, Close top right, Previous and Next level at the bottom, nothing overlapping.
+
+### SCR-01 Request form (390 and 1280): matches, no finding
+- **1280 full page** (`SCR-01-request-form-1280x800-full.png`): Paper card on Fog, teal bar with the wordmark, "Request a quote" h1, six labelled fields with a visible label above each, hint "Northside may call or text this number.", three urgency radio cards with icon-less circles plus word and sentence, "Photos (optional)" with the Add a photo button, the **offers checkbox unticked** on its own Fog strip with the label "Email me offers and news from Northside. This is optional.", the plain-language data line beneath it, and a full-width teal "Send request" at 48 px. Footer with "Staff sign-in". Same as `SCR-01-desktop.png`. A filled capture (name, phone, email, address, problem, "Soon" selected, two photos with Remove) also matches.
+- **390** viewport shot: header, h1, intro, "All six questions are required. Photos are optional.", then the first fields at 17 px body. Single column, labels above fields, no sideways scroll (`document_scroll_width` 390). I read the first screenful only at 390 (the full-page 390 capture was not needed for a layout difference; the 1280 full page shows the whole form).
+
+### SCR-02 Confirmation (390 and 1280): matches, no finding
+- **1280:** "Request sent" with the success icon, h1 "Thanks, Dana. Northside has your request.", "YOUR REFERENCE NUMBER", the display job tag hung from the copper elbow, a teal "Copy reference number" button, "What happens next" with the two paragraphs including "No email or text is sent to you now…", the Fog "WHAT YOU SENT" summary (phone, address, urgency badge with icon and word, photos "1 attached"), and a quiet "Send another request" secondary button. Same order and grouping as `SCR-02-desktop.png`. The tag is about 7 px taller than the mockup (F-02).
+- **390:** the narrowed-desktop capture, as QA noted (no touch, 1x, a 390 px desktop window, not an emulated phone). It shows one column, the tag and elbow intact, the copy button, the summary card and the secondary button; `document_scroll_width` 390, no sideways scroll. It proves the layout at 390 px width; it does **not** prove phone touch behaviour or phone font rendering. Treat the phone confirmation as seen at width only.
+
+## 3. Ruling on BUG-FE2V-2 (Move to accessible name does not gain ", saving")
+
+**Ruling: Minor. Not acceptable to leave undocumented, but it does not block approval.** Fix it in the next frontend pass, or drop the clause from design-specs. I recommend fixing it.
+
+- **Evidence:** `DV1/SCR-05-move-to-saving-1280x800.json`: `move_to_saving_accessible_name` is "Move to another status, NQ-GBG78M", `accessible_name_says_saving` false, `aria_disabled` "true". `docs/design-specs.md` line 174 (MoveToMenu): the name becomes "Move to another status, NQ-7K3M9P, saving" while it saves.
+- **Why it is not Important:** the control is exposed as unavailable (`aria-disabled="true"`, so a screen reader announces it as dimmed or unavailable), the card shows the visible word "Saving", and the result is announced afterwards ("NQ-… moved to Quoted", or the failure message). Name, role and state are all programmatically available (WCAG 4.1.2), so there is no AA failure. The visible label still starts the name, so label-in-name (2.5.3) holds. The state lasts about a second.
+- **Why it is still a Minor:** a screen-reader user who lands on the dimmed button gets no reason for it, and a documented spec line is not met. A written requirement that the build skips quietly is the kind of drift this review exists to report.
+- **Unverified:** whether the card's "Saving" text is exposed to assistive tech as a status. I only had the button's name and attributes. If it is not announced, that raises this from nice-to-have to worth doing first among the Minors.
+- **Fix direction (bl-frontend):** while saving, build the accessible name as `Move to another status, <ref>, saving` (visible "Move to" still first), and tell QA to turn `accessible_name_says_saving` into an assertion. Do not change the visible label. The alternative, editing the design-specs line to match the build, is acceptable only if the card's "Saving" is announced as a status; say so, and I will update the spec.
+
+## 4. Regressions and new findings
+
+None. Every screen compared at 42208a4 keeps the brand fidelity, token use, two-tab navigation, unticked offers box and "Not copied: no offers consent" label confirmed in the first review (`FE2/*/SCR-06-unticked.png` retaken at 42208a4 and unchanged). I raised no new nitpicks on screens I had already reviewed.
+
+## 5. Still unverified (not blocking)
+
+- Emergency card and "Show more" on the Pipeline on staging; the Move to menu on staging (F-04).
+- Other paused buttons measured on staging (Sending, Sign in pending, Saving a price): same component, not individually captured.
+- Keyboard walk-through, visible focus rings and reduced-motion behaviour by hand; QA says it did not assess focus rings in this run. Reviewed from code and QA's focus-trap tests only, as before.
+- Phone touch and font rendering on SCR-02 (the 390 capture is a narrow desktop window).
+- Axe at WCAG 2.2 tags on staff screens (QA scans use 2.1 tags). With F-01 closed, I know of no target-size problem left.
+
+## 6. Routing summary (Gate 3 list)
+
+| ID | Severity | Owner | Action |
+|---|---|---|---|
+| F-02 | Minor | bl-designer then bl-frontend | Export line-height tokens, regenerate theme, remove `leading-*`. |
+| F-03 | Minor | bl-frontend | Underline the reference tag on SCR-04 rows and SCR-05 cards. |
+| F-04 | Minor | bl-frontend | Menu width, icons, heading (needs a staging capture to re-verify). |
+| F-06 | Minor | bl-frontend | Right-align the note hint, or tell me and I update the mockup. |
+| F-07 | Minor | bl-designer | Fix the SCR-07 text in design-specs and the mockup. |
+| F-08 | Minor | bl-frontend | Name the off-scale constants. |
+| BUG-FE2V-2 | Minor | bl-frontend | Add ", saving" to the Move to accessible name while saving; QA asserts it. |
+| F-01, F-05 | closed | none | none |
+
+Also recommended for the design pass: update the SCR-06 mockup to show real photo thumbnails with the one-line overlay label, since the build is better than the stand-in tiles.
