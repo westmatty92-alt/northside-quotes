@@ -86,6 +86,15 @@ describe('SCR-06 photo thumbnails', () => {
     await expectNoAxeViolations(container);
   });
 
+  // DV1 F-05: at 390 px the tile read "View photo" over "1"; the label must stay on one line
+  it('keep the "View photo N" label on one line', () => {
+    gallery(photos(3));
+    for (const n of [1, 2, 3]) {
+      const label = within(thumb(n)).getByText(`View photo ${n}`);
+      expect(label).toHaveClass('whitespace-nowrap');
+    }
+  });
+
   // BUG-QA1-3 (AC-005.7, SCR-06 Error): the API answers with URLs, the browser cannot fetch the images.
   it('Storage unreachable: every slot whose image fails says "Photo unavailable", the rest of the request still shows, and fresh URLs are asked for once', async () => {
     const { container } = gallery(photos(3));

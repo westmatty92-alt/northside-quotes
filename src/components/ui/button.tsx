@@ -14,13 +14,19 @@ const base = cn(
   type.label,
 );
 
-const looks = {
-  primary:
-    'min-h-12 border-transparent bg-primary text-on-primary hover:bg-primary-hover cursor-pointer',
-  secondary:
-    'min-h-11 border-border-strong bg-surface text-text hover:bg-surface-raised cursor-pointer',
+// The designed height belongs to the variant, not to its look, so a paused button keeps it (DV1 F-01): before, the
+// paused look replaced the whole variant and every busy button shrank to its text, about 23 px.
+const minHeight = {
+  primary: 'min-h-12',
+  secondary: 'min-h-11',
 } as const;
 
+const looks = {
+  primary: 'border-transparent bg-primary text-on-primary hover:bg-primary-hover cursor-pointer',
+  secondary: 'border-border-strong bg-surface text-text hover:bg-surface-raised cursor-pointer',
+} as const satisfies Record<keyof typeof minHeight, string>;
+
+// border, colour and cursor only: never a size
 const pausedLook =
   'border-dashed border-border-strong bg-surface text-text-secondary hover:bg-surface cursor-not-allowed';
 
@@ -56,7 +62,7 @@ export function Button({
         }
         onClick?.(event);
       }}
-      className={cn(base, focusRing, paused ? pausedLook : looks[variant], block && 'w-full', className)}
+      className={cn(base, focusRing, minHeight[variant], paused ? pausedLook : looks[variant], block && 'w-full', className)}
     >
       {children}
     </button>
@@ -64,4 +70,4 @@ export function Button({
 }
 
 /** A link that looks like the secondary button ("Send another request"). */
-export const linkButtonClass = cn(base, focusRing, looks.secondary);
+export const linkButtonClass = cn(base, focusRing, minHeight.secondary, looks.secondary);
