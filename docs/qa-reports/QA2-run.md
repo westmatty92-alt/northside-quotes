@@ -1,5 +1,18 @@
 # QA2 run report: permission probes, API boundaries and fuzz on the staging preview
 
+## Status update, 2026-11-24 (2026-11-25 UTC): BUG-QA2-4 RESOLVED at `dfaaa6c`, PRB-45 and PRB-74b pass
+
+- **Commit under test:** `dfaaa6cb35cb27d58086ced223fa4091096238ab` (`dfaaa6c`), read from `/api/health` (status `ok`) at 03:22 UTC by `PRB-00`. The first read, minutes earlier, still reported `bb54c17`; the second read (after about 2 minutes of waiting) reported `dfaaa6c`. The probe run started seconds after that read.
+- **Staging URL:** https://northside-quotes-git-staging-baseleap.vercel.app
+- **Command:** `npx playwright test tests/e2e/probes --grep "PRB-45|PRB-74b"` → exit 0, **2 passed, 0 failed, 0 flaky, 0 skipped, 28.4 s** (retries off for the `probes` project). Evidence: `docs/qa-reports/playwright-results.json` (stats: 2 expected, 0 unexpected, 0 flaky; it replaces the earlier file of the same name, so the 54-of-54 full-run file at `bb54c17` is no longer on disk; its numbers are recorded below) and `playwright-report/`.
+- **PRB-45 (BUG-QA2-4): pass.** 24 requests (2 request ids, an existing and an unknown one, x 6 `version` values from `2147483647` up to `1687381385382380550179543211573248` x `PUT quote` and `POST status-changes`): each answered 409 or 422 (404 allowed for the unknown id), `application/problem+json`, no database text, every 422 names `version` in `errors[]`, and the request was unchanged afterwards. No 5xx. **BUG-QA2-4 is RESOLVED.**
+- **PRB-74b: pass, including the 9 new NUL and unpaired-surrogate cases** (`address`, `phone`, `email`, `website`, photo `content_type`) and the original cases (4 surrogate cases requiring 422 naming the field, NUL, SQL and filter text, explicit `null`, 1.5 MB padding, 4 malformed bodies). No 5xx. No weakened check.
+- **New tickets:** none.
+- **Not run in this check:** the other 53 probes (last full run: 54 of 54 at `bb54c17`, nothing re-run at `dfaaa6c`), and the Schemathesis fuzz (the ledger runs it).
+- **Test data:** like earlier `PRB-74b` runs, expect one more pending-only boundary request (never submitted, purged by housekeeping after 24 hours; `QA-PROBE` name prefix; count not re-verified). `PRB-45` creates nothing; it resets the target request.
+
+The sections below are the report as of `bb54c17` and are unchanged, except that the "Not run" bullet for `PRB-45` is updated.
+
 **Verdict at `bb54c17`: FAIL on the fuzz, PASS on the probes. The probes passed 54 of 54, all three earlier bugs are fixed, no permission boundary was crossed. The first Schemathesis run (ledger, `bash tests/fuzz/run.sh`, exit 1) found one product defect (BUG-QA2-4: a 500 on a large `version`), three contract questions, and a lot of fuzz-configuration noise that is now fixed in `tests/fuzz/run.mjs`. The fuzz has not been re-run since the configuration change, so the step stays open. A new regression probe, PRB-45, was added for BUG-QA2-4 (55 probes now; it is red until the fix) and nothing was run after it was written except `--list`, `tsc` and `eslint`.** See the "Fuzz" section.
 
 **Target:** https://northside-quotes-git-staging-baseleap.vercel.app (the Vercel preview of `staging`) · **Commit under test:** `bb54c17d2ea4d9d873f2f9f77d0af70dbcce2875` (`bb54c17`, read from `/api/health` by `PRB-00`, status `ok`) · **Step:** QA2, re-run after the backend fixes · **Date:** 2026-11-24 evening local (2026-11-25 UTC) · **Run type:** full probe run, once, then one probe run alone.
@@ -134,7 +147,7 @@ Other traces on the shared staging project: `spam_submission_blocked` events (on
 ## Not run, or not proven (unverified)
 
 - **The Schemathesis fuzz run with the changed configuration:** not run by QA (venv and pip need approval here); the ledger re-runs it. The first run's result is in the "Fuzz" section.
-- **`PRB-45` and the 9 new `PRB-74b` cases:** written after the probe run above and not executed (only `--list`, `tsc` and `eslint`). The probe run of record is still 54 of 54 at `bb54c17`; the suite is now 55 tests, and `PRB-45` is expected to fail until BUG-QA2-4 is fixed.
+- **`PRB-45` and the 9 new `PRB-74b` cases:** now run, and both pass at `dfaaa6c` (see the status update at the top). The suite is 55 tests; the full 55 have not been run together at `dfaaa6c`.
 - **Per-address sign-in limit (AC-004.11):** not driven (20 failures would pause this address for 15 minutes for every agent on the shared preview).
 - **AC-004.5 with the real account** and AC-004.12's "same message for a real account": not run (no failed sign-ins for the owner or helper). Unknown email only.
 - **AC-004.13 and AC-003.5** (counters unreadable): cannot be induced from outside. **AC-003.8** (1,000 events a day): not run.

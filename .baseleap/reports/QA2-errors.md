@@ -1,5 +1,13 @@
 # QA2 tickets: permission probes and API boundaries on the staging preview
 
+## Status, 2026-11-24 (2026-11-25 UTC): BUG-QA2-4 RESOLVED at `dfaaa6c`; no open ticket from the probes, no new ticket
+
+- **Commit under test:** `dfaaa6cb35cb27d58086ced223fa4091096238ab`, from `/api/health` (status `ok`). **Staging URL:** https://northside-quotes-git-staging-baseleap.vercel.app
+- **Run:** `npx playwright test tests/e2e/probes --grep "PRB-45|PRB-74b"` → 2 passed, 0 failed, 0 flaky (retries off). Evidence: `docs/qa-reports/playwright-results.json`, `docs/qa-reports/QA2-run.md` (status update at the top).
+- **BUG-QA2-4: RESOLVED.** `PRB-45`: 24 requests (2 ids x 6 versions from 2147483647 to 1687381385382380550179543211573248 x `PUT quote` and `POST status-changes`) all 409 or 422 (404 allowed for the unknown id), problem+json, 422 names `version`, request unchanged, no 5xx. The regression test stays in the suite.
+- **PRB-74b: pass** with the 9 new NUL and surrogate cases (`address`, `phone`, `email`, `website`, photo `content_type`) and the original cases. No ticket.
+- **Still open, not tickets for the backend:** CQ-QA2-1, CQ-QA2-2, CQ-QA2-3 (contract questions for bl-architect, below). The Schemathesis fuzz has not been re-run at `dfaaa6c`; the ledger runs it.
+
 ## Schemathesis fuzz at `bb54c17` (2026-11-24, ledger run of `bash tests/fuzz/run.sh`): 1 product ticket, 3 contract questions, everything else was fuzz configuration
 
 **No Critical ticket: no permission boundary was crossed.** Target `https://northside-quotes-git-staging-baseleap.vercel.app`, commit `bb54c17`, Schemathesis 4.0.0. Run output: `tests/fuzz/last-run.txt` (45 failures across the anonymous run, 28, and the staff run, 17; the jobs run passed 2 of 2). Full triage and per-operation counts: `docs/qa-reports/QA2-run.md`, section "Fuzz". `$STAGING_URL` is the preview above; `$VERCEL_AUTOMATION_BYPASS_SECRET` is sent as `x-vercel-protection-bypass`; `$STAFF_ACCESS_TOKEN` is an owner access token.
