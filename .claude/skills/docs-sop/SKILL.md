@@ -19,6 +19,15 @@ Title (verb + object: "Approve a production release") · Purpose (one sentence: 
 ## 3. If it goes wrong
 The two or three failures the evidence actually showed (failed drill attempts, QA bugs, runbook incidents), each with what the person sees and what to do. Link the runbook for anything deeper.
 
+## 3a. The client's system map (`docs/sops/system-map.md`, every release)
+
+One page that answers "what does this client run, and how does it connect?" so that any later change starts from facts (the orchestrator reads it first; `stack-context` §4a). Rebuild it at each build's docs step, from the repo, `docs/integrations/README.md`, the contract and the ledger, never from memory:
+- **What's live and where:** each system (app, database, website, GHL account, agents), its address, host and environment.
+- **Connections:** what flows between which systems, in which direction, triggered by what, and the runbook that covers it.
+- **System of record:** which system owns which records (contacts, orders, invoices…).
+- **Must not change** without a gate: the locked decisions and accepted risks that constrain later work, each linked to its decision.
+- **Last updated:** the release, commit and date it describes.
+
 ## 4. Changelog (every SOP and `docs/sops/changelog.md`)
 `YYYY-MM-DD — what changed — why (step or run that changed it)`, newest first. A change to a procedure updates the SOP **and** adds a changelog line; Gate 3 reads `docs/sops/changelog.md`.
 

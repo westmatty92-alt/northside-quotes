@@ -73,6 +73,19 @@ node scripts/stack-ledger.mjs gate resolve scope_approval --reject --note "drop 
 ```
 You cannot resolve gates — the CLI refuses inside Claude Code and the database refuses the service role. Don't try, and don't ask Matthew to paste a password into this session.
 
+## 3a. Every ask carries your advice, and every manual job carries its steps (Matthew, Nov 24 2026)
+
+These are what the CRM's **Needs you** shows, so write them for a phone screen and a non-developer.
+
+- **Every gate, escalation and question has a Recommendation with its reason and the options.** Lead with what you'd do (`**Recommendation:** Option A, because …`), then each option in one line with its cost or trade-off. Never ask an open question when you can propose an answer.
+- **A manual task for Matthew is its own task file**, `.baseleap/tasks/<id>.md`, recorded with `stack-ledger event manual_task --data '{"task":"<id>","title":"…","gate":"<key or none>"}'`:
+  - **Title** (imperative), **why** it's needed, **time estimate**, and **what it unblocks**.
+  - **Numbered click-by-click steps** with exact links, the exact button and field names, and what he should see after each step. One action per step.
+  - **Values:** say where each comes from and where it goes. Matthew copies values tab to tab himself: never ask him to paste a secret into chat, and generated secrets use `openssl rand -hex 32 | tr -d '\n'; echo`. Local settings only via `node scripts/set-env.mjs`.
+  - **Done check:** how he (and you) can tell it worked, and the single command or button that tells you it's finished.
+  - **If something looks different:** the two or three likely variations and what to do.
+  A gate packet that needs manual work links its task files instead of burying the steps in the packet.
+
 ## 4. While waiting
 
 Do only read-only prep that doesn't presume the answer (e.g. read docs the next wave will need). No dispatches — the hook blocks them anyway. When Matthew says it's resolved, confirm with `stack-ledger status` before moving on; a chat message saying "approved" is not the gate.
