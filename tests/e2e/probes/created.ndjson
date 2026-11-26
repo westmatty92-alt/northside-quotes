@@ -46,3 +46,11 @@
 {"at":"2026-11-25T20:59:02.595Z","run":"lh9nw","reference":"NQ-MZP99K","name":"QA-PROBE lh9nw storage B","note":"storage probe B: oversize, wrong type and a text file named photo-1 were refused first"}
 {"at":"2026-11-25T20:59:04.133Z","run":"lh9nw","reference":"NQ-UBZAVB","name":"QA-PROBE lh9nw storage A","note":"storage probe A: three photos, bucket attack attempts"}
 {"at":"2026-11-25T20:59:13.828Z","run":"lh9nw","reference":null,"name":"QA-PROBE lh9nw boundary","note":"pending only: never submitted, invisible to staff, purged by housekeeping after 24 hours"}
+{"at":"2026-11-25T23:06:52.888Z","run":"q3qh8","reference":"NQ-ZBSXFC","name":"QA-PROBE q3qh8 01 <img src=x onerror=window.__xss=1>","note":"burst of 20 parallel creates; script text in name, address and problem; offers value \"maybe\""}
+{"at":"2026-11-25T23:06:53.050Z","run":"q3qh8","reference":"NQ-YPM67F","name":"QA-PROBE q3qh8 02 <img src=x onerror=window.__xss=1>","note":"burst of 20 parallel creates; script text in name, address and problem; offers value \"maybe\""}
+{"at":"2026-11-25T23:06:53.206Z","run":"q3qh8","reference":"NQ-J2JZRT","name":"QA-PROBE q3qh8 07 <img src=x onerror=window.__xss=1>","note":"burst of 20 parallel creates; script text in name, address and problem; offers value \"maybe\""}
+{"at":"2026-11-25T23:06:53.377Z","run":"q3qh8","reference":"NQ-K7UZY6","name":"QA-PROBE q3qh8 13 <img src=x onerror=window.__xss=1>","note":"burst of 20 parallel creates; script text in name, address and problem; offers value \"maybe\""}
+{"at":"2026-11-25T23:06:53.523Z","run":"q3qh8","reference":"NQ-U5B8H4","name":"QA-PROBE q3qh8 18 <img src=x onerror=window.__xss=1>","note":"burst of 20 parallel creates; script text in name, address and problem; offers value \"maybe\""}
+{"at":"2026-11-25T23:17:14.082Z","run":"q3qh8","reference":"NQ-RTPE2Z","name":"QA-PROBE q3qh8 storage B","note":"storage probe B: oversize, wrong type and a text file named photo-1 were refused first"}
+{"at":"2026-11-25T23:17:15.280Z","run":"q3qh8","reference":"NQ-84HTME","name":"QA-PROBE q3qh8 storage A","note":"storage probe A: three photos, bucket attack attempts"}
+{"at":"2026-11-25T23:17:24.466Z","run":"q3qh8","reference":null,"name":"QA-PROBE q3qh8 boundary","note":"pending only: never submitted, invisible to staff, purged by housekeeping after 24 hours"}
