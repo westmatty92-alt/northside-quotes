@@ -1,0 +1,24 @@
+{
+  "amend_reason": "Matthew rejected a mock-only auth bypass (scope_decision, 2026-11-24): FE2's staff-screen visual evidence comes from the staging preview signed in with QA's saved test session. FE2's original verify-ui check (local mock build) can no longer pass behind the proxy and the ledger cannot edit it, so this step carries FE2's visual evidence.",
+  "tasks": [
+    {
+      "id": "FE2V",
+      "agent": "qa",
+      "phase": "verify",
+      "title": "FE2 visual evidence on staging: staff screens signed in with QA's saved session",
+      "description": "Using QA's Playwright harness and the auth.setup storage state (owner), open every FE2 screen on the staging preview (bypass header to the staging host only): SCR-03 sign-in (signed out, wrong password), SCR-04 Requests (with data), SCR-06 detail for a ticked and an unticked request (opening SCR-08 by the 'View photo' button), and the SCR-07 strip, at 390 and 1280. Screenshot each, record console errors and failed requests, run axe; compare with docs/design/screens. Evidence in docs/qa-reports/visual/FE2/. Report names the staging preview URL and commit.",
+      "acceptance": [
+        "every listed screen and state screenshotted at 390 and 1280 on the staging preview",
+        "no console errors, no failed requests (except designed error states), no serious or critical axe violations",
+        "evidence and a pass/fail table in docs/qa-reports/visual/FE2/"
+      ],
+      "out_of_scope": ["any product code change", "auth bypass of any kind"],
+      "depends_on": ["QA1"],
+      "files": ["tests/e2e/visual/**", "docs/qa-reports/visual/**"],
+      "verify": ["npx playwright test tests/e2e/visual", "test -s docs/qa-reports/visual/FE2/README.md"],
+      "context": ["docs/design-specs.md", "docs/design/screens/**", "tests/e2e/auth.setup.ts", "playwright.config.ts"],
+      "model": "sonnet",
+      "estimated_hours": 1
+    }
+  ]
+}
