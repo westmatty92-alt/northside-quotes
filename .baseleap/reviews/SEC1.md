@@ -1,8 +1,8 @@
 # Security Review · SEC1
 
-**Verdict: APPROVED** — 0 Critical · 0 Important · 6 Minor open (SEC-21, SEC-22, SEC-24, SEC-25, SEC-26, SEC-27) · round 3 (scoped re-review of SEC-25, the hash lock), 2026-11-26. SEC-25 is downgraded from Important to Minor, with residuals listed under "Re-review: SEC-25 lock". CI's `security` job on `04dd79a` is still the scanner result for this review, and a blocking result there reopens this verdict.
-**Reviewer:** bl-security · **Round:** 3 (scoped re-review) · **Date:** 2026-11-26
-**Staging URL:** https://northside-quotes-git-staging-baseleap.vercel.app · **Commit reviewed (application, unchanged since round 2):** `04dd79a77521284fdf0d7754e48ac650523be10f` (staging head; range `4b20835..04dd79a`) · **SEC-25 lock reviewed at:** `main` `2da25c3` (lock added in `5b221e8`; `tests/fuzz/`, QA tooling, not on staging and not shipped) · **Round 2 SEC-25 fix reviewed at:** `main` `e2211c2`
+**Verdict: BLOCKED** — 0 Critical · 1 Important (SEC-28: QA's Playwright JSON report wrote the URLs of aborted requests, query strings included, into a tracked file in a public repo; it stays open until QA's reporter fix lands and CI's `security` job is green) · 6 Minor open (SEC-21, SEC-22, SEC-24, SEC-25, SEC-26, SEC-27) · SEC-29 closed · round 5 (allowlist implementation), 2026-11-26. **No live secret was found and nothing needs rotating** (orchestrator ruling, 2026-11-26; see "Leak triage (gitleaks, dc27611)"). My `.gitleaks.toml` entries are in place (see "Allowlist implementation"). Round 3's approval of the application code stands: SEC-28 is in QA's test reporter, not in shipped code. The block clears when QA's fix lands and CI's `security` job is green on a commit that carries both.
+**Reviewer:** bl-security · **Round:** 5 (allowlist implementation; round 4 was the leak triage, round 3 the scoped re-review of SEC-25) · **Date:** 2026-11-26
+**Staging URL:** https://northside-quotes-git-staging-baseleap.vercel.app · **Commit reviewed (application, unchanged since round 2):** `04dd79a77521284fdf0d7754e48ac650523be10f` (staging head; range `4b20835..04dd79a`) · **SEC-25 lock reviewed at:** `main` `2da25c3` (lock added in `5b221e8`; `tests/fuzz/`, QA tooling, not on staging and not shipped) · **Round 2 SEC-25 fix reviewed at:** `main` `e2211c2` · **Round 4 leak triage at:** staging `dc27611` (CI's failing `security` run) and the 7 committed versions of `docs/qa-reports/playwright-results.json`
 **Round 1:** `origin/main..origin/staging` = `38460b3..4b20835` (695 files, +65,300 −1,247), commit `4b20835d4d57910d9ef3cb3c69e35ea6de292e1b`. The round 1 and round 2 text below is unchanged except for SEC-25's status rows, its severity and the Minor list.
 **Companion:** `docs/threat-model.md` (S0). No round adds a trust boundary.
 
@@ -126,6 +126,17 @@ SEC-21, SEC-22, SEC-24, SEC-26 and SEC-27 are unchanged and stay non-blocking. N
 
 ## Findings (Critical first)
 
+### SEC-28 · Important · Confirmed (round 4) — The Playwright JSON report publishes the full URL, query string included, of every aborted request, so signed photo-URL token fragments land in a tracked file of a public repo and fail CI's secret scan
+| | |
+|---|---|
+| **Where** | `tests/e2e/support/fixtures.ts:162-163` (`${r.method()} ${r.url().slice(0, 200)} ${error}` pushed to `abortedNoise` for every `net::ERR_ABORTED`) · `:165, :172` (the same full URL in `failedRequests`, which reaches the report through error messages) · `:203` (the list attached as `aborted-requests`) · `playwright.config.ts:37` (the JSON reporter writes into tracked `docs/qa-reports/playwright-results.json`) · committed with values in `4a2accc`, `8bfc5d1` and `2d9ba95` |
+| **Breaks** | sec-secrets §3 (no tokens in logs or reports); the fixture's own rule two handlers up, `fixtures.ts:149` ("never the query: it can hold a signed token"), which was applied to console errors only; CI's required `security` job |
+| **What's wrong** | Staff detail pages load homeowner photos with a plain `<img src>` on a Supabase Storage signed URL (`quote-requests.ts:44, 232-260`, 900 s). When a test leaves the page before the photos finish, Chromium aborts those loads, and the fixture records each URL with its `?token=` query. Playwright's JSON reporter stores attachment bodies as base64, which is why `git grep` finds nothing and Gitleaks 8.30 (which decodes base64) reports `generic-api-key`. QA has committed this file 7 times, 3 of them with values (79 fragments in all), to a repo Matthew reports as public. The same folder is uploaded as a 14-day artifact by `qa-smoke.yml:92-99`. The fixture's 200-character cut happens to keep only part of each token's header, so nothing published works (see "Leak triage"). That is an accident of URL length, not a control |
+| **Scenario** | QA's next committed run leaves a detail page before its photos load. The new commit adds fresh fragments that no allowlist covers, and CI's `security` job goes red again. If the cut were longer, or the URL shorter (a shorter bucket or object name), a working signed URL to a homeowner's photo would be published and copied into the artifact, readable by anyone for up to 15 minutes |
+| **Fix direction** | QA: (1) in `fixtures.ts:162` and `:172`, record `origin + pathname` only, with the same `new URL(…)` parsing as `:150-156`, never `search` or `hash`; (2) point the JSON reporter at `test-results/playwright-results.json` (git-ignored, `.gitignore:19`) and commit only a redacted summary to `docs/qa-reports/` (title, project, status, duration, retries, Vercel request ids; no attachment bodies), and `git rm --cached docs/qa-reports/playwright-results.json` in the same commit; (3) never commit or upload `test-results/` or `playwright-report/`, because retained traces and the HTML report record request headers, which carry the bypass header and staff bearer tokens (`fixtures.ts:65`, `api.ts:61`); (4) regression test: run a URL ending in `?token=abc` through the line formatter and expect no query in the output. Security (me, after Matthew accepts the triage): the two `.gitleaks.toml` entries described under "Leak triage", so the three old commits stop failing and any new commit still fails |
+| **Owner hint** | qa (`tests/e2e/support/fixtures.ts`, `playwright.config.ts`, `docs/qa-reports/**`); security (`.gitleaks.toml`) |
+| **Signature** | `secrets-in-reports: e2e reporter writes request URLs with query strings to a tracked report` |
+
 ### SEC-25 · Minor (was Important; downgraded in round 3) · Confirmed — Fuzz tooling: install now hash-locked; the child still runs in the repo root with `.env.local` readable, and the bypass value and token sit in `argv` and the HAR files
 | | |
 |---|---|
@@ -194,9 +205,21 @@ SEC-21, SEC-22, SEC-24, SEC-26 and SEC-27 are unchanged and stay non-blocking. N
 | **Owner hint** | architect (scaffold `package.json`) |
 | **Signature** | `supply-chain: npx --yes unpinned prism in npm script` |
 
+### SEC-29 · Minor · Confirmed (round 4) · Closed (round 5) — `.gitleaks.toml`'s global placeholder regex is unanchored and applies to every rule in every file
+| | |
+|---|---|
+| **Status (round 5)** | **Closed.** `.gitleaks.toml:96-118`: the unanchored global regex is deleted, and the global allowlist now holds paths only. Its replacement covers rule `supabase-secret-key` only, and only when the whole value is the `sb_secret_` prefix plus a placeholder word plus lowercase words (no digit, no capital letter), so it cannot match a real key. See "Allowlist implementation" |
+| **Where** | `.gitleaks.toml:90-92` (`[allowlist] regexes`, inherited from the kit template) |
+| **Breaks** | sec-secrets §1 (the scanner must not drop real secrets); this round's own rule that an allowlist covers only what is provably fake |
+| **What's wrong** | The regex `(your|example|placeholder|changeme|xxx+)` plus a suffix, case-insensitive, is matched against the detected secret with no `^…$` anchor and no path or rule limit. Any finding whose value merely **contains** one of those words is dropped, whatever the rule and file. `.env.example`, the case it exists for, is already skipped by path (`:84`) |
+| **Scenario** | A real 40-character base64 key that happens to contain `xxx` in any letter case (roughly 1 in 900 such keys) is committed and never reported. So is a real key someone labels `…_example` in a doc |
+| **Fix direction** | Anchor it (`^(…)$`) and limit it to docs and example files, or drop it and rely on the `.env.example` path entry. Do this with the round 4 allowlist entries |
+| **Owner hint** | security (`.gitleaks.toml`, mine) |
+| **Signature** | `scanner-config: unanchored global placeholder allowlist in gitleaks` |
+
 ## Checks
 
-Results are passed, failed or not assessable. "Passed (code)" means proven by reading the executable code or SQL at `4b20835`; it was not exercised live by me. The round 2 checks for `04dd79a` are in "Re-review at 04dd79a" above, and the round 3 lock checks are in "Re-review: SEC-25 lock".
+Results are passed, failed or not assessable. "Passed (code)" means proven by reading the executable code or SQL at `4b20835`; it was not exercised live by me. The round 2 checks for `04dd79a` are in "Re-review at 04dd79a" above, the round 3 lock checks are in "Re-review: SEC-25 lock", the round 4 leak-triage checks are in "Leak triage (gitleaks, dc27611)" below, and the round 5 checks are in "Allowlist implementation" below.
 
 ### Route map (sec-access §1)
 | Method + path | Who may call (matrix) | Auth checked at | Data client | Object id scoping |
@@ -292,6 +315,7 @@ Run with the bypass header from your environment: `-H "x-vercel-protection-bypas
 | Database posture (unchanged since A2) | `docs/threat-model.md` "Live checks for A2", rows 1-14, read-only against staging | as listed there; A2's message at `0d4016b` says the RLS tests pass on staging (not re-run by me) |
 | Round 2: new function grants on staging | `select has_function_privilege('anon', 'public.start_quote_request(uuid,text,text,text,text,text,text,integer,text,boolean,jsonb)', 'execute'), has_function_privilege('authenticated', 'public.start_quote_request(uuid,text,text,text,text,text,text,integer,text,boolean,jsonb)', 'execute');` and `select count(*) from pg_proc where proname = 'start_quote_request';` (read-only, staging SQL editor) | `false, false`; and `1` (no stale 10-argument overload) |
 | Round 3: the fuzz install source | `bash tests/fuzz/run.sh` on the machine that holds the venv | prints `Install source: tests/fuzz/requirements.lock (hash-locked, sha256 0dc74fbf…444d)` and no `WARNING: … does not exist` line |
+| Round 4: the signing secret is not the plan's dummy | Vercel → northside-quotes → Settings → Environment Variables → `APP_SIGNING_SECRET`, Preview and Production (look at how it was made; don't paste it anywhere) | each one generated (`openssl rand -hex 32`, 64 hex characters), and neither is the 40-character dummy from `.baseleap/plan-build.json:158` |
 
 ## Tool results
 
@@ -312,8 +336,12 @@ Run with the bypass header from your environment: `-H "x-vercel-protection-bypas
 | Round 3: `bash scripts/security-scan.sh e2211c2 2da25c3 SEC1` | n/a | none | **not run**: refused, "This command requires approval" | n/a |
 | Round 3: `sha256sum` of the lock; `ls` of the venv `site-packages`; `git grep` lock-structure checks | `tests/fuzz/requirements.lock` at `2da25c3`; `.baseleap/tools/venv` | this report | 0 (lock clean; venv = lock) | n/a |
 | Round 3: `git log -G` secret patterns | commits `e2211c2..2da25c3` | this report | 1 | 1: `3455c6d` (this review naming the patterns) |
+| Round 4: CI's gitleaks on `dc27611` (as reported by Matthew: rule and file only) | `origin/main..dc27611` + tree + bundle | CI artifact (not read by me) | 37 | 29 classified as expired, unusable signed-URL fragments (SEC-28); up to 6 the plan's fake signing value; the rest unidentified here (see "Reconciling CI's 37") |
+| Round 4: fixed-marker `git grep -c` / `git grep -n -o` (plain, and base64 at three byte alignments) | all 7 versions of `docs/qa-reports/playwright-results.json`; report folders | this report | 79 signed-URL fragments in 3 commits; 0 bypass, session, form-token values | Report-folder hits name headers or env vars only (see "Leak triage") |
+| Round 5: `bash scripts/security-scan.sh origin/main HEAD ci`; `gitleaks version` | n/a | none | **not run**: both refused, "This command requires approval" | n/a |
+| Round 5: fixed-string `git grep -c` counts at `dc27611` (`secret=`, `token=`, `key=`, the plan dummy, `sentry_key=`, `&sentry_version=7&sentry_client=`, `sign/quote-photos`), and `git diff -U0 291a344 dc27611` | tree and range at `dc27611` | this report | the candidates for the 8 (see "Allowlist implementation") | Sentry key (72 identical lines; `&` ends no value), this review's quote of the dummy (no operator before it), OPS1.md, the 6 files changed after `291a344`: 0 each |
 
-Files written for the scans (my owned files, first security step of the project): `scripts/security-scan.sh` (the template, with one change: the OSV gate is read from the tracked `.claude/skills/sec-appsec/templates/osv-gate.mjs`, because `scripts/osv-gate.mjs` does not exist and CI would otherwise fail on any OSV finding), `.gitleaks.toml` (template, unchanged), `.opengrep/baseleap.yml` (template, unchanged). Once these are committed, CI's security job (`ci.yml:104-106`) runs the full scan with the pinned binaries on every push, which is the scanner evidence this review could not produce. **Its first run on `staging` is the scanner result for this review:** a blocking result there reopens this verdict. (Round 2: all three are now on staging, added in range; CI's `security` job on `04dd79a` is the scanner result for round 2.) Round 3: no file written besides this review. The proposal to add `tests/fuzz/requirements.lock` to the OSV step is for the next security step.
+Files written for the scans (my owned files, first security step of the project): `scripts/security-scan.sh` (the template, with one change: the OSV gate is read from the tracked `.claude/skills/sec-appsec/templates/osv-gate.mjs`, because `scripts/osv-gate.mjs` does not exist and CI would otherwise fail on any OSV finding), `.gitleaks.toml` (template, unchanged), `.opengrep/baseleap.yml` (template, unchanged). Once these are committed, CI's security job (`ci.yml:104-106`) runs the full scan with the pinned binaries on every push, which is the scanner evidence this review could not produce. **Its first run on `staging` is the scanner result for this review:** a blocking result there reopens this verdict. (Round 2: all three are now on staging, added in range; CI's `security` job on `04dd79a` is the scanner result for round 2.) Round 3: no file written besides this review. The proposal to add `tests/fuzz/requirements.lock` to the OSV step is for the next security step. Round 4: besides this review, only `.baseleap/reviews/SEC1/leak-triage.mjs` (a shapes-only decoder for Matthew to run; it holds no value). Round 5: `.gitleaks.toml` (see "Allowlist implementation").
 
 **Rule proposals** (not added: they need opengrep and `node .claude/skills/sec-appsec/tests/check-rules.mjs` PASS on a fixture first):
 - `baseleap-route-without-staff-guard`: the template rule matches `export async function GET`, but this stack exports `export const GET = withApi(…)` and guards with `requireStaff`, `isCronRequest` or the form-token services. So today the rule cannot fire. Proposed: `export const $M = withApi($R, async (...) => { ... })` without `requireStaff(`, `isCronRequest(`, `startQuoteRequest(`, `completeQuoteRequest(` or `signIn(` inside, excluding `api/health`.
@@ -322,6 +350,7 @@ Files written for the scans (my owned files, first security step of the project)
 - `baseleap-pip-install-unhashed` (from SEC-25, regex on `*.sh`): `pip install` without `--require-hashes`. Round 3: still useful, since it would fire on the fallback at `run.sh:63` (residual 3).
 - `baseleap-npx-yes-unpinned` (from SEC-27): `npx --yes <pkg>@<major>` in `package.json` scripts.
 - Round 2, from SEC-25's residual: `baseleap-untrusted-child-in-repo-root`, meaning `spawn`/`spawnSync` of a third-party binary (a venv `bin/`, `npx`) under `tests/**` or `scripts/**` with no `cwd` option, after `process.chdir(ROOT)`. Fixture: today's `tests/fuzz/run.mjs:255` should fire (it still does at `2da25c3`).
+- Round 4, from SEC-28: `baseleap-test-log-full-url`, meaning a Playwright `Request`/`Response` `.url()` (or a variable holding it) concatenated into a string that reaches `testInfo.attach(…)` or `expect(…)` under `tests/e2e/**`, unless it first goes through `new URL(…)` and only `origin`/`host`/`pathname` are used. Fixture: `fixtures.ts:162` should fire and `:150-156` should not.
 - S0's five proposals still stand (`password-mutation`, `next-redirect-unchecked`, `retry-after-on-sign-in`, `spam-event-direct-insert`, `ghl-jobs-direct-write`). Each pattern currently has zero matches in `src/` by grep.
 
 ## Minor (non-blocking)
@@ -332,11 +361,14 @@ Files written for the scans (my owned files, first security step of the project)
 - SEC-24 · `src/lib/server/integrations/ghl/mapping.ts:87` — phone copied with no channel rule (S0, open; round 2: unchanged).
 - SEC-26 · `src/lib/server/services/photo-check.ts:62` — no JPEG dimension check (round 2: unchanged; the new plan-size check does not cover it).
 - SEC-27 · `package.json:17` — `npx --yes` Prism outside the lockfile (round 2: unchanged).
+- SEC-29 · `.gitleaks.toml:96-118` — **closed in round 5**: the unanchored global placeholder regex is gone. A whole-value entry for Supabase secret-key placeholders replaces it (see "Allowlist implementation").
 - Note, no finding: `GET /api/health` returns the commit SHA (`health/route.ts:7`). That is in the contract and helps the release checks; it tells an outsider only which build is live.
 - Note, no finding: `POST …/submission` answers 401 for a real id with someone else's valid token and 404 for an unknown id (`submissions.ts:382-383`), an existence oracle for request ids. Ids are random UUID v4 values handed only to their creator, so it is not exploitable.
 
 ## Coverage & limits
 
+- **Round 5:** scope was the allowlist implementation in `.gitleaks.toml` only. See "Coverage & limits of this implementation" under "Allowlist implementation". No scanner ran, and application code was not re-reviewed.
+- **Round 4:** scope was CI's Gitleaks result on `dc27611` only. See "Coverage & limits of this triage" under "Leak triage (gitleaks, dc27611)". Application code was not re-reviewed.
 - **Round 3:** scope was SEC-25 only (`e2211c2..2da25c3` on `tests/fuzz/`). I read `run.sh` and `child-env.mjs` in full, `run.mjs:60-269`, `last-run.txt` and lock lines 1-457. The rest of the lock was checked structurally with `git grep`: every line is a pinned requirement, a sha256 hash line or a comment. I did not check the lock's hashes against PyPI (no network), so they are trusted as generated by `uv` on Matthew's machine. I did not re-run the fuzz, and I did not open the HAR files (to avoid reading secrets). No scanner ran (`security-scan.sh` refused). Application code is unchanged since round 2 (`04dd79a`), and I did not re-review it.
 - **Round 2:** see "Coverage & limits of this round" under "Re-review at 04dd79a". In short: every security-relevant file in `4b20835..04dd79a` and the SEC-25 fix files were read in full or as complete diffs; no scanner, build, unit test, `gh` or live request could run. Every "passed" in round 2 is a code or SQL proof.
 - **Read in full at `4b20835`** (through the byte-identical backend worktree, `979c8ca`): `src/proxy.ts`; `src/lib/server/` (`auth/*`, `env.ts`, `admin.ts`, `supabase.ts`, `session.ts`, `http.ts`, `log.ts`, `events.ts`, `form-token.ts`, `services/submissions.ts`, `services/quote-requests.ts`, `services/network.ts`, `services/photo-check.ts`, `jobs/housekeeping.ts`, `integrations/ghl/client.ts`, `mapping.ts`, `process-job.ts`, `runner.ts`, `log.ts`); all 13 route handlers under `src/app/api/`; `src/app/layout.tsx`, `(public)/page.tsx`, `(public)/sign-in/page.tsx`; `src/lib/supabase/browser.ts`; `src/lib/api/fetcher.ts`; `src/components/staff/next-path.ts`; `src/components/request/session-store.ts`; `next.config.ts`; `vercel.json`; `package.json`; migrations 0400, 0700, 0800; `tests/unit/proxy/known-paths.test.ts`; `tests/fuzz/run.sh`; `tests/api/submission/staging-env.test.ts`; `scripts/install-scanners.sh`; `docs/SECURITY_MODEL.md`; `docs/threat-model.md`; `docs/qa-reports/QA2-run.md`; `.env.example` (names only).
@@ -352,11 +384,11 @@ Files written for the scans (my owned files, first security step of the project)
 | The invariant-22 `next` allow-list and `safeNextPath`, in two copies that can drift apart (a security control) | `src/components/staff/next-path.ts:8-16` (frontend lane; its own header says "once both are merged, one can import the other") and `src/lib/server/auth/next-path.ts:9-17` (backend lane) | Keep one in `src/lib/shared/next-path.ts` (pure, no `server-only`), imported by the proxy, the sign-in page and `sessionEndedHref` | architect |
 | The UUID pattern and the `unstorable` / `validationErrors` helpers, redefined per module | `services/submissions.ts:93, 73, 273`, `services/quote-requests.ts:45, 87, 111`, `ghl-copy-retries/route.ts:25` (case-insensitive there), `ghl/runner.ts:52`, `auth/sign-in.ts:53` | `src/lib/shared/validation.ts` | architect |
 
-Round 2: nothing new in range. Both rows above still stand. Round 3: nothing new (the lock is a single file in QA's lane).
+Round 2: nothing new in range. Both rows above still stand. Round 3: nothing new (the lock is a single file in QA's lane). Round 4: nothing new. Round 5: nothing new.
 
 ## Pre-existing (not this change; for the architect)
 
-- **The scanners have now been refused in three reviews running** (S0 rounds 2 and 3, and SEC1). In this session the refused commands were the pinned installer, `npm audit`, `curl` to the preview and `gh`. The allow-list covers `node scripts/*` but not `bash scripts/install-scanners.sh` or `bash scripts/security-scan.sh`. Until either is allowed for bl-security, or CI's scan result is put in the context packet, every security review will report the scanners as not assessable. Suggest that Matthew adds those two commands to the session allow-list, or that the orchestrator attaches the CI `security-scan` artifact for the staging head to the brief. (Round 2: refused again, now four reviews running; `node --test` is refused too. Round 3: refused again, five running.)
+- **The scanners have now been refused in three reviews running** (S0 rounds 2 and 3, and SEC1). In this session the refused commands were the pinned installer, `npm audit`, `curl` to the preview and `gh`. The allow-list covers `node scripts/*` but not `bash scripts/install-scanners.sh` or `bash scripts/security-scan.sh`. Until either is allowed for bl-security, or CI's scan result is put in the context packet, every security review will report the scanners as not assessable. Suggest that Matthew adds those two commands to the session allow-list, or that the orchestrator attaches the CI `security-scan` artifact for the staging head to the brief. (Round 2: refused again, now four reviews running; `node --test` is refused too. Round 3: refused again, five running. Round 4: the in-process decode the brief asked for was refused too, because bl-security may write only under `.baseleap/reviews/**` and may run `node` only on `scripts/*`, which it doesn't own. A `node .baseleap/reviews/*` allow entry for bl-security, or attaching CI's `gitleaks-*.json` artifact to the brief, would close this. Round 5: `bash scripts/security-scan.sh` in CI mode, `gitleaks version`, `git apply` and `rm` were refused as well; without an Edit tool, this file had to be rewritten whole.)
 - **`.env.example` puts the Baseleap Console ledger service key in the same `.env.local` as the app's and staging's secrets** (`.env.example:7` next to `:15-50`). Any tool that loads `.env.local` (SEC-25 is one) can read a key with cross-client reach. That is a kit-level design choice, outside this project's files. A separate file (for example `~/.baseleap/ledger.env`) read only by `scripts/stack-ledger.mjs` would shrink the blast radius. (Round 2: this is now the main reason SEC-25 stays Important. With the ledger key out of the repo directory, the residual would be staging-only. Round 3: still the largest part of SEC-25's residual impact. Note that `~/.baseleap/` would sit under `HOME`, which the fuzz child also inherits, so the fuzz `HOME` change (residual 1) should land together with the move.)
 - **The main checkout `main` (`0555317`) is a skeleton without the app.** A reviewer told to "work in the main tree" cannot build or run the range there. This review read the byte-identical `lane/backend` worktree instead. A `staging` worktree exists (`northside-quotes-wt-staging`) but is not in the session's allowed directories.
 
@@ -569,3 +601,300 @@ In every one of the 10 guarded handlers, the guard is on the line right after th
 - **One local command would settle this before CI:** opengrep is now installed on this machine. If Matthew allows `opengrep scan` (or `bash scripts/security-scan.sh`) for bl-security, the self-test can run locally. That would prove the first-statement anchor and let the three proposed fixtures go in safely.
 - **Kit:** the template-replacement note above ("`baseleap-route-without-auth-guard` could go back into the kit") should carry this statement-shaped form, not the deep-expression one. Any kit rule that relies on `<... X ...>` reaching into a callback's block body has the same trap.
 - **Verdict:** unchanged (APPROVED, 0 Critical, 0 Important). This was a scanner configuration defect in my file, with no application finding.
+
+## Leak triage (gitleaks, dc27611)
+
+*(2026-11-26, round 4. Scope: CI's `security` job on staging `dc27611` failed with 37 Gitleaks findings. Matthew's local re-run (rule and file only, redacted) put 29 `generic-api-key` findings in `docs/qa-reports/playwright-results.json`, tree hits in `playwright/.cache/**` and one hit in `.baseleap/plan-build.json`. This is a read-only classification: `.gitleaks.toml`, `scripts/security-scan.sh` and `.opengrep/**` are unchanged. No secret value was printed, quoted or written. Every result below is a count, a shape, a `file:line` or a date.)*
+
+**Result.** **No live secret is in the repository, and nothing needs rotating.** All 29 CI findings are fragments of Supabase Storage signed-URL tokens for photos in the private `quote-photos` bucket, and so are 50 more in older public history. The test fixture's 200-character URL limit cut each one to at most 72 characters. That leaves part of the token's header and nothing else: no payload, no `exp` claim, no signature. So none of them can be used. Even uncut, each token expired 900 seconds after signing, and the newest was committed on 2026-11-25 at 17:38 -0500. None of the other kinds the brief asked about (the Vercel bypass secret, a Supabase session token, an X-Form-Token) appears in any version of the file. The signing value in the plan is a fake. The fix: QA's reporter stops writing URL query strings into a tracked file (SEC-28), and I add two narrow Gitleaks entries.
+
+### Which commits hold the values (this corrects the brief's list)
+The file has been committed 7 times (`git log --all -- docs/qa-reports/playwright-results.json`). Playwright's JSON reporter stores attachment bodies as base64, so plain `git grep` finds no `token=` in any version. Gitleaks 8.30.1 decodes base64, which is why it found them. Per commit, I counted the base64 encodings of `token=` at all three byte alignments, of `object/sign/`, and of `token=` followed by the start of a JWT header. I used `git grep -c` and `git grep -n -o`, which print only those fixed markers, never a value.
+
+| Commit | Date (-0500) | Public through | In CI's range `origin/main..dc27611` | `token=` (decoded) | Attachments holding them | On `/storage/v1/object/sign/` | Value starts as a JWT header with `kid` |
+|---|---|---|---|---|---|---|---|
+| `e861890` | 11-23 17:47 | `origin/main` | no | 0 | — | — | — |
+| `1666592` | 11-23 18:25 | `origin/main` | no | 0 | — | — | — |
+| `4a2accc` | 11-23 21:14 | `origin/main` | no | **20** | 8 `aborted-requests` bodies (lines 769, 1237, 1271, 1531, 1565, 3323, 3357, 5354) | 20 of 20 | all 8 lines |
+| `8bfc5d1` | 11-24 06:25 | `origin/main` | no | **30** | 11 `aborted-requests` bodies (769, 1090, 1124, 1171, 1205, 1465, 1499, 2381, 2415, 4002, 4036) | 30 of 30 | all 11 lines |
+| `7f1fe3f` | 11-24 21:13 | `origin/main` | no | 0 | — | — | — |
+| `2d9ba95` | 11-25 17:38 | `origin/staging` | **yes** | **29** | 9 `aborted-requests` bodies (819, 1112, 1146, 1193, 1227, 1487, 1521, 2432, 4053) | 29 of 29 | all 9 lines |
+| `1c24c7d` (= HEAD; same blob on `dc27611`) | 11-26 19:48 | `origin/staging` | yes | 0 | — | — | — |
+
+- **CI's 29 are exactly `2d9ba95`.** It is the only version with values in CI's range: `git log origin/main..dc27611 -- <file>` lists `2d9ba95` and `1c24c7d`, and `1c24c7d` dropped them. The brief listed `7f1fe3f` and `1c24c7d`, which hold none, and left out `4a2accc`.
+- **50 more sit in public history,** in `4a2accc` and `8bfc5d1` on `origin/main`. CI's range doesn't reach them today. A full-history scan (sec-audit) would, and so would a PR based before `67c0f0d`.
+- **HEAD is clean,** so the tree scan reports nothing from this file today.
+
+### How the values reach the report
+1. `GET /api/quote-requests/{id}` returns `photos[].url`, a Storage signed URL valid for 900 s (`src/lib/server/services/quote-requests.ts:44, 232-260`). SCR-06 and SCR-08 load it with a plain `<img src>` (SEC-16).
+2. If a test leaves the page before an image finishes, Chromium aborts the load. `tests/e2e/support/fixtures.ts:160-163` records every `requestfailed` with `net::ERR_ABORTED` as `<method> <url.slice(0, 200)> net::ERR_ABORTED` in `abortedNoise`, query string included. This code is the same in every version: `git diff e861890 4a2accc` only added query stripping to the console-error path (`:149-156`).
+3. `fixtures.ts:203` attaches the list as `aborted-requests` (`text/plain`). `playwright.config.ts:37` writes the JSON report, with attachments base64-encoded, into the tracked `docs/qa-reports/playwright-results.json`.
+4. `failedRequests` (`fixtures.ts:165, 172`) keeps the query too, and reaches the report through a failing test's error message. No version holds one with a token: the plain-text `token=` count is 0 in all 7.
+
+The bypass value is only ever added to request headers (`fixtures.ts:57-71`, `api.ts:56-63`), and the form token only to the `X-Form-Token` header (`api.ts:162`). Neither ever appears in a URL, so neither can reach these lines. Retained traces and the HTML report (`test-results/`, `playwright-report/`; `playwright.config.ts:38, 40, 43`) do record request headers. Both folders are git-ignored and have never been committed (`git log --all -- playwright test-results playwright-report` is empty). `qa-smoke.yml:92-99` uploads only `docs/qa-reports/` and `.baseleap/reports/playwright-html/`.
+
+### Classification by kind
+| Kind | Found in the 7 versions? | How checked | Live or expired | What it grants | Rotate? |
+|---|---|---|---|---|---|
+| Supabase Storage signed-URL token (`?token=` on `/storage/v1/object/sign/quote-photos/…`) | **Yes: 79** (20 + 30 + 29) | Base64 markers above, paired 1:1 with `object/sign/` and with the start of a JWT header | **Expired, and unusable as stored.** Each stored value is at most the first 72 characters of the token, which is part of its header (see below). The full token expired 900 s after signing (`SIGNED_URL_SECONDS = 900`, unchanged since `b58ad2d` on 2026-11-20; `git log -G`). Every token was signed before its commit, so the newest expired by 2026-11-25 17:53 -0500 at the latest | As stored: nothing. Uncut, the URL would have allowed one GET of one homeowner photo for up to 15 minutes | **No** |
+| Vercel Protection Bypass for Automation secret (`x-vercel-protection-bypass`, `x-vercel-set-bypass-cookie`, `_vercel_share`) | **No: 0** | Plain header and query names: 0 in all 7. Base64 of `bypass` and of `share` at three alignments: 0 | Not exposed here. The real value is long-lived, but it lives only in `.env.local` and the GitHub `staging` environment | Would open the protected previews | **No** (not in this file) |
+| Supabase session access or refresh token (`sb-…-auth-token`, JWT) | **No: 0** | Plain `sb-…-auth-token`, `access_token`, `refresh_token`, `Bearer <value>` and JWT shapes: 0. The only `eyJ` is the `health` attachment (base64 of a `{"status":"ok","version":…}` body), and the only `Bearer` is the PRB-10 test title. Base64 of a `{"alg"` JWT header and of `refres(h)` at three alignments: 0 | Not exposed here. The real ones are in `playwright/.cache/auth/{owner,helper}.json` (`env.ts:70-74`), which is git-ignored (`.gitignore:21`) and never committed. Those are Matthew's local tree hits, and CI never has them | Staff session on staging | **No** |
+| X-Form-Token (signed nonce `v1.<ms>.<uuid>.<sig>`) | **No: 0** | Plain shape: 0. Base64 of the `v1.179` prefix at three alignments: 0 | An expiring, signed nonce (`form-token.ts:47-75`, round 1) | One submission | **No** |
+| QA test data | Yes | The other `token` word hits are test titles (PRB-01, PRB-10, PRB-31, PRB-34, PRB-62 and so on). Request ids, references and the health body are QA data | n/a | Nothing | No |
+
+**The 72-character budget.** `fixtures.ts:162` keeps the first 200 characters of the URL. In front of the token sit:
+- `https://` plus a 20-character project ref plus `.supabase.co`: 40 characters
+- `/storage/v1/object/sign/quote-photos/`: 37
+- the object name, which the schema fixes as `<request uuid>/photo-<n>`: 44 (`20261120000300_quote_requests.sql:165`)
+- `?token=`: 7
+
+That is 128 characters, which leaves 72 for the token. The markers show that every stored value starts with a header containing `kid` (`{"k…`). The smallest possible header with `kid`, `alg` and `typ` is already about 50 base64 characters. Then come a payload (a `url` claim with the bucket and object name, plus `iat` and `exp`: over 100 base64 characters) and a 43-character HS256 signature. So no stored value has a signature or an `exp` claim. A longer host only shortens what is kept.
+**Confidence:**
+- **Confirmed** that no stored value has a signature (arithmetic from the code and the schema).
+- **Confirmed** that every token is expired (TTL and commit dates, which don't depend on the cut).
+- **Likely** that not even the header is complete. That depends on the length of Supabase's `kid`, which I didn't read.
+
+**`exp` could not be read in process.** Every way to run code was refused. `node .baseleap/reviews/SEC1/leak-triage.mjs` got "This command requires approval". The scope hook refused writing the script outside the checkout or in `.baseleap/tools/` (the orchestrator's folder). The script is in `.baseleap/reviews/SEC1/leak-triage.mjs`, and it prints shapes only. If Matthew runs `node .baseleap/reviews/SEC1/leak-triage.mjs 4a2accc 8bfc5d1 2d9ba95 1c24c7d`, the expected output is:
+- 20, 30, 29 and 0 `token=` occurrences;
+- every one in `aborted-requests`, host `*.supabase.co`, path `/storage/v1/object/sign/quote-photos/…`;
+- `signaturePresent: false` and `payloadComplete: false` on every line.
+
+A line with a signature, or with `liveNow: true`, would contradict this triage and should come straight back to me. The TTL and the commit dates settle "expired" either way.
+
+### Rotation actions for Matthew
+**None.** Nothing in the public history grants access to anything:
+- **Vercel bypass:** no regeneration needed. The secret is not in any version of the file.
+- **Supabase sessions:** no sign-out, and no change to `QA_OWNER_PASSWORD` or `QA_HELPER_PASSWORD`. No session token or password is in any version.
+- **Signed-URL fragments:** unusable and expired. Storage signed URLs can't be revoked one by one anyway, and rotating the project's signing keys would sign out every staff session for no gain.
+- **Local files:** the session files (`playwright/.cache/auth/*.json`) and the local traces were never pushed. They are normal local test state. Deleting them after a run is housekeeping, not rotation.
+
+No history rewrite.
+
+### `.baseleap/plan-build.json`: the signing value is a fake
+- **Confirmed fake.** The literal appears 6 times, at `plan-build.json:158, 160, 186, 188, 214, 216`, and only in the verify commands of FE1, FE2 and FE3. Every time, it sits next to `NEXT_PUBLIC_API_MOCKING=on`, a local Supabase URL on `127.0.0.1:54321` and an anon key of `mock`. It feeds a local `npm run build` or a `verify-ui` server on `localhost:320x` with mocked APIs. Its name says it is a dummy, and it sits in a public plan, so it protects nothing. It appears nowhere in `src/`, the workflows, `infra/` or `.env.example`: `git grep -c -F` on `dc27611` finds only the plan and this review (line 258 above).
+- **One live check is still needed, because the literal is 40 characters and `env.ts` would accept it** (the only check is length ≥ 32, invariant 15). Matthew confirms in Vercel that `APP_SIGNING_SECRET` for Preview and for Production was generated (`openssl rand -hex 32`, 64 hex characters) and is not this literal. If either one were the literal, anyone could forge form tokens. I can't read Vercel values, by design. The row is in "Live checks" above.
+- **Narrow allowlist (mine, to add when re-dispatched).** One `[[allowlists]]` entry in `.gitleaks.toml`:
+  - `targetRules = ["generic-api-key"]`, `condition = "AND"`;
+  - `paths` = exactly `^\.baseleap/plan-build\.json$`, plus `^\.baseleap/reviews/SEC1\.md$` only if CI shows line 258 as a hit;
+  - `regexTarget = "secret"`, with one regex anchored `^…$` on the exact 40-character literal.
+
+  A different value in the plan still fails, and so does this value anywhere else (`src/`, a workflow, `.env.local`). No stopword, no path-wide skip.
+
+### Reconciling CI's 37
+29 of them are `2d9ba95` (above). `.baseleap/plan-build.json` didn't change in CI's range, so its hits come from the tree scan: up to 6, one per line holding the literal. Other candidates for the remaining 8:
+- this review's line 258, which names the literal;
+- the `sentry_key=` query values in `.baseleap/reports/DV1/verify-ui.json:89-91`. That key is vercel.com's own public Sentry key, captured when a DV1 visit landed on vercel.com. It is not a Northside secret.
+
+I can't list default-rule hits without the binary. CI's summary step prints rule, file and line for each finding (`ci.yml:162`), and that list settles it. Any finding outside these candidates is new and should come back to me.
+
+### Fix split
+| Who | What | Files |
+|---|---|---|
+| **QA** (SEC-28) | (1) Record aborted and failed requests as `origin + pathname` only, the way the console-error path already does. (2) Write the raw JSON report to `test-results/playwright-results.json` (git-ignored). Commit only a redacted summary to `docs/qa-reports/` (title, project, status, duration, retries, Vercel request ids, no attachment bodies), and `git rm --cached docs/qa-reports/playwright-results.json` in the same commit. Masking `token=` inside attachments is a fallback, not the fix: choosing what goes in is safer than trying to strip what shouldn't. (3) Never commit or upload `test-results/` or `playwright-report/`. Traces and the HTML report hold the bypass header and staff bearer tokens. (4) Add a unit test that runs a URL with `?token=…` through the formatter and expects no query in the output. **Land this before QA's next committed run.** Otherwise the next commit adds new findings that no allowlist covers | `tests/e2e/support/fixtures.ts:160-174`, `playwright.config.ts:35-40`, `docs/qa-reports/**` |
+| **Architect** | Nothing to add. `.gitignore:19-21` already lists `/test-results/`, `/playwright-report/` and `/playwright/.cache/`. If QA ever keeps a raw report under `docs/qa-reports/`, add that exact path then | `.gitignore` |
+| **Security (me)**, after Matthew accepts this triage | (a) The plan-build allowlist above. (b) The history entry below. (c) SEC-29: anchor the global placeholder regex. No fingerprint file | `.gitleaks.toml` |
+
+**For history I recommend a commit-pinned allowlist, not `.gitleaksignore` fingerprints.** One `[[allowlists]]` entry:
+- `targetRules = ["generic-api-key"]`, `condition = "AND"`;
+- `commits` = the full SHAs of `4a2accc`, `8bfc5d1` and `2d9ba95`;
+- `paths` = exactly `^docs/qa-reports/playwright-results\.json$`;
+- `regexTarget = "secret"`, with a regex that accepts only a JWT-shaped value of at most two segments, so never a signature segment.
+
+Why this is better than 79 fingerprints:
+- It is one reviewed block, with its reason written next to it. A `.gitleaksignore` would be 79 bare `commit:file:rule:line` lines that nobody can review.
+- It enforces the triage. If any value in those commits did carry a signature, it would still fail.
+- It can't grow, because commits are immutable. Any new commit still fails, as it should, including QA's next run if SEC-28 isn't fixed.
+- It also covers the 50 older findings on `origin/main` that CI's range doesn't reach yet. A full-history audit then stays clean for the right reason.
+
+The brief allowed this only once rotation is confirmed. Nothing needs rotating, so the condition becomes Matthew accepting this triage.
+
+**Optional, for discussion.** On agent machines the tree scan (`security-scan.sh:42`) also reads git-ignored files: `.env.local`, `playwright/.cache/`, `test-results/`. That is why local runs show hits CI never sees. Scanning only tracked files plus untracked files that aren't ignored (`git ls-files -co --exclude-standard`) would match CI. I would not path-allowlist those folders instead, because a force-added file would then also slip past the history scan.
+
+### Checks this round
+| Check | Result | Evidence |
+|---|---|---|
+| Every `token=` in every version of the file classified | **passed** | 79 of 79 are on `/storage/v1/object/sign/`, all inside `aborted-requests` attachments; 0 at HEAD |
+| Bypass secret absent from the file | **passed** | Plain markers and base64 markers at three alignments: 0 in all 7 versions |
+| Session tokens absent | **passed** | Plain and base64 markers: 0. They exist only locally and were never committed |
+| Form token absent | **passed** | Plain shape and base64 prefix: 0 |
+| Signed-URL tokens expired | **passed (code and dates)** | 900 s TTL; newest commit 2026-11-25 17:38 -0500 |
+| Stored fragments unusable | **passed (code and schema arithmetic)** | At most 72 characters kept, so no signature |
+| `exp` read in process | **not assessable** | `node` refused; the script is ready for Matthew |
+| Plan signing value is a fake | **passed** | 6 lines, all mocked local builds. The Vercel values are a live check for Matthew |
+| `.gitignore` covers Playwright output | **passed** | `.gitignore:19-21` |
+| Other report files hold no values | **passed** | `git log --all -G` with plain and base64 markers over `docs/qa-reports`, `.baseleap/reports` and `.baseleap/reviews`. The other hits (`QA1-errors.md`, `QA2-errors.md`, `DV1/verify-ui.json`, this review) name the header or `$VERCEL_AUTOMATION_BYPASS_SECRET` without a value. `git grep -c` for a value after the name, on HEAD and on the historical versions: 0 |
+
+### Tools this round
+| Tool | Result |
+|---|---|
+| `git log`, `git show` (workflows, source), `git diff --stat`, `git grep -c` and `git grep -n -o` with fixed markers (plain, and base64 at three alignments) | ran; results above |
+| `node .baseleap/reviews/SEC1/leak-triage.mjs …` (in-process decode) | **refused**, "This command requires approval". Writing the script to `/tmp` or `.baseleap/tools/` was refused by the scope hook (outside the checkout; the orchestrator's folder) |
+| `git grep -o` with a context window, `git grep --column`, a `git grep` with a quoted character class, `git check-ignore` | **refused**. Replaced by fixed-marker counts and by reading `.gitignore` |
+| Read tool | `playwright-results.json` at HEAD, lines 480, 546-555, 1024, 1668-1670, 1807-1809, 2651-2653 (test titles and the health attachment only); `plan-build.json:1-64, 155-217`; `DV1/verify-ui.json:86-92`; `QA2-errors.md:84-88`; `fixtures.ts`, `env.ts`, `api.ts`, `playwright.config.ts`, `.gitignore`, `.gitleaks.toml`, `security-scan.sh` in full |
+| gitleaks, opengrep, `bash scripts/security-scan.sh` | not run (not allowed in this session). CI's run on `dc27611` is the scanner result |
+| `node scripts/review-check.mjs .baseleap/reviews/SEC1.md --kind security` | ran; result in the summary to the orchestrator |
+
+### Coverage & limits of this triage
+- I had neither Matthew's local report nor CI's log or artifact. Only 29 of the 37 are reconciled exactly. The rest are candidates.
+- That the repository is public comes from the brief. I did not check it.
+- The `kid` content was not read, so "the header is incomplete" is Likely. "No signature" and "expired" are Confirmed.
+- I did not open `playwright/.cache/`, `test-results/`, `playwright-report/` or `.env.local`, because they hold live values. That traces and the HTML report contain the bypass header and bearer tokens follows from Playwright's trace format and is not verified.
+- `.baseleap/reviews/SEC1/leak-triage.mjs` stays in the tree as the tool for confirming `exp`. It holds no value. CI's tree scan will read it: its `token=` text is followed by a regex character class, not by a value.
+
+### Notes for the orchestrator
+- **Route SEC-28 to QA before QA's next committed run.** That is the only thing that keeps the problem from coming back.
+- **Re-dispatch me for `.gitleaks.toml`** once Matthew has (1) accepted "no rotation needed" and (2) done the `APP_SIGNING_SECRET` live check. The changes: the plan-build allowlist, the commit-pinned history entry, and SEC-29.
+- **Correction to the brief:** the values are in `4a2accc`, `8bfc5d1` and `2d9ba95`. `7f1fe3f` and `1c24c7d` (HEAD) hold none.
+- **Verdict:** BLOCKED on SEC-28 (Important) because CI's `security` job is red. No application finding, no live secret, no rotation.
+
+## Allowlist implementation
+
+*(2026-11-26, round 5. Scope: my scan files only. `.gitleaks.toml` changed; `.opengrep/baseleap.yml` and `scripts/security-scan.sh` are unchanged. The orchestrator ruled that no rotation is needed. QA is fixing SEC-28 at the source in parallel (`tests/e2e/**`, `playwright.config.ts`), and I did not touch those files. This is not a re-review of application code. **Verdict: BLOCKED** on SEC-28 alone, which stays open until QA's fix lands and CI's `security` job is green. This change closes SEC-29. No value is printed here: commits are named by short SHA (the full SHAs are at `.gitleaks.toml:134-136`), and the fake values are described, not quoted.)*
+
+**Read:** this review's round 4 sections; `.gitleaks.toml`, `scripts/security-scan.sh`, `.github/workflows/ci.yml:124-190` (the `security` job) and `.claude/skills/sec-secrets/tests/check-gitleaks.mjs`, in full; `.baseleap/plan-build.json:155-217`; `.baseleap/reports/DV1/verify-ui.json:84-93`; `.baseleap/reports/OPS1.md:170-185`; `docs/openapi.yaml:556-567`; `tests/e2e/probes/10-anonymous-routes.probe.spec.ts:248-255`; `.baseleap/reviews/SEC1/leak-triage.mjs`; `scripts/review-check.mjs`. I also read the added lines of `291a344..dc27611` (`git diff -U0`) and the commit and file lists of `origin/main..dc27611`.
+
+### What changed in `.gitleaks.toml`
+| Brief item | Lines | Entry | Conditions (all must hold) |
+|---|---|---|---|
+| 1. History | `:120-144` | `[[allowlists]]`, `targetRules = ["generic-api-key"]`, `condition = "AND"` | The commit is one of the full SHAs of `4a2accc`, `8bfc5d1` and `2d9ba95` (from `git rev-parse`, `:134-136`). The path is exactly `docs/qa-reports/playwright-results.json` (`:139`). The value (`regexTarget = "secret"`) starts with `eyJ`, holds only base64url characters and at most one dot, and has at most 72 characters before that dot (`:143`) |
+| 2. Plan dummy | `:146-159` | same form | The path is exactly `.baseleap/plan-build.json`, with or without a leading `./` (`:154`). The value is exactly the 40-character dummy, anchored at both ends (`:158`) |
+| 3. SEC-29 | `:96-118` | the global regex is deleted, and a rule-targeted entry replaces it | `targetRules = ["supabase-secret-key"]` only. The whole value must be `sb_secret_`, then one of the placeholder words, then only lowercase words joined by `-` or `_` (`:117`). No digit and no capital letter can appear |
+| 4. Reconciliation (fakes found by reading) | `:161-187` | two entries of the same form, one per file | The PRB-06 probe file and its two throwaway passwords, exact (`:170`, `:174`). `docs/openapi.yaml` and its sign-in example password, exact (`:182`, `:186`) |
+| Form | `:98-106` | `[allowlist]` becomes `[[allowlists]]` | Paths are unchanged. Gitleaks 8.25 and later document `[[allowlists]]`. I converted the old table rather than mixing the two, because I can't verify here whether 8.30.1 accepts both in one file. A config that fails to load fails the job with no report |
+
+The two postgres entries from Release 1 (`:58-80`) and the four custom rules are unchanged.
+
+**Why "at most one dot" separates signed from unsigned.** A JWT is `header.payload.signature`. Gitleaks' `generic-api-key` value class includes the dot, so it captures a whole token, not part of one. The value has to end at a quote, a space, a backtick, a semicolon or the line end, and a dot is none of those. So a signed token reaches the allowlist with two dots and fails the regex at the second one. The 72-character cap on the first segment matches the triage arithmetic: the 200-character cut minus the 128 characters of URL in front of the token. The second segment's own cap (68 characters) is looser than that sum. That doesn't affect the signed/unsigned line, because a two-segment value is unsigned by construction.
+
+### What still fails (traced by hand; gitleaks could not run here)
+| Case | Nearest entry | Result | Why |
+|---|---|---|---|
+| A signed token (three segments) in `2d9ba95`'s report | history | **fails** | the regex allows only one dot (`:143`) |
+| An unsigned fragment in any other commit, for example QA's next committed run if SEC-28 isn't fixed | history | **fails** | the commit is not listed (`:134-136`). Commits are immutable, so the entry cannot grow |
+| The same fragment in another file of the same commit | history | **fails** | the path is exact (`:139`) |
+| The same value reported by `jwt` or any other rule | history | **fails** | `targetRules` names `generic-api-key` only (`:131`) |
+| The same fragment in the tree or bundle scan | history | **fails** | tree findings carry no commit, so the AND fails |
+| The plan dummy anywhere else (`src/`, a workflow, `.env.local`, this review) | plan | **fails** | the path is exact (`:154`) |
+| Any other value in `.baseleap/plan-build.json` | plan | **fails** | the value is anchored and exact (`:158`) |
+| A real Supabase secret key containing `example` or `xxx`, or any real value containing one of the five words, under any rule | SEC-29 | **fails** | the old regex is gone. The new one needs the whole value to be a placeholder word plus lowercase words (`:117`), which a random key never is |
+| `sb_secret_example` followed by capitals or digits | SEC-29 | **fails** | only `[-_][a-z]+` may follow the word |
+| The probe passwords in `docs/openapi.yaml`, or the OpenAPI example in the probe file | probe, OpenAPI | **fails** | one entry per file |
+| The kit's placeholder case (`.env.example` holding an `sb_secret_` placeholder) | global paths | allowed, as before | the `.env.example` path (`:101`); the kit test `check-gitleaks.mjs` expects nothing there |
+
+### Reconciling all 37 (CI, staging `dc27611`)
+What CI scans (`ci.yml:139-151`, `security-scan.sh:40-46`):
+- **History:** the patches of the commits in `origin/main..dc27611`, which is `67c0f0d..dc27611` (21 commits; merges add no patch).
+- **Tree:** `gitleaks dir .` after `npm run build`, meaning every tracked file plus `.next/static`.
+- **Bundle:** `.next/static` again.
+
+So a line added in range and still present at `dc27611` counts twice (history and tree). A file unchanged in range counts once (tree). A value that `1c24c7d` removed counts once (history). A client-bundle string counts twice (tree and bundle).
+
+| Count | Scan | Where | Kind | Confidence | Covered by |
+|---|---|---|---|---|---|
+| 29 | history | `docs/qa-reports/playwright-results.json` in `2d9ba95` (9 `aborted-requests` bodies) | **fragments of real tokens, all dead**: cut to at most 72 characters (no signature) and expired 900 s after signing. Orchestrator ruling: no rotation | **Confirmed** count: 29 decoded `token=` in that blob, the only version with values in range | history entry `:129-144` (brief item 1) |
+| 6 | tree | `.baseleap/plan-build.json:158, 160, 186, 188, 214, 216` | **fake** (a named dummy for local mocked builds) | **Likely**. Matthew's local run named the file. By reading, all 6 lines match the same way: the keyword, `=`, 40 characters with an entropy of about 3.9, ending at a space | plan entry `:149-159` |
+| 2 | tree | `tests/e2e/probes/10-anonymous-routes.probe.spec.ts:253` (two values on one line, and Gitleaks reports both) | **fake** (throwaway passwords sent to routes that must answer 404; no account has them) | **Needs verification**. It is the best fit for the remaining 2: the keyword, `:`, a quoted value with a digit and an entropy of about 3.65, ending at a quote | probe entry `:165-175` |
+| 0 or 1 | tree | `docs/openapi.yaml:564` | **fake** (contract example) | **Needs verification**. It matches by reading (entropy about 3.77), unless Gitleaks' stopword list holds one of its words. If it is a finding, my count is one too high and one of the rows above is smaller | OpenAPI entry `:177-187` |
+| ? | any | anything CI lists outside these rows | **unknown** | — | none; send me the rule, file and line |
+
+**Best fit: 29 + 6 + 2 = 37.** The 29 are certain. The other 8 rest on my reading of Gitleaks' default `generic-api-key` rule, which works like this:
+- a keyword, then an operator, then a value of 10 to 150 characters drawn from letters, digits, `_`, `.`, `=` and `-`;
+- the value must end at a quote, space, backtick, semicolon or line end, and its entropy must be above 3.5;
+- values made only of letters, `_`, `.` and `-` are skipped by the rule's own allowlist;
+- the rule also has a stopword list, which I can't read here.
+
+Without CI's list, the 8 are not proven.
+
+**Candidates the brief named, ruled out (0 findings each):**
+| Candidate | Kind | Why it gives 0 | Allowlisted? |
+|---|---|---|---|
+| The plan dummy quoted in this review (the round 1 "Secrets in history" row under "Checks table", the same line at `dc27611`) | fake | It follows the words "the literal" and a backtick. No operator stands before it, and the 20 characters before it hold no keyword | no (not needed) |
+| The `sentry_key` value in `.baseleap/reports/DV1/verify-ui.json:89-91` | **public**: vercel.com's own browser Sentry key, captured when a DV1 visit landed on vercel.com | All 72 lines that carry it continue with `&sentry_version=7` (`git grep -c` gives 72 for both). An `&` does not end a value for this rule. Even if it did, 72 findings would not fit in 8 | no: it is not a finding, and allowlisting it would only widen the config |
+| The Google `client_id` at `DV1/verify-ui.json:87` | public | No keyword stands before it, and no default rule covers OAuth client ids | no |
+| My review files quoting patterns (`SEC1.md` at `dc27611`; `leak-triage.mjs`, which was untracked then) | n/a | Every quoted pattern is shorter than its rule's minimum (`sb_secret_` and `sk_live_` with nothing after them), or sits in backticks with no operator in front | no |
+| `.baseleap/reports/OPS1.md` (in range and in the tree) | fake (its two URLs) | The URLs are allowlisted for the postgres rule (`:58-80`). For `generic-api-key` I found no keyword, operator and value in `:170-185`. I did not read the rest of the file line by line (partial) | no |
+| The 6 files changed in `291a344..dc27611` (orchestrator plan files, this review, the opengrep rules) | n/a | No added line has a keyword, an operator and a 10-character value with a digit | no |
+| Near misses I checked: `tests/e2e/auth.desktop.spec.ts:84` (entropy 3.499, not above 3.5); `tests/e2e/probes/30-supabase-rest.probe.spec.ts:248, 260` (the value ends in `!`, which ends no value); `docs/qa-reports/QA2-run.md:160` (the fuzz header values, entropy about 3.1) | fake | as stated | no. If CI lists one, it is fake and gets the same kind of exact-value entry |
+
+**A contradiction this exposes in my own record.** "Opengrep self-test fix" above says that on staging `291a344`, "gitleaks and the other steps passed". With the same binary and config, that can't be right:
+- `2d9ba95` is in `origin/main..291a344` too, because it is an ancestor of `291a344`;
+- `.baseleap/plan-build.json` is in that tree, unchanged since `529b168`;
+- only 6 files changed between `291a344` and `dc27611` (`git diff --stat`), and none of them holds anything this rule matches.
+
+So `291a344`'s scan must have reported most of the same findings, and the job's failure was put down to the opengrep self-test alone. Matthew can settle it from that run's log line `gitleaks: N finding(s)`. If it really says 0, my reconciliation is wrong and CI's list has to come back to me. I left the earlier section as it was and record the correction here.
+
+### Self-check: does the new text trip a rule?
+I checked `.gitleaks.toml` and this section by hand against `generic-api-key` and the four custom rules:
+- **Full SHAs** appear only at `.gitleaks.toml:134-136`, one per line, each after `commits = [` or the previous SHA. Hex can't contain any of the rule's keywords, and no operator after a keyword comes before them. This review uses short SHAs, whose 7 characters are under the rule's 10-character minimum.
+- **Fake values** appear only inside the anchored regexes (`:158`, `:174`, `:186`), each with `'''^` in front, so no operator comes before them. The plan literal contains the word "secret", but what follows it is 18 characters and a `$`, which is neither an operator nor a quote. This section describes the values and doesn't quote them.
+- **Descriptions and comments:** every keyword that is followed by an operator is followed by a short word, a letters-only word (skipped by the rule's own allowlist), a path (a `/` ends no value) or a backtick.
+- **`\x40`:** none of the new regexes contains an "at" sign. The two postgres regexes keep `\x40`.
+- **Not proven:** this is reading, not a scan. If CI reports `.gitleaks.toml` or `SEC1.md`, that is my error, and the fix is rewording, never an allowlist for my own files.
+
+### The scanner, locally
+| Command | Result |
+|---|---|
+| `bash scripts/security-scan.sh origin/main HEAD ci` (CI mode, main tree) | **refused**: "This command requires approval" |
+| `gitleaks version` | **refused**, same message |
+| reading the default rules embedded in `~/.local/bin/gitleaks` | **blocked**: outside the session's allowed directories |
+| `git grep -E` with character classes (a counts-only approximation of the rule over `dc27611`) | **refused**; I used fixed-string `git grep -c` counts instead |
+| `node .claude/skills/sec-secrets/tests/check-gitleaks.mjs .gitleaks.toml` | **not attempted**: it runs the refused gitleaks binary through `node`, which would repackage a refused command (stack-specialist-protocol §5a) |
+| Editing this review | This session has no Edit tool, and `git apply` and `rm` were refused, so I rewrote this file in full with Write. Earlier rounds' text is unchanged apart from the verdict and round lines, SEC-29's heading and status row, one Tool results row pair, the SEC-29 Minor line, one Coverage bullet, the Cross-lane round line, one Pre-existing note and one sentence each in "Checks" and the Tool results footnote. `.baseleap/reviews/SEC1/round5.patch` is the unused patch, now a two-line note. It holds no value; don't commit it |
+
+### What CI should print on the next `security` run
+This is for the first run on staging that carries this `.gitleaks.toml` **and** QA's SEC-28 fix. The range is `origin/main..HEAD`, and `origin/main` is still `67c0f0d`, so `2d9ba95` is still in range.
+
+| Scanner (log line) | Expected | If it shows something else |
+|---|---|---|
+| `gitleaks: N finding(s)` | **`gitleaks: 0 finding(s)`**. History: `2d9ba95`'s 29 are covered by `:129-144`, and QA's fix commit adds none. Tree: the plan's 6 and the probe's 2 are covered (and the OpenAPI example, if it counts), and `playwright-results.json` at HEAD holds no values. Bundle: 0 | See the next table |
+| `opengrep rule self-test: …` | `PASS (expected 7 · fired 7 · missed 0 · unwanted 0 · engine errors 0)`. The rules and the script are unchanged since `3b8855b` | as in "Opengrep self-test fix" |
+| `opengrep: N finding(s) in M changed file(s)` | `0 finding(s)`. M is the number of changed files outside `.claude/` and `.baseleap/` in `origin/main...HEAD`: 93 at `291a344`, plus whatever QA's fix and later merges add | A finding on a real `route.ts` is Critical; route it |
+| `osv-scanner: done (…)` and `npm audit (prod, high+): done` | unchanged from the last run (the lockfile is untouched since round 1) | a blocking row is a real supply-chain finding |
+| Job | **green** | the summary step prints the rule, file and line |
+
+If the gitleaks line is not 0, the cause depends on what it reports:
+
+| What gitleaks reports | Meaning | Who acts |
+|---|---|---|
+| No JSON, and a config error (for example `[[allowlists]] target rule ID … does not exist`, or a deprecation clash) | the config didn't load | me: fix the config |
+| `generic-api-key` on `playwright-results.json` in `2d9ba95` | Check the value's shape. A signed value is real. An unsigned one means the commit or path form didn't apply | me, in both cases |
+| `playwright-results.json` in a new commit | QA's fix is incomplete, and SEC-28 stays open. It is **never** allowlisted | QA |
+| A hit on `plan-build.json` | a value other than the dummy, to be judged | me |
+| A hit on `.gitleaks.toml` or `SEC1.md` | my wording | me: reword it |
+| Anything else | the unknown remainder | send me the rule, file and line |
+
+To check before CI, in Matthew's terminal with gitleaks 8.25 or later (CI pins 8.30.1):
+- `node .claude/skills/sec-secrets/tests/check-gitleaks.mjs .gitleaks.toml` should print `ok` for all six cases. That proves the config loads and the custom rules still fire.
+- `gitleaks git --log-opts="origin/main..HEAD" --config .gitleaks.toml --redact --no-banner` should report nothing.
+- A local `gitleaks dir .` also reads the git-ignored `.env.local`, `playwright/.cache/` and `test-results/`, which hold real values and were never committed. Hits there are expected locally and are never allowlisted.
+
+### Checks this round
+| Check | Result | Evidence |
+|---|---|---|
+| History entry pinned to the three full SHAs, the file, the rule and unsigned shapes only | **passed (by construction)** | `:129-144`; SHAs from `git rev-parse` |
+| Signed tokens, other commits, files and rules still fail | **passed (hand trace)** | "What still fails" |
+| Plan entry limited to the rule, the file and the anchored exact literal | **passed (by construction)** | `:149-159` |
+| SEC-29: the catch-all can no longer hide a real value | **passed (by construction)**; SEC-29 **closed** | `:96-118`; the global entry has no regexes left |
+| Every one of CI's 37 accounted for | **partly**: 29 Confirmed, 6 Likely, 2 Needs verification, the rest unknown | "Reconciling all 37" |
+| Only fake or public values allowlisted | **passed** (the 29 are dead fragments of real tokens, allowlisted on the brief's explicit instruction after the no-rotation ruling) | the reconciliation table |
+| The new text trips no rule | **passed (hand check)**; not scanned | "Self-check" |
+| Scanner run | **not assessable** (refused) | "The scanner, locally" |
+| The config loads in gitleaks 8.30.1 | **not assessable** here | the kit test above, or CI |
+
+### Coverage & limits of this implementation
+- **Nothing ran.** Every count above except the 29 comes from reading the rule against the files. I could not read Gitleaks' default config (its exact `generic-api-key` regex, its entropy comparison, its stopwords) or CI's list of findings, and I could not run the binary. The parts of the rule I relied on are stated above. If they are wrong, the 8 change, and the entries for fakes stay harmless.
+- **Gitleaks behaviour I relied on, unverified:**
+  - `[[allowlists]]` with `targetRules` attaches to the named rule, and its `condition = "AND"` combines commits, paths and regexes;
+  - tree findings carry an empty commit, and the commit list matches full SHAs;
+  - for base64-decoded findings, the regexes see the decoded value;
+  - `[allowlist]` and `[[allowlists]]` should not be mixed (avoided by converting).
+- **Two entries are pre-emptive** (probe and OpenAPI). Each covers one exact fake value in one file under one rule. If CI never reported them, they have no effect.
+- **Not read:** OPS1.md outside `:170-185`; the patches of the other range commits outside the files named above; the client bundle (no build of `dc27611` here).
+- **SEC-28 stays open** until QA's fix lands. The `APP_SIGNING_SECRET` live check (that the Vercel values are not the plan dummy) is still Matthew's to do (see "Live checks"), and the plan entry relies on it.
+
+### Notes for the orchestrator
+- **Correct the record for `291a344`:** its gitleaks step was very likely red as well (see the contradiction above). Matthew can confirm it from the run log.
+- **CI's list settles the 8.** The failed run's summary step printed the rule, file, line and commit (`ci.yml:160-183`), and its `security-scan` artifact holds the redacted JSON. Either one turns "Needs verification" into Confirmed, or names the unknown rows.
+- **QA:** a newly committed `playwright-results.json` that still holds URL queries fails CI by design. That is SEC-28 working, not a gap in the config.
+- **Untracked in my folder:** `.baseleap/reviews/SEC1/leak-triage.mjs` (round 4; holds no value; commit or drop as you prefer) and `.baseleap/reviews/SEC1/round5.patch` (an unused two-line note; drop it).
+- **Verdict:** BLOCKED on SEC-28 (Important) only. 0 Critical, SEC-29 closed, 6 Minor open. No live secret, no rotation.

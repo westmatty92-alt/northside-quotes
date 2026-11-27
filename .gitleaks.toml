@@ -8,7 +8,19 @@
 #      exact URL text (condition AND, regexTarget "match"). A different password, user, project ref or host in those same
 #      files still fails, and so does the same URL in any other file.
 #   2. Build output and local tooling are excluded by path: node_modules/, .baseleap/tools/, and everything under .next/
-#      EXCEPT .next/static/ (the client bundle, which stays scanned). See the comment on the [allowlist] below.
+#      EXCEPT .next/static/ (the client bundle, which stays scanned). See the comment on the global allowlist below.
+# Changes in SEC1 "Allowlist implementation" (2026-11-26, after the leak triage of CI's run on staging dc27611):
+#   3. The global allowlist is written as [[allowlists]], the form gitleaks 8.25 and later document, so it is never
+#      mixed with the deprecated [allowlist] table. Its paths are unchanged.
+#   4. SEC-29: the unanchored global placeholder regex is removed. It dropped any finding whose value merely CONTAINED
+#      one of five words, in every rule and every file. A whole-value, rule-targeted entry replaces it.
+#   5. Four generic-api-key entries (history, plan dummy, probe passwords, OpenAPI example) for values that are fake by
+#      construction, each pinned to named files AND an anchored value (condition AND); the history entry is also pinned
+#      to three commits. Reasons are written next to each entry. Evidence: .baseleap/reviews/SEC1.md, "Allowlist
+#      implementation".
+# Rule of thumb for every entry below: a different value, file, commit or rule still fails. No directory or rule is
+# switched off. In regexes, the "at" sign is written \x40 (the same character to RE2) so this file's own text never
+# holds a credentialed URL for a rule to report.
 title = "Baseleap gitleaks config"
 
 [extend]
@@ -67,8 +79,11 @@ regexes = [
   '''^postgresql://postgres:postgres\x40127\.0\.0\.1:\$\{port\}/postgres''',
 ]
 
-# Global path allowlist. It applies to all three scans in scripts/security-scan.sh (history, tree, bundle), which is why
-# .next/static/ is NOT excluded: the bundle scan reads .next/static/... paths, and excluding them here would blind it.
+# Global path allowlist (no targetRules, so it applies to every rule). It applies to all three scans in
+# scripts/security-scan.sh (history, tree, bundle), which is why .next/static/ is NOT excluded: the bundle scan reads
+# .next/static/... paths, and excluding them here would blind it.
+# - .env.example: variable names with empty or placeholder values only (sec-secrets §2).
+# - .baseleap/reviews/**.json: scanner reports written by this script (already redacted).
 # - node_modules/: third-party code, installed by npm ci (Gitleaks' default config also skips it).
 # - .baseleap/tools/: local scanner binaries and the fuzz venv (git-ignored, .gitignore:3; absent in a CI checkout).
 # - .next/<anything but static>/ and .next/<top-level files>: written by every `npm run build`, git-ignored
@@ -77,9 +92,11 @@ regexes = [
 #   rule reports. Secrets in server code are caught in the source (tree and history scans) before they are built.
 #   RE2 has no lookahead, so "first segment is not exactly `static`" is spelled out: a first segment that does not start
 #   with s, or that leaves the word "static" at some letter, or that is a proper prefix of it, or that is longer than it.
-# None of these paths can be in history (all git-ignored), so the history scan loses nothing.
-[allowlist]
-description = "Placeholders, generated reports, dependencies, local tools, and server-side build output"
+# None of these paths can be in history except .env.example and the review JSON, which hold no values.
+# SEC-29: this entry has NO regexes any more. The old one, (?i)(your|example|placeholder|changeme|xxx+)[-_a-z0-9]*, was
+# unanchored and rule-blind, so a real key that merely contained "xxx" or "example" was dropped everywhere.
+[[allowlists]]
+description = "Placeholders file, scanner reports, dependencies, local tools, and server-side build output"
 paths = [
   '''\.env\.example$''',
   '''(^|/)\.baseleap/reviews/.*\.json$''',
@@ -87,6 +104,84 @@ paths = [
   '''(?:^|/)\.baseleap/tools/''',
   '''(?:^|/)\.next/(?:[^s/][^/]*|s(?:[^t/][^/]*)?|st(?:[^a/][^/]*)?|sta(?:[^t/][^/]*)?|stat(?:[^i/][^/]*)?|stati(?:[^c/][^/]*)?|static[^/]+)(?:/|$)''',
 ]
+
+# SEC-29 replacement. Only rule supabase-secret-key, and only when the WHOLE value is the sb_secret_ prefix, then a
+# placeholder word, then nothing but lowercase words joined by "-" or "_". No digit and no capital letter can appear,
+# and a real Supabase secret key is random mixed-case base64url, so this can never cover one. Placeholders made only
+# of letters, "_", "." and "-" are already skipped for generic-api-key by Gitleaks' own rule allowlist.
+[[allowlists]]
+description = "SEC-29: Supabase secret-key placeholder in docs or examples, whole value only"
+targetRules = ["supabase-secret-key"]
+regexTarget = "secret"
 regexes = [
-  '''(?i)(your|example|placeholder|changeme|xxx+)[-_a-z0-9]*''',
+  '''^sb_secret_(?:your|example|placeholder|changeme|replace|x{3,})(?:[-_][a-z]+)*$''',
+]
+
+# SEC-28 history: QA's Playwright JSON report, committed in exactly these three commits with base64 attachment bodies
+# that hold cut-off Supabase Storage signed-URL tokens (the fixture kept the first 200 characters of each URL, which
+# leaves at most 72 characters of each token: part of its header, no payload claims, no signature; every one also
+# expired 900 s after signing). Orchestrator ruling 2026-11-26: no rotation needed. All four conditions must hold:
+#   commit is one of the three below (full SHAs: commits are immutable, so this entry can never cover new work),
+#   the file is exactly docs/qa-reports/playwright-results.json, the rule is generic-api-key, and the value is an
+#   UNSIGNED JWT fragment: starts with eyJ, base64url characters only, at most one dot, so never a third (signature)
+#   segment. A signed token, a value of another shape, another commit, file or rule still fails. The tree scan never
+#   matches this entry (tree findings carry no commit).
+[[allowlists]]
+description = "SEC-28: unsigned, expired signed-URL fragments in three committed QA reports (history only)"
+targetRules = ["generic-api-key"]
+condition = "AND"
+commits = [
+  "4a2acccff377feabcc7ab2129521eb1ddc792926",
+  "8bfc5d1d5438061bb3cee22160832a3a5b69c3f1",
+  "2d9ba954b6af28b1f4ab7693b1ec4db820c3aa8b",
+]
+paths = [
+  '''^docs/qa-reports/playwright-results\.json$''',
+]
+regexTarget = "secret"
+regexes = [
+  '''^eyJ[A-Za-z0-9_-]{7,69}(?:\.[A-Za-z0-9_-]{0,68})?$''',
+]
+
+# Plan dummy: the FE1-FE3 verify commands set the app's signing variable to a named 40-character dummy for a local,
+# mocked build (next to NEXT_PUBLIC_API_MOCKING=on, a 127.0.0.1 Supabase URL and an anon key of "mock"). It is not used
+# by any deployed environment (live check for Matthew in SEC1.md). Exact value, this one file, this one rule.
+[[allowlists]]
+description = "Plan dummy: the local verify-ui signing value in .baseleap/plan-build.json (fake by name and use)"
+targetRules = ["generic-api-key"]
+condition = "AND"
+paths = [
+  '''^(?:\./)?\.baseleap/plan-build\.json$''',
+]
+regexTarget = "secret"
+regexes = [
+  '''^verify-ui-dummy-secret-at-least-32-chars$''',
+]
+
+# Fake test inputs in tracked files, found by reading (CI's own list was not available): QA's PRB-06 probe sends these
+# two passwords to password routes that must not exist and expects 404 (tests/e2e/probes/10-anonymous-routes.probe.spec.ts:253),
+# and the contract's sign-in example uses the well-known xkcd phrase (docs/openapi.yaml:564). No account uses either.
+# One entry per file, so neither value is allowed in the other file. Exact values only.
+[[allowlists]]
+description = "Fake probe passwords in PRB-06 (sent to routes that must 404)"
+targetRules = ["generic-api-key"]
+condition = "AND"
+paths = [
+  '''^(?:\./)?tests/e2e/probes/10-anonymous-routes\.probe\.spec\.ts$''',
+]
+regexTarget = "secret"
+regexes = [
+  '''^Throwaway-passw0rd-1[23]$''',
+]
+
+[[allowlists]]
+description = "OpenAPI sign-in example password (the xkcd phrase), contract example only"
+targetRules = ["generic-api-key"]
+condition = "AND"
+paths = [
+  '''^(?:\./)?docs/openapi\.yaml$''',
+]
+regexTarget = "secret"
+regexes = [
+  '''^correct-horse-battery-staple-2026$''',
 ]
