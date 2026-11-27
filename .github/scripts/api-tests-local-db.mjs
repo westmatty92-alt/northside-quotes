@@ -53,7 +53,6 @@ export const SCRUBBED_ENV = [
   'SUPABASE_PROD_PROJECT_REF',
   'SUPABASE_PRODUCTION_REF',
   'SUPABASE_PRODUCTION_DB_URL',
-  'SUPABASE_ACCESS_TOKEN',
   'APP_SIGNING_SECRET', // the tests make their own random one per file
   'CRON_SECRET', // same
   'SITE_URL',
@@ -68,6 +67,9 @@ export const SCRUBBED_ENV = [
   'STAGING_URL',
   'PRODUCTION_HOSTS',
 ];
+
+/** Generic pattern, so no provider's access-token variable reaches the tests whatever it is called (no such variable is used by this project). */
+export const SCRUBBED_ENV_PATTERN = /_ACCESS_TOKEN$/;
 
 const LOCAL_HOSTS = new Set(['127.0.0.1', 'localhost', '[::1]', '::1']);
 
@@ -113,6 +115,7 @@ export function isLocalAddress(address) {
 export function buildTestEnv(parentEnv, stack) {
   const env = { ...parentEnv };
   for (const name of SCRUBBED_ENV) delete env[name];
+  for (const name of Object.keys(env)) if (SCRUBBED_ENV_PATTERN.test(name)) delete env[name];
   Object.assign(env, {
     NEXT_PUBLIC_SUPABASE_URL: stack.apiUrl,
     NEXT_PUBLIC_SUPABASE_ANON_KEY: stack.anon,
@@ -143,6 +146,9 @@ function selfTest() {
   expect('no JSON is an error', (() => { try { parseStatusJson('nothing'); return false; } catch { return true; } })());
   const env = buildTestEnv({ SUPABASE_STAGING_REF: 'abc', SUPABASE_PROD_PROJECT_REF: 'def', APP_SIGNING_SECRET: 'x', PATH: '/bin', NEXT_PUBLIC_SUPABASE_URL: 'https://real.supabase.co' }, stack);
   expect('the hosted-project guards are removed', env.SUPABASE_STAGING_REF === undefined && env.SUPABASE_PROD_PROJECT_REF === undefined);
+  const tokenEnv = buildTestEnv({ EXAMPLE_ACCESS_TOKEN: 't', OTHER_ACCESS_TOKEN: 't', ACCESS_TOKEN_NOTE: 'keep', PATH: '/bin' }, stack);
+  expect('any name ending _ACCESS_TOKEN is removed', tokenEnv.EXAMPLE_ACCESS_TOKEN === undefined && tokenEnv.OTHER_ACCESS_TOKEN === undefined);
+  expect('only the ending is matched', tokenEnv.ACCESS_TOKEN_NOTE === 'keep' && tokenEnv.PATH === '/bin');
   expect('a parent value for a required name is replaced by the local one', env.NEXT_PUBLIC_SUPABASE_URL === stack.apiUrl);
   expect('every variable the helpers require is set', ['NEXT_PUBLIC_SUPABASE_URL', 'NEXT_PUBLIC_SUPABASE_ANON_KEY', 'SUPABASE_SERVICE_ROLE_KEY', 'SUPABASE_STAGING_DB_URL', 'QA_OWNER_PASSWORD', 'QA_HELPER_PASSWORD'].every((n) => env[n]));
   expect('unrelated variables survive', env.PATH === '/bin');
