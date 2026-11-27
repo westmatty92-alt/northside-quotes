@@ -35,6 +35,7 @@
     { "name": "GHL_PRIVATE_INTEGRATION_TOKEN", "scope": "app", "sensitive": true, "production": "optional", "preview": "optional", "setBy": "matthew", "note": "test sub-account token, scopes contacts.readonly and contacts.write only; a later setting request. Becomes required before the first release that must copy to GHL (DEP1 decides)" },
     { "name": "GHL_LOCATION_ID", "scope": "app", "production": "required", "preview": "required", "setBy": "matthew", "note": "test sub-account id, not secret, same value in both" },
     { "name": "GHL_API_BASE_URL", "scope": "app", "production": "absent", "preview": "optional", "setBy": "matthew", "note": "optional; never set in production (ignored there, SECURITY_MODEL invariant 9)" },
+    { "name": "NEXT_PUBLIC_API_MOCKING", "scope": "app", "public": true, "production": "absent", "preview": "optional", "branches": { "staging": "absent" }, "setBy": "matthew", "note": "frontend lane only: `on` runs the screens against mock handlers (src/mocks/flag.ts). Never set in Production, never on the staging branch (QA and Matthew test the real API there). Unset means off. OPS1 (Nov 27): declared after the frontend lane landed it; env-check had failed `verify` with 'undeclared'" },
 
     { "name": "VERCEL_ENV", "scope": "system", "production": "absent", "preview": "absent", "setBy": "vercel", "note": "Vercel system variable (Automatically expose System Environment Variables)" },
     { "name": "VERCEL_GIT_COMMIT_SHA", "scope": "system", "production": "absent", "preview": "absent", "setBy": "vercel", "note": "Vercel system variable; /api/health version" },
@@ -49,25 +50,27 @@
     { "name": "PRODUCTION_HOSTS", "scope": "ci", "production": "absent", "preview": "absent", "githubEnvs": ["staging"], "setBy": "matthew", "note": "production hostnames, so QA tooling refuses to run against them" },
     { "name": "STAGING_URL", "scope": "ci", "production": "absent", "preview": "absent", "githubEnvs": [], "setBy": "devops", "note": "QA's base URL. In CI qa-smoke.yml sets it from the deployment; on the orchestrator machine it is in .env.local" },
     { "name": "QA_OWNER_EMAIL", "scope": "ci", "production": "absent", "preview": "absent", "githubEnvs": ["staging"], "setBy": "matthew", "note": "staging owner test login (QA names, proposed by DevOps; QA confirms)" },
-    { "name": "QA_OWNER_PASSWORD", "scope": "ci", "sensitive": true, "production": "absent", "preview": "absent", "githubEnvs": ["staging"], "setBy": "matthew", "note": "staging owner test password" },
+    { "name": "QA_OWNER_PASSWORD", "scope": "ci", "sensitive": true, "production": "absent", "preview": "absent", "githubEnvs": ["staging"], "setBy": "matthew", "note": "staging owner test password. REQUIRED in CI since OPS1 (Nov 27): api-tests runs tests/api/auth/sign-in.test.ts and staff-me.test.ts, which sign in for real" },
     { "name": "QA_HELPER_EMAIL", "scope": "ci", "production": "absent", "preview": "absent", "githubEnvs": ["staging"], "setBy": "matthew", "note": "staging helper test login" },
-    { "name": "QA_HELPER_PASSWORD", "scope": "ci", "sensitive": true, "production": "absent", "preview": "absent", "githubEnvs": ["staging"], "setBy": "matthew", "note": "staging helper test password" },
+    { "name": "QA_HELPER_PASSWORD", "scope": "ci", "sensitive": true, "production": "absent", "preview": "absent", "githubEnvs": ["staging"], "setBy": "matthew", "note": "staging helper test password. REQUIRED in CI since OPS1 (see QA_OWNER_PASSWORD)" },
 
     { "name": "SUPABASE_PRODUCTION_DB_URL", "scope": "ci", "sensitive": true, "production": "absent", "preview": "absent", "githubEnvs": ["production"], "setBy": "matthew", "note": "token A: production session-pooler URI with password; lives ONLY in the GitHub production environment; migrations in release.yml" },
     { "name": "VERCEL_TOKEN", "scope": "ci", "sensitive": true, "production": "absent", "preview": "absent", "githubEnvs": ["production"], "setBy": "matthew", "note": "release token, team baseleap only, 30-day expiry; also read-only drift check in release.yml" },
     { "name": "VERCEL_ORG_ID", "scope": "ci", "production": "absent", "preview": "absent", "githubEnvs": ["production"], "setBy": "matthew", "note": "Vercel team id (not secret)" },
     { "name": "VERCEL_PROJECT_ID", "scope": "ci", "production": "absent", "preview": "absent", "githubEnvs": ["production"], "setBy": "matthew", "note": "Vercel project id (not secret)" },
-    { "name": "PRODUCTION_URL", "scope": "ci", "production": "absent", "preview": "absent", "githubEnvs": ["repo"], "setBy": "matthew", "note": "repo-level variable, read by release.yml and uptime.yml" }
+    { "name": "PRODUCTION_URL", "scope": "ci", "production": "absent", "preview": "absent", "githubEnvs": ["repo"], "setBy": "matthew", "note": "repo-level variable, read by release.yml (its pre-flight fails when it is empty) and uptime.yml" },
+    { "name": "RELEASE_PREFLIGHT_TOKEN", "scope": "ci", "sensitive": true, "production": "absent", "preview": "absent", "githubEnvs": ["repo"], "setBy": "matthew", "note": "OPTIONAL fallback, create only if release.yml's pre-flight reports that GitHub refused the workflow token (403/404): a fine-grained token for this repository only, permission Actions: Read, nothing else. Repository-level secret (a production-environment secret would only be readable after the approval gate)" }
   ],
   "github": {
     "repo": {
       "secrets": [],
-      "variables": ["PRODUCTION_URL"]
+      "variables": ["PRODUCTION_URL"],
+      "optionalSecrets": ["RELEASE_PREFLIGHT_TOKEN"]
     },
     "staging": {
-      "secrets": ["VERCEL_AUTOMATION_BYPASS_SECRET", "SUPABASE_STAGING_URL", "SUPABASE_STAGING_ANON_KEY", "SUPABASE_STAGING_SERVICE_ROLE_KEY", "SUPABASE_STAGING_DB_URL"],
+      "secrets": ["VERCEL_AUTOMATION_BYPASS_SECRET", "SUPABASE_STAGING_URL", "SUPABASE_STAGING_ANON_KEY", "SUPABASE_STAGING_SERVICE_ROLE_KEY", "SUPABASE_STAGING_DB_URL", "QA_OWNER_PASSWORD", "QA_HELPER_PASSWORD"],
       "variables": ["SUPABASE_STAGING_REF", "PRODUCTION_HOSTS"],
-      "optionalSecrets": ["QA_OWNER_EMAIL", "QA_OWNER_PASSWORD", "QA_HELPER_EMAIL", "QA_HELPER_PASSWORD"]
+      "optionalSecrets": ["QA_OWNER_EMAIL", "QA_HELPER_EMAIL"]
     },
     "production": {
       "secrets": ["VERCEL_TOKEN", "SUPABASE_PRODUCTION_DB_URL"],

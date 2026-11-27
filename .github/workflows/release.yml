@@ -1,11 +1,21 @@
 # .github/workflows/release.yml (owned by bl-devops). The ONLY path to production. Started by the push of a merged
 # staging-to-main pull request (after Gate 3); nothing else deploys production (Git deploys of main are off in vercel.json).
 #
-# APPROVAL: the job is bound to the GitHub `production` environment, which has Matthew's account as required reviewer, so it
-# waits for his approval before any production secret is readable. Repo is public: environment secrets are still only
+# PRE-FLIGHT (first job, no environment, no secret but the workflow token): proves from GitHub's own API that the `production`
+# environment still has Matthew's account as required reviewer, administrators cannot bypass it, it deploys only from `main`,
+# and the PRODUCTION_URL repository variable is set. If any of that is false the run FAILS here and the gated job below never
+# starts. Why: release 1 (Nov 27) started with no reviewer on the environment and admin bypass on, so nothing waited for an
+# approval; it stopped by luck at "Configuration is complete". Logic and fixtures: .github/scripts/release-preflight.mjs.
+# Permission: `actions: read` (GitHub's "Permissions required for GitHub Apps": GET /repos/{owner}/{repo}/environments/{name}
+# and .../deployment-branch-policies are under Repository permissions for "Actions", read). If GitHub refuses the workflow token
+# (403/404) the job says so and Matthew adds the repository secret RELEASE_PREFLIGHT_TOKEN (read-only, Actions: Read); it is a
+# repository-level secret, reachable before the gate, and is used automatically when present.
+#
+# APPROVAL: the `release` job is bound to the GitHub `production` environment, which has Matthew's account as required reviewer,
+# so it waits for his approval before any production secret is readable. Repo is public: environment secrets are still only
 # released to a run on `main` that a reviewer approved (deployment branches: main only).
 #
-# Flow: approval
+# Flow: pre-flight -> approval
 #   -> drift check (Vercel variable names only, nothing decrypted)
 #   -> record the restore point (the production deployment live right now; none = first release)
 #   -> pull production settings, check the database is the one this app talks to (project refs only)
@@ -43,7 +53,26 @@ env:
   VERCEL_CLI_VERSION: "65.16.0" # exact x.y.z of the `vercel` CLI; bump deliberately after re-running the release drill
 
 jobs:
+  preflight:
+    # No `environment:` on purpose: this job must run (and be able to fail) BEFORE anything is gated or released.
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    permissions:
+      contents: read # checkout
+      actions: read # read the production environment's protection rules and branch policies (read-only)
+    env:
+      # The repository secret is the fallback described in the header; empty when not created, then the workflow token is used.
+      GH_TOKEN: ${{ secrets.RELEASE_PREFLIGHT_TOKEN || secrets.GITHUB_TOKEN }}
+      PRODUCTION_URL: ${{ vars.PRODUCTION_URL }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Production is protected and configured (fails closed)
+        run: node .github/scripts/release-preflight.mjs
+
   release:
+    needs: preflight
     runs-on: ubuntu-24.04
     timeout-minutes: 30
     environment:
