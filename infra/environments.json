@@ -41,18 +41,18 @@
     { "name": "VERCEL_GIT_COMMIT_SHA", "scope": "system", "production": "absent", "preview": "absent", "setBy": "vercel", "note": "Vercel system variable; /api/health version" },
 
     { "name": "VERCEL_AUTOMATION_BYPASS_SECRET", "scope": "ci", "sensitive": true, "production": "absent", "preview": "absent", "githubEnvs": ["staging"], "setBy": "matthew", "note": "Protection Bypass for Automation, from the Vercel project; sent as x-vercel-protection-bypass to staging only" },
-    { "name": "SUPABASE_STAGING_URL", "scope": "ci", "sensitive": true, "production": "absent", "preview": "absent", "githubEnvs": ["staging"], "setBy": "matthew", "note": "staging project URL, for tests" },
-    { "name": "SUPABASE_STAGING_ANON_KEY", "scope": "ci", "sensitive": true, "production": "absent", "preview": "absent", "githubEnvs": ["staging"], "setBy": "matthew", "note": "staging publishable key, for tests" },
-    { "name": "SUPABASE_STAGING_SERVICE_ROLE_KEY", "scope": "ci", "sensitive": true, "production": "absent", "preview": "absent", "githubEnvs": ["staging"], "setBy": "matthew", "note": "staging secret key, for tests" },
-    { "name": "SUPABASE_STAGING_DB_URL", "scope": "orchestrator", "sensitive": true, "production": "absent", "preview": "absent", "githubEnvs": ["staging"], "setBy": "matthew", "note": "staging session-pooler URI with password; migrations and RLS tests (npm run db:migrate, db:test); also in the orchestrator's .env.local" },
-    { "name": "SUPABASE_STAGING_REF", "scope": "orchestrator", "production": "absent", "preview": "absent", "githubEnvs": ["staging"], "setBy": "matthew", "note": "staging project ref (not secret); db.mjs refuses a staging URL that does not name it" },
+    { "name": "SUPABASE_STAGING_URL", "scope": "ci", "sensitive": true, "production": "absent", "preview": "absent", "githubEnvs": ["staging"], "setBy": "matthew", "note": "staging project URL, read by qa-smoke.yml (the deployed-preview QA suite). Not used by api-tests since OPS1 (Nov 27): those run on a local throwaway database" },
+    { "name": "SUPABASE_STAGING_ANON_KEY", "scope": "ci", "sensitive": true, "production": "absent", "preview": "absent", "githubEnvs": ["staging"], "setBy": "matthew", "note": "staging publishable key, read by qa-smoke.yml only (see SUPABASE_STAGING_URL)" },
+    { "name": "SUPABASE_STAGING_SERVICE_ROLE_KEY", "scope": "ci", "sensitive": true, "production": "absent", "preview": "absent", "githubEnvs": ["staging"], "setBy": "matthew", "note": "staging secret key, read by qa-smoke.yml only (see SUPABASE_STAGING_URL)" },
+    { "name": "SUPABASE_STAGING_DB_URL", "scope": "orchestrator", "sensitive": true, "production": "absent", "preview": "absent", "githubEnvs": [], "setBy": "matthew", "note": "staging session-pooler URI with password; migrations and RLS tests on the orchestrator machine (npm run db:migrate, db:test, db:check, db:staff-add), in its .env.local only. NOT a GitHub secret since OPS1 (Nov 27): no workflow reads it (api-tests sets it to the local throwaway database inside the job). The old GitHub staging secret can be deleted" },
+    { "name": "SUPABASE_STAGING_REF", "scope": "orchestrator", "production": "absent", "preview": "absent", "githubEnvs": [], "setBy": "matthew", "note": "staging project ref (not secret); db.mjs and the staging-backed test helpers refuse a staging URL that does not name it. orchestrator .env.local only: no workflow reads it since OPS1 (Nov 27), and the api-tests runner removes it so the guard cannot refuse the local stack. The old GitHub staging variable can be deleted" },
     { "name": "SUPABASE_PROD_PROJECT_REF", "scope": "orchestrator", "production": "absent", "preview": "absent", "githubEnvs": [], "setBy": "matthew", "note": "optional guard on the orchestrator machine only: db.mjs refuses a staging URL that names the production project" },
     { "name": "PRODUCTION_HOSTS", "scope": "ci", "production": "absent", "preview": "absent", "githubEnvs": ["staging"], "setBy": "matthew", "note": "production hostnames, so QA tooling refuses to run against them" },
     { "name": "STAGING_URL", "scope": "ci", "production": "absent", "preview": "absent", "githubEnvs": [], "setBy": "devops", "note": "QA's base URL. In CI qa-smoke.yml sets it from the deployment; on the orchestrator machine it is in .env.local" },
     { "name": "QA_OWNER_EMAIL", "scope": "ci", "production": "absent", "preview": "absent", "githubEnvs": ["staging"], "setBy": "matthew", "note": "staging owner test login (QA names, proposed by DevOps; QA confirms)" },
-    { "name": "QA_OWNER_PASSWORD", "scope": "ci", "sensitive": true, "production": "absent", "preview": "absent", "githubEnvs": ["staging"], "setBy": "matthew", "note": "staging owner test password. REQUIRED in CI since OPS1 (Nov 27): api-tests runs tests/api/auth/sign-in.test.ts and staff-me.test.ts, which sign in for real" },
+    { "name": "QA_OWNER_PASSWORD", "scope": "ci", "sensitive": true, "production": "absent", "preview": "absent", "githubEnvs": ["staging"], "setBy": "matthew", "note": "staging owner test password, read by qa-smoke.yml (the QA suite signs in on the deployed preview) and QA's .env.local. NOT used by api-tests since OPS1 (Nov 27): the runner creates the local owner with a fixed test password (.github/scripts/api-tests-local-db.mjs)" },
     { "name": "QA_HELPER_EMAIL", "scope": "ci", "production": "absent", "preview": "absent", "githubEnvs": ["staging"], "setBy": "matthew", "note": "staging helper test login" },
-    { "name": "QA_HELPER_PASSWORD", "scope": "ci", "sensitive": true, "production": "absent", "preview": "absent", "githubEnvs": ["staging"], "setBy": "matthew", "note": "staging helper test password. REQUIRED in CI since OPS1 (see QA_OWNER_PASSWORD)" },
+    { "name": "QA_HELPER_PASSWORD", "scope": "ci", "sensitive": true, "production": "absent", "preview": "absent", "githubEnvs": ["staging"], "setBy": "matthew", "note": "staging helper test password; same use as QA_OWNER_PASSWORD (qa-smoke.yml and QA's .env.local; not api-tests)" },
 
     { "name": "SUPABASE_PRODUCTION_DB_URL", "scope": "ci", "sensitive": true, "production": "absent", "preview": "absent", "githubEnvs": ["production"], "setBy": "matthew", "note": "token A: production session-pooler URI with password; lives ONLY in the GitHub production environment; migrations in release.yml" },
     { "name": "VERCEL_TOKEN", "scope": "ci", "sensitive": true, "production": "absent", "preview": "absent", "githubEnvs": ["production"], "setBy": "matthew", "note": "release token, team baseleap only, 30-day expiry; also read-only drift check in release.yml" },
@@ -68,8 +68,8 @@
       "optionalSecrets": ["RELEASE_PREFLIGHT_TOKEN"]
     },
     "staging": {
-      "secrets": ["VERCEL_AUTOMATION_BYPASS_SECRET", "SUPABASE_STAGING_URL", "SUPABASE_STAGING_ANON_KEY", "SUPABASE_STAGING_SERVICE_ROLE_KEY", "SUPABASE_STAGING_DB_URL", "QA_OWNER_PASSWORD", "QA_HELPER_PASSWORD"],
-      "variables": ["SUPABASE_STAGING_REF", "PRODUCTION_HOSTS"],
+      "secrets": ["VERCEL_AUTOMATION_BYPASS_SECRET", "SUPABASE_STAGING_URL", "SUPABASE_STAGING_ANON_KEY", "SUPABASE_STAGING_SERVICE_ROLE_KEY", "QA_OWNER_PASSWORD", "QA_HELPER_PASSWORD"],
+      "variables": ["PRODUCTION_HOSTS"],
       "optionalSecrets": ["QA_OWNER_EMAIL", "QA_HELPER_EMAIL"]
     },
     "production": {
