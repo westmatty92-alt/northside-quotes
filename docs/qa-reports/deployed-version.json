@@ -1,0 +1,6 @@
+{
+  "host": "northside-quotes-git-staging-baseleap.vercel.app",
+  "health": "ok",
+  "version": "04dd79a77521284fdf0d7754e48ac650523be10f",
+  "checked_against": "format only (40 hex)"
+}

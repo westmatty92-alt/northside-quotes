@@ -44,17 +44,35 @@ function walkSource(dir, visit) {
   }
 }
 
-/** Names the code reads: process.env.X, process.env['X'] and `const { X } = process.env` under src/ (test files excluded). */
+/**
+ * Source text without lines that are only a comment (`// ...`, `/* ...` with no code after its end, ` * ...`). A comment that
+ * says "named with literal `process.env.NAME` accesses" is prose, not a read of NAME (OPS1, Nov 27: src/lib/supabase/browser.ts
+ * made `verify` fail on a variable called NAME). Deliberately conservative: a trailing comment after code, and code after a
+ * closing block comment on the same line, are kept, so a real read can never be hidden by a comment next to it.
+ */
+export function withoutCommentLines(text) {
+  return text.split('\n').filter((line) => !/^\s*(\/\/|\*(?!\/\s*\S)|\/\*(?!.*\*\/\s*\S))/.test(line)).join('\n');
+}
+
+/** Names read in one file's text: process.env.X, process.env['X'] and `const { X } = process.env` (comment-only lines ignored). */
+export function namesInSource(source) {
+  const used = new Set();
+  const text = withoutCommentLines(source);
+  for (const m of text.matchAll(/process\.env\.([A-Z][A-Z0-9_]*)|process\.env\[['"]([A-Z][A-Z0-9_]*)['"]\]/g)) used.add(m[1] ?? m[2]);
+  for (const m of text.matchAll(/(?:const|let|var)\s*\{([^}]+)\}\s*=\s*process\.env\b/g)) {
+    for (const part of m[1].split(',')) {
+      const name = part.split(':')[0].trim();
+      if (/^[A-Z][A-Z0-9_]*$/.test(name)) used.add(name);
+    }
+  }
+  return used;
+}
+
+/** Names the code reads under src/ (test files excluded). */
 export function scanSource(root) {
   const used = new Set();
   walkSource(path.join(root, 'src'), (_p, text) => {
-    for (const m of text.matchAll(/process\.env\.([A-Z][A-Z0-9_]*)|process\.env\[['"]([A-Z][A-Z0-9_]*)['"]\]/g)) used.add(m[1] ?? m[2]);
-    for (const m of text.matchAll(/(?:const|let|var)\s*\{([^}]+)\}\s*=\s*process\.env\b/g)) {
-      for (const part of m[1].split(',')) {
-        const name = part.split(':')[0].trim();
-        if (/^[A-Z][A-Z0-9_]*$/.test(name)) used.add(name);
-      }
-    }
+    for (const name of namesInSource(text)) used.add(name);
   });
   return used;
 }
@@ -295,6 +313,19 @@ export function selfTest(manifest) {
   expect('a real-looking value in .env.example fails', /example-value: .*CRON_SECRET/.test(checkLocal(manifest, new Set(), nameOnly({ CRON_SECRET: 'a'.repeat(48) })).join('\n')));
   expect('a name missing from .env.example fails', /example-missing: CRON_SECRET/.test(checkLocal(manifest, new Set(), new Map([...exampleLines].filter(([k]) => k !== 'CRON_SECRET'))).join('\n')));
   expect('a variable used in src/ but not declared fails', /undeclared: NOT_DECLARED/.test(checkLocal(manifest, new Set(['NOT_DECLARED']), exampleLines).join('\n')));
+  // Reading source text: prose about process.env.X is not a use, but no real read may be hidden by a comment near it.
+  const names = (src) => [...namesInSource(src)].sort().join(',');
+  expect('a name in a whole-line // comment is not a use', names('// named with literal `process.env.NAME` accesses\nconst a = 1;') === '');
+  expect('a name in a JSDoc line and a block comment is not a use', names('/**\n * reads process.env.IN_JSDOC\n */\n/* process.env.IN_BLOCK */\nconst a = 1;') === '');
+  expect('a real read is still found', names('const k = process.env.REAL_ONE;') === 'REAL_ONE');
+  expect('a real read with a trailing comment is still found', names('const k = process.env.TRAILING; // note') === 'TRAILING');
+  expect('a read after a URL string on the same line is still found', names("const u = 'https://x.test'; const k = process.env.AFTER_URL;") === 'AFTER_URL');
+  expect('a read after a closing block comment is still found', names('/* note */ const k = process.env.AFTER_BLOCK;') === 'AFTER_BLOCK');
+  expect('a read on the line after a comment is still found', names('// about process.env.IN_COMMENT\nconst k = process.env.NEXT_LINE;') === 'NEXT_LINE');
+  expect('a destructured read is still found', names('const { DESTR_A, DESTR_B: renamed } = process.env;') === 'DESTR_A,DESTR_B');
+  expect('the mocking flag is declared (never in production, never on staging)', ['NEXT_PUBLIC_API_MOCKING'].every((n) => { const v = manifest.variables.find((x) => x.name === n); return v && v.production === 'absent' && v.branches?.staging === 'absent' && checkLocal(manifest, new Set([n]), exampleLines).length === 0; }));
+  expect('NEXT_PUBLIC_API_MOCKING set for production fails the Vercel check', /must-be-absent: NEXT_PUBLIC_API_MOCKING/.test(errs(good.concat([{ key: 'NEXT_PUBLIC_API_MOCKING', target: ['production'], gitBranch: null, type: 'plain' }]))));
+  expect('NEXT_PUBLIC_API_MOCKING set on the staging branch fails the Vercel check', /must-be-absent: NEXT_PUBLIC_API_MOCKING is set for preview branch staging/.test(errs(good.concat([{ key: 'NEXT_PUBLIC_API_MOCKING', target: ['preview'], gitBranch: 'staging', type: 'plain' }]))));
   expect('a Supabase access token name in a workflow fails', /forbidden-name: x\.yml/.test(checkWorkflows(manifest, { files: new Map([['x.yml', `env:\n  T: \${{ secrets.${FORBIDDEN_NAMES[0]} }}`]]), refs: new Set() }).join('\n')));
   expect('a workflow reading an undeclared secret fails', /workflow-undeclared: .*NOT_PLACED/.test(checkWorkflows(manifest, { files: new Map(), refs: new Set(['NOT_PLACED']) }).join('\n')));
   const config = JSON.parse(JSON.stringify({ regions: manifest.vercelConfig.regions, git: { deploymentEnabled: { main: false } }, crons: manifest.vercelConfig.crons }));

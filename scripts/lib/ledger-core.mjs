@@ -168,7 +168,7 @@ export function strayFiles(changed, step) {
 
 // Event types the orchestrator may write by hand with `stack-ledger event <type>`.
 // Everything else is written by the ledger itself (step.status, verify.*, gate.*, …).
-export const MANUAL_EVENTS = ['decision', 'dispatch', 'dispatch.denied', 'ruling', 'contract.question', 'note'];
+export const MANUAL_EVENTS = ['decision', 'dispatch', 'dispatch.denied', 'ruling', 'contract.question', 'note', 'manual_task'];
 
 export async function event(db, planId, type, payload = {}, { stepId = null, actor = 'orchestrator' } = {}) {
   return db.insert('stack_events', {

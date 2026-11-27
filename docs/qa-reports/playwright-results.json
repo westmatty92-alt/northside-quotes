@@ -4,9 +4,7 @@
       "/home/admin/.nvm/versions/node/v22.22.2/bin/node",
       "/home/admin/baseleap/rehearsal/northside-quotes/node_modules/.bin/playwright",
       "test",
-      "tests/e2e/probes",
-      "--list",
-      "--project=probes"
+      "tests/e2e/probes"
     ],
     "configFile": "/home/admin/baseleap/rehearsal/northside-quotes/playwright.config.ts",
     "rootDir": "/home/admin/baseleap/rehearsal/northside-quotes/tests/e2e",
@@ -19,14 +17,18 @@
     "grep": {},
     "grepInvert": null,
     "maxFailures": 0,
-    "metadata": {},
+    "metadata": {
+      "actualWorkers": 1
+    },
     "preserveOutput": "always",
     "projects": [
       {
         "outputDir": "/home/admin/baseleap/rehearsal/northside-quotes/test-results",
         "repeatEach": 1,
         "retries": 1,
-        "metadata": {},
+        "metadata": {
+          "actualWorkers": 1
+        },
         "id": "setup",
         "name": "setup",
         "testDir": "/home/admin/baseleap/rehearsal/northside-quotes/tests/e2e",
@@ -40,7 +42,9 @@
         "outputDir": "/home/admin/baseleap/rehearsal/northside-quotes/test-results",
         "repeatEach": 1,
         "retries": 1,
-        "metadata": {},
+        "metadata": {
+          "actualWorkers": 1
+        },
         "id": "preview",
         "name": "preview",
         "testDir": "/home/admin/baseleap/rehearsal/northside-quotes/tests/e2e",
@@ -54,7 +58,9 @@
         "outputDir": "/home/admin/baseleap/rehearsal/northside-quotes/test-results",
         "repeatEach": 1,
         "retries": 1,
-        "metadata": {},
+        "metadata": {
+          "actualWorkers": 1
+        },
         "id": "phone",
         "name": "phone",
         "testDir": "/home/admin/baseleap/rehearsal/northside-quotes/tests/e2e",
@@ -68,7 +74,9 @@
         "outputDir": "/home/admin/baseleap/rehearsal/northside-quotes/test-results",
         "repeatEach": 1,
         "retries": 1,
-        "metadata": {},
+        "metadata": {
+          "actualWorkers": 1
+        },
         "id": "phone-staff",
         "name": "phone-staff",
         "testDir": "/home/admin/baseleap/rehearsal/northside-quotes/tests/e2e",
@@ -84,7 +92,9 @@
         "outputDir": "/home/admin/baseleap/rehearsal/northside-quotes/test-results",
         "repeatEach": 1,
         "retries": 1,
-        "metadata": {},
+        "metadata": {
+          "actualWorkers": 1
+        },
         "id": "desktop",
         "name": "desktop",
         "testDir": "/home/admin/baseleap/rehearsal/northside-quotes/tests/e2e",
@@ -100,7 +110,9 @@
         "outputDir": "/home/admin/baseleap/rehearsal/northside-quotes/test-results",
         "repeatEach": 1,
         "retries": 1,
-        "metadata": {},
+        "metadata": {
+          "actualWorkers": 1
+        },
         "id": "phone-late",
         "name": "phone-late",
         "testDir": "/home/admin/baseleap/rehearsal/northside-quotes/tests/e2e",
@@ -114,7 +126,9 @@
         "outputDir": "/home/admin/baseleap/rehearsal/northside-quotes/test-results",
         "repeatEach": 1,
         "retries": 0,
-        "metadata": {},
+        "metadata": {
+          "actualWorkers": 1
+        },
         "id": "probes",
         "name": "probes",
         "testDir": "/home/admin/baseleap/rehearsal/northside-quotes/tests/e2e",
@@ -131,8 +145,226 @@
         "grepInvert": null,
         "outputDir": "/home/admin/baseleap/rehearsal/northside-quotes/test-results",
         "repeatEach": 1,
+        "retries": 1,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "name": "setup",
+        "testDir": "/home/admin/baseleap/rehearsal/northside-quotes/tests/e2e",
+        "snapshotDir": "/home/admin/baseleap/rehearsal/northside-quotes/tests/e2e",
+        "testIgnore": [],
+        "testMatch": {},
+        "timeout": 90000,
+        "use": {
+          "baseURL": "https://northside-quotes-git-staging-baseleap.vercel.app",
+          "trace": "retain-on-failure",
+          "screenshot": "only-on-failure",
+          "video": "retain-on-failure",
+          "actionTimeout": 15000,
+          "navigationTimeout": 30000,
+          "locale": "en-CA",
+          "timezoneId": "America/Toronto"
+        },
+        "dependencies": [],
+        "ignoreSnapshots": false,
+        "__projectId": "setup"
+      },
+      {
+        "grep": {},
+        "grepInvert": null,
+        "outputDir": "/home/admin/baseleap/rehearsal/northside-quotes/test-results",
+        "repeatEach": 1,
+        "retries": 1,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "name": "preview",
+        "testDir": "/home/admin/baseleap/rehearsal/northside-quotes/tests/e2e",
+        "snapshotDir": "/home/admin/baseleap/rehearsal/northside-quotes/tests/e2e",
+        "testIgnore": [],
+        "testMatch": {},
+        "timeout": 90000,
+        "use": {
+          "baseURL": "https://northside-quotes-git-staging-baseleap.vercel.app",
+          "trace": "retain-on-failure",
+          "screenshot": "only-on-failure",
+          "video": "retain-on-failure",
+          "actionTimeout": 15000,
+          "navigationTimeout": 30000,
+          "locale": "en-CA",
+          "timezoneId": "America/Toronto",
+          "viewport": {
+            "width": 1280,
+            "height": 800
+          },
+          "browserName": "chromium"
+        },
+        "dependencies": [],
+        "ignoreSnapshots": false,
+        "__projectId": "preview"
+      },
+      {
+        "grep": {},
+        "grepInvert": null,
+        "outputDir": "/home/admin/baseleap/rehearsal/northside-quotes/test-results",
+        "repeatEach": 1,
+        "retries": 1,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "name": "phone",
+        "testDir": "/home/admin/baseleap/rehearsal/northside-quotes/tests/e2e",
+        "snapshotDir": "/home/admin/baseleap/rehearsal/northside-quotes/tests/e2e",
+        "testIgnore": [],
+        "testMatch": {},
+        "timeout": 90000,
+        "use": {
+          "baseURL": "https://northside-quotes-git-staging-baseleap.vercel.app",
+          "trace": "retain-on-failure",
+          "screenshot": "only-on-failure",
+          "video": "retain-on-failure",
+          "actionTimeout": 15000,
+          "navigationTimeout": 30000,
+          "locale": "en-CA",
+          "timezoneId": "America/Toronto",
+          "viewport": {
+            "width": 390,
+            "height": 844
+          },
+          "isMobile": true,
+          "hasTouch": true,
+          "deviceScaleFactor": 2,
+          "browserName": "chromium"
+        },
+        "dependencies": [
+          "setup"
+        ],
+        "ignoreSnapshots": false,
+        "__projectId": "phone"
+      },
+      {
+        "grep": {},
+        "grepInvert": null,
+        "outputDir": "/home/admin/baseleap/rehearsal/northside-quotes/test-results",
+        "repeatEach": 1,
+        "retries": 1,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "name": "phone-staff",
+        "testDir": "/home/admin/baseleap/rehearsal/northside-quotes/tests/e2e",
+        "snapshotDir": "/home/admin/baseleap/rehearsal/northside-quotes/tests/e2e",
+        "testIgnore": {},
+        "testMatch": {},
+        "timeout": 90000,
+        "use": {
+          "baseURL": "https://northside-quotes-git-staging-baseleap.vercel.app",
+          "trace": "retain-on-failure",
+          "screenshot": "only-on-failure",
+          "video": "retain-on-failure",
+          "actionTimeout": 15000,
+          "navigationTimeout": 30000,
+          "locale": "en-CA",
+          "timezoneId": "America/Toronto",
+          "viewport": {
+            "width": 390,
+            "height": 844
+          },
+          "isMobile": true,
+          "hasTouch": true,
+          "deviceScaleFactor": 2,
+          "browserName": "chromium"
+        },
+        "dependencies": [
+          "setup"
+        ],
+        "ignoreSnapshots": false,
+        "__projectId": "phone-staff"
+      },
+      {
+        "grep": {},
+        "grepInvert": null,
+        "outputDir": "/home/admin/baseleap/rehearsal/northside-quotes/test-results",
+        "repeatEach": 1,
+        "retries": 1,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "name": "desktop",
+        "testDir": "/home/admin/baseleap/rehearsal/northside-quotes/tests/e2e",
+        "snapshotDir": "/home/admin/baseleap/rehearsal/northside-quotes/tests/e2e",
+        "testIgnore": {},
+        "testMatch": {},
+        "timeout": 90000,
+        "use": {
+          "baseURL": "https://northside-quotes-git-staging-baseleap.vercel.app",
+          "trace": "retain-on-failure",
+          "screenshot": "only-on-failure",
+          "video": "retain-on-failure",
+          "actionTimeout": 15000,
+          "navigationTimeout": 30000,
+          "locale": "en-CA",
+          "timezoneId": "America/Toronto",
+          "viewport": {
+            "width": 1280,
+            "height": 800
+          },
+          "browserName": "chromium"
+        },
+        "dependencies": [
+          "setup"
+        ],
+        "ignoreSnapshots": false,
+        "__projectId": "desktop"
+      },
+      {
+        "grep": {},
+        "grepInvert": null,
+        "outputDir": "/home/admin/baseleap/rehearsal/northside-quotes/test-results",
+        "repeatEach": 1,
+        "retries": 1,
+        "metadata": {
+          "actualWorkers": 1
+        },
+        "name": "phone-late",
+        "testDir": "/home/admin/baseleap/rehearsal/northside-quotes/tests/e2e",
+        "snapshotDir": "/home/admin/baseleap/rehearsal/northside-quotes/tests/e2e",
+        "testIgnore": [],
+        "testMatch": {},
+        "timeout": 90000,
+        "use": {
+          "baseURL": "https://northside-quotes-git-staging-baseleap.vercel.app",
+          "trace": "retain-on-failure",
+          "screenshot": "only-on-failure",
+          "video": "retain-on-failure",
+          "actionTimeout": 15000,
+          "navigationTimeout": 30000,
+          "locale": "en-CA",
+          "timezoneId": "America/Toronto",
+          "viewport": {
+            "width": 390,
+            "height": 844
+          },
+          "isMobile": true,
+          "hasTouch": true,
+          "deviceScaleFactor": 2,
+          "browserName": "chromium"
+        },
+        "dependencies": [
+          "setup"
+        ],
+        "ignoreSnapshots": false,
+        "__projectId": "phone-late"
+      },
+      {
+        "grep": {},
+        "grepInvert": null,
+        "outputDir": "/home/admin/baseleap/rehearsal/northside-quotes/test-results",
+        "repeatEach": 1,
         "retries": 0,
-        "metadata": {},
+        "metadata": {
+          "actualWorkers": 1
+        },
         "name": "probes",
         "testDir": "/home/admin/baseleap/rehearsal/northside-quotes/tests/e2e",
         "snapshotDir": "/home/admin/baseleap/rehearsal/northside-quotes/tests/e2e",
@@ -215,12 +447,47 @@
               "tests": [
                 {
                   "timeout": 90000,
-                  "annotations": [],
+                  "annotations": [
+                    {
+                      "type": "commit-under-test",
+                      "description": "04dd79a77521284fdf0d7754e48ac650523be10f"
+                    }
+                  ],
                   "expectedStatus": "passed",
                   "projectId": "probes",
                   "projectName": "probes",
-                  "results": [],
-                  "status": "skipped"
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 1075,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-11-26T11:50:37.402Z",
+                      "annotations": [
+                        {
+                          "type": "commit-under-test",
+                          "description": "04dd79a77521284fdf0d7754e48ac650523be10f"
+                        }
+                      ],
+                      "attachments": [
+                        {
+                          "name": "health",
+                          "contentType": "application/json",
+                          "body": "eyJzdGF0dXMiOiJvayIsInZlcnNpb24iOiIwNGRkNzlhNzc1MjEyODRmZGYwZDc3NTRlNDhhYzY1MDUyM2JlMTBmIn0="
+                        },
+                        {
+                          "name": "request-ids",
+                          "contentType": "text/plain",
+                          "body": "KG5vbmUp"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
                 }
               ],
               "id": "87eb597542ec0a05dd80-2c1aa823fa42d91966fa",
@@ -238,12 +505,42 @@
               "tests": [
                 {
                   "timeout": 90000,
-                  "annotations": [],
+                  "annotations": [
+                    {
+                      "type": "cases",
+                      "description": "63 requests (9 routes x 7 credentials)"
+                    }
+                  ],
                   "expectedStatus": "passed",
                   "projectId": "probes",
                   "projectName": "probes",
-                  "results": [],
-                  "status": "skipped"
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 7068,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-11-26T11:50:38.553Z",
+                      "annotations": [
+                        {
+                          "type": "cases",
+                          "description": "63 requests (9 routes x 7 credentials)"
+                        }
+                      ],
+                      "attachments": [
+                        {
+                          "name": "request-ids",
+                          "contentType": "text/plain",
+                          "body": "KG5vbmUp"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
                 }
               ],
               "id": "87eb597542ec0a05dd80-9de579a4cea346af83a7",
@@ -265,8 +562,28 @@
                   "expectedStatus": "passed",
                   "projectId": "probes",
                   "projectName": "probes",
-                  "results": [],
-                  "status": "skipped"
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 1189,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-11-26T11:50:45.633Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "request-ids",
+                          "contentType": "text/plain",
+                          "body": "KG5vbmUp"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
                 }
               ],
               "id": "87eb597542ec0a05dd80-6e867c86fff9bc9f36c5",
@@ -288,8 +605,28 @@
                   "expectedStatus": "passed",
                   "projectId": "probes",
                   "projectName": "probes",
-                  "results": [],
-                  "status": "skipped"
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 771,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-11-26T11:50:46.833Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "request-ids",
+                          "contentType": "text/plain",
+                          "body": "KG5vbmUp"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
                 }
               ],
               "id": "87eb597542ec0a05dd80-17228b09c4fa5e1cc216",
@@ -307,12 +644,42 @@
               "tests": [
                 {
                   "timeout": 90000,
-                  "annotations": [],
+                  "annotations": [
+                    {
+                      "type": "edge-refusals",
+                      "description": "6 of 21 forged-token calls were refused by Vercel's edge (403, text/plain) before reaching the app"
+                    }
+                  ],
                   "expectedStatus": "passed",
                   "projectId": "probes",
                   "projectName": "probes",
-                  "results": [],
-                  "status": "skipped"
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 1745,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-11-26T11:50:47.615Z",
+                      "annotations": [
+                        {
+                          "type": "edge-refusals",
+                          "description": "6 of 21 forged-token calls were refused by Vercel's edge (403, text/plain) before reaching the app"
+                        }
+                      ],
+                      "attachments": [
+                        {
+                          "name": "request-ids",
+                          "contentType": "text/plain",
+                          "body": "KG5vbmUp"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
                 }
               ],
               "id": "87eb597542ec0a05dd80-28b14d301e2742abac47",
@@ -334,8 +701,28 @@
                   "expectedStatus": "passed",
                   "projectId": "probes",
                   "projectName": "probes",
-                  "results": [],
-                  "status": "skipped"
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 1107,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-11-26T11:50:49.370Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "request-ids",
+                          "contentType": "text/plain",
+                          "body": "KG5vbmUp"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
                 }
               ],
               "id": "87eb597542ec0a05dd80-254c56793c69c6061e5d",
@@ -353,12 +740,42 @@
               "tests": [
                 {
                   "timeout": 90000,
-                  "annotations": [],
+                  "annotations": [
+                    {
+                      "type": "edge-refusals",
+                      "description": "5 malformed-id calls were refused by Vercel's edge (400 or 403, text/plain) before reaching the app"
+                    }
+                  ],
                   "expectedStatus": "passed",
                   "projectId": "probes",
                   "projectName": "probes",
-                  "results": [],
-                  "status": "skipped"
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 5538,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-11-26T11:50:50.489Z",
+                      "annotations": [
+                        {
+                          "type": "edge-refusals",
+                          "description": "5 malformed-id calls were refused by Vercel's edge (400 or 403, text/plain) before reaching the app"
+                        }
+                      ],
+                      "attachments": [
+                        {
+                          "name": "request-ids",
+                          "contentType": "text/plain",
+                          "body": "KG5vbmUp"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
                 }
               ],
               "id": "87eb597542ec0a05dd80-249d30ab49bb4a02a6a7",
@@ -380,8 +797,28 @@
                   "expectedStatus": "passed",
                   "projectId": "probes",
                   "projectName": "probes",
-                  "results": [],
-                  "status": "skipped"
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 3020,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-11-26T11:50:56.036Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "request-ids",
+                          "contentType": "text/plain",
+                          "body": "KG5vbmUp"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
                 }
               ],
               "id": "87eb597542ec0a05dd80-57750f3f422998234a92",
@@ -403,8 +840,28 @@
                   "expectedStatus": "passed",
                   "projectId": "probes",
                   "projectName": "probes",
-                  "results": [],
-                  "status": "skipped"
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 6638,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-11-26T11:50:59.066Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "request-ids",
+                          "contentType": "text/plain",
+                          "body": "KG5vbmUp"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
                 }
               ],
               "id": "87eb597542ec0a05dd80-772dec4b41316934a71b",
@@ -426,8 +883,33 @@
                   "expectedStatus": "passed",
                   "projectId": "probes",
                   "projectName": "probes",
-                  "results": [],
-                  "status": "skipped"
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 7104,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-11-26T11:51:05.715Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "status-table",
+                          "contentType": "text/plain",
+                          "body": "R0VULCBubyBleHRyYSBoZWFkZXIgL2FwaS9kb2VzLW5vdC1leGlzdCAtPiA0MDQgKG4vYSkKR0VULCBBdXRob3JpemF0aW9uOiBCZWFyZXIgeCAvYXBpL2RvZXMtbm90LWV4aXN0IC0+IDQwNCAobi9hKQpHRVQsIEFjY2VwdDogYXBwbGljYXRpb24vanNvbiAvYXBpL2RvZXMtbm90LWV4aXN0IC0+IDQwNCAobi9hKQpHRVQsIENvb2tpZSBvbmx5IC9hcGkvZG9lcy1ub3QtZXhpc3QgLT4gNDA0IChuL2EpCkhFQUQgL2FwaS9kb2VzLW5vdC1leGlzdCAtPiA0MDQgKG4vYSkKUE9TVCwgbm8gYm9keSAvYXBpL2RvZXMtbm90LWV4aXN0IC0+IDQwNCAobi9hKQpQT1NULCBKU09OIGJvZHkgL2FwaS9kb2VzLW5vdC1leGlzdCAtPiA0MDQgKG4vYSkKUFVULCBKU09OIGJvZHkgL2FwaS9kb2VzLW5vdC1leGlzdCAtPiA0MDQgKG4vYSkKREVMRVRFIC9hcGkvZG9lcy1ub3QtZXhpc3QgLT4gNDA0IChuL2EpCkdFVCwgbm8gZXh0cmEgaGVhZGVyIC9hcGkvYXV0aC9kb2VzLW5vdC1leGlzdCAtPiA0MDQgKG4vYSkKR0VULCBBdXRob3JpemF0aW9uOiBCZWFyZXIgeCAvYXBpL2F1dGgvZG9lcy1ub3QtZXhpc3QgLT4gNDA0IChuL2EpCkdFVCwgQWNjZXB0OiBhcHBsaWNhdGlvbi9qc29uIC9hcGkvYXV0aC9kb2VzLW5vdC1leGlzdCAtPiA0MDQgKG4vYSkKR0VULCBDb29raWUgb25seSAvYXBpL2F1dGgvZG9lcy1ub3QtZXhpc3QgLT4gNDA0IChuL2EpCkhFQUQgL2FwaS9hdXRoL2RvZXMtbm90LWV4aXN0IC0+IDQwNCAobi9hKQpQT1NULCBubyBib2R5IC9hcGkvYXV0aC9kb2VzLW5vdC1leGlzdCAtPiA0MDQgKG4vYSkKUE9TVCwgSlNPTiBib2R5IC9hcGkvYXV0aC9kb2VzLW5vdC1leGlzdCAtPiA0MDQgKG4vYSkKUFVULCBKU09OIGJvZHkgL2FwaS9hdXRoL2RvZXMtbm90LWV4aXN0IC0+IDQwNCAobi9hKQpERUxFVEUgL2FwaS9hdXRoL2RvZXMtbm90LWV4aXN0IC0+IDQwNCAobi9hKQpHRVQsIG5vIGV4dHJhIGhlYWRlciAvZG9lcy1ub3QtZXhpc3QgLT4gNDA0IChuL2EpCkdFVCwgQXV0aG9yaXphdGlvbjogQmVhcmVyIHggL2RvZXMtbm90LWV4aXN0IC0+IDQwNCAobi9hKQpHRVQsIEFjY2VwdDogYXBwbGljYXRpb24vanNvbiAvZG9lcy1ub3QtZXhpc3QgLT4gNDA0IChuL2EpCkdFVCwgQ29va2llIG9ubHkgL2RvZXMtbm90LWV4aXN0IC0+IDQwNCAobi9hKQpIRUFEIC9kb2VzLW5vdC1leGlzdCAtPiA0MDQgKG4vYSkKUE9TVCwgbm8gYm9keSAvZG9lcy1ub3QtZXhpc3QgLT4gNDA0IChuL2EpClBPU1QsIEpTT04gYm9keSAvZG9lcy1ub3QtZXhpc3QgLT4gNDA0IChuL2EpClBVVCwgSlNPTiBib2R5IC9kb2VzLW5vdC1leGlzdCAtPiA0MDQgKG4vYSkKREVMRVRFIC9kb2VzLW5vdC1leGlzdCAtPiA0MDQgKG4vYSk="
+                        },
+                        {
+                          "name": "request-ids",
+                          "contentType": "text/plain",
+                          "body": "KG5vbmUp"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
                 }
               ],
               "id": "87eb597542ec0a05dd80-f051cc343216fb539b9d",
@@ -449,8 +931,28 @@
                   "expectedStatus": "passed",
                   "projectId": "probes",
                   "projectName": "probes",
-                  "results": [],
-                  "status": "skipped"
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 427,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-11-26T11:51:12.830Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "request-ids",
+                          "contentType": "text/plain",
+                          "body": "KG5vbmUp"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
                 }
               ],
               "id": "87eb597542ec0a05dd80-d129a61d809e2e901ea1",
@@ -472,8 +974,28 @@
                   "expectedStatus": "passed",
                   "projectId": "probes",
                   "projectName": "probes",
-                  "results": [],
-                  "status": "skipped"
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 773,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-11-26T11:51:13.269Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "request-ids",
+                          "contentType": "text/plain",
+                          "body": "KG5vbmUp"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
                 }
               ],
               "id": "87eb597542ec0a05dd80-c2365b81d83243d17cf4",
@@ -508,12 +1030,42 @@
               "tests": [
                 {
                   "timeout": 90000,
-                  "annotations": [],
+                  "annotations": [
+                    {
+                      "type": "cases",
+                      "description": "28 requests (2 routes x 14 Authorization values)"
+                    }
+                  ],
                   "expectedStatus": "passed",
                   "projectId": "probes",
                   "projectName": "probes",
-                  "results": [],
-                  "status": "skipped"
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 2850,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-11-26T11:51:14.056Z",
+                      "annotations": [
+                        {
+                          "type": "cases",
+                          "description": "28 requests (2 routes x 14 Authorization values)"
+                        }
+                      ],
+                      "attachments": [
+                        {
+                          "name": "request-ids",
+                          "contentType": "text/plain",
+                          "body": "KG5vbmUp"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
                 }
               ],
               "id": "d1c687673ace2d919845-be3450442587047f2efb",
@@ -535,8 +1087,28 @@
                   "expectedStatus": "passed",
                   "projectId": "probes",
                   "projectName": "probes",
-                  "results": [],
-                  "status": "skipped"
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 1878,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-11-26T11:51:16.918Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "request-ids",
+                          "contentType": "text/plain",
+                          "body": "KG5vbmUp"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
                 }
               ],
               "id": "d1c687673ace2d919845-75e7049c272ef18578b2",
@@ -575,8 +1147,28 @@
                   "expectedStatus": "passed",
                   "projectId": "probes",
                   "projectName": "probes",
-                  "results": [],
-                  "status": "skipped"
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 805,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-11-26T11:51:18.813Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "request-ids",
+                          "contentType": "text/plain",
+                          "body": "KG5vbmUp"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
                 }
               ],
               "id": "4c8b79794d93a5859957-acf0d19f663fab93dca7",
@@ -598,8 +1190,28 @@
                   "expectedStatus": "passed",
                   "projectId": "probes",
                   "projectName": "probes",
-                  "results": [],
-                  "status": "skipped"
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 1875,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-11-26T11:51:19.626Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "request-ids",
+                          "contentType": "text/plain",
+                          "body": "KG5vbmUp"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
                 }
               ],
               "id": "4c8b79794d93a5859957-92ff30e1af58357f0a77",
@@ -621,8 +1233,28 @@
                   "expectedStatus": "passed",
                   "projectId": "probes",
                   "projectName": "probes",
-                  "results": [],
-                  "status": "skipped"
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 1253,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-11-26T11:51:21.511Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "request-ids",
+                          "contentType": "text/plain",
+                          "body": "KG5vbmUp"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
                 }
               ],
               "id": "4c8b79794d93a5859957-296889dc23d45cb96187",
@@ -644,8 +1276,28 @@
                   "expectedStatus": "passed",
                   "projectId": "probes",
                   "projectName": "probes",
-                  "results": [],
-                  "status": "skipped"
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 2059,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-11-26T11:51:22.774Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "request-ids",
+                          "contentType": "text/plain",
+                          "body": "KG5vbmUp"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
                 }
               ],
               "id": "4c8b79794d93a5859957-d65603529a3cea25f78d",
@@ -667,8 +1319,28 @@
                   "expectedStatus": "passed",
                   "projectId": "probes",
                   "projectName": "probes",
-                  "results": [],
-                  "status": "skipped"
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 875,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-11-26T11:51:24.842Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "request-ids",
+                          "contentType": "text/plain",
+                          "body": "KG5vbmUp"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
                 }
               ],
               "id": "4c8b79794d93a5859957-27f900830bcad65f92b9",
@@ -690,8 +1362,28 @@
                   "expectedStatus": "passed",
                   "projectId": "probes",
                   "projectName": "probes",
-                  "results": [],
-                  "status": "skipped"
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 1929,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-11-26T11:51:25.727Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "request-ids",
+                          "contentType": "text/plain",
+                          "body": "KG5vbmUp"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
                 }
               ],
               "id": "4c8b79794d93a5859957-a9d9c51c6896152877dd",
@@ -713,8 +1405,28 @@
                   "expectedStatus": "passed",
                   "projectId": "probes",
                   "projectName": "probes",
-                  "results": [],
-                  "status": "skipped"
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 1295,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-11-26T11:51:27.664Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "request-ids",
+                          "contentType": "text/plain",
+                          "body": "KG5vbmUp"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
                 }
               ],
               "id": "4c8b79794d93a5859957-bc67927ed880ffb380ce",
@@ -736,8 +1448,28 @@
                   "expectedStatus": "passed",
                   "projectId": "probes",
                   "projectName": "probes",
-                  "results": [],
-                  "status": "skipped"
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 2530,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-11-26T11:51:28.969Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "request-ids",
+                          "contentType": "text/plain",
+                          "body": "KG5vbmUp"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
                 }
               ],
               "id": "4c8b79794d93a5859957-ac8c33d2aa7ef55c59fc",
@@ -759,8 +1491,28 @@
                   "expectedStatus": "passed",
                   "projectId": "probes",
                   "projectName": "probes",
-                  "results": [],
-                  "status": "skipped"
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 908,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-11-26T11:51:31.507Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "request-ids",
+                          "contentType": "text/plain",
+                          "body": "KG5vbmUp"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
                 }
               ],
               "id": "4c8b79794d93a5859957-b6549aea8b34b0f02546",
@@ -782,8 +1534,28 @@
                   "expectedStatus": "passed",
                   "projectId": "probes",
                   "projectName": "probes",
-                  "results": [],
-                  "status": "skipped"
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 554,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-11-26T11:51:32.425Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "request-ids",
+                          "contentType": "text/plain",
+                          "body": "KG5vbmUp"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
                 }
               ],
               "id": "4c8b79794d93a5859957-05fb1a960d1bbda8d77d",
@@ -805,8 +1577,28 @@
                   "expectedStatus": "passed",
                   "projectId": "probes",
                   "projectName": "probes",
-                  "results": [],
-                  "status": "skipped"
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 883,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-11-26T11:51:32.988Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "request-ids",
+                          "contentType": "text/plain",
+                          "body": "KG5vbmUp"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
                 }
               ],
               "id": "4c8b79794d93a5859957-ebf821e03f6e8a3cadf6",
@@ -845,8 +1637,28 @@
                   "expectedStatus": "passed",
                   "projectId": "probes",
                   "projectName": "probes",
-                  "results": [],
-                  "status": "skipped"
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 7189,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-11-26T11:51:33.948Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "request-ids",
+                          "contentType": "text/plain",
+                          "body": "KG5vbmUp"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
                 }
               ],
               "id": "9a2dd33a49eac9652716-ac5f086fd00f8629d703",
@@ -868,8 +1680,28 @@
                   "expectedStatus": "passed",
                   "projectId": "probes",
                   "projectName": "probes",
-                  "results": [],
-                  "status": "skipped"
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 5475,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-11-26T11:51:41.147Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "request-ids",
+                          "contentType": "text/plain",
+                          "body": "KG5vbmUp"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
                 }
               ],
               "id": "9a2dd33a49eac9652716-e13c039a6206a7af06a0",
@@ -887,12 +1719,42 @@
               "tests": [
                 {
                   "timeout": 90000,
-                  "annotations": [],
+                  "annotations": [
+                    {
+                      "type": "burst",
+                      "description": "20 parallel creates: 5 x 201, 15 x 429 (waited 0s for an empty window)"
+                    }
+                  ],
                   "expectedStatus": "passed",
                   "projectId": "probes",
                   "projectName": "probes",
-                  "results": [],
-                  "status": "skipped"
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 6317,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-11-26T11:51:46.630Z",
+                      "annotations": [
+                        {
+                          "type": "burst",
+                          "description": "20 parallel creates: 5 x 201, 15 x 429 (waited 0s for an empty window)"
+                        }
+                      ],
+                      "attachments": [
+                        {
+                          "name": "request-ids",
+                          "contentType": "text/plain",
+                          "body": "KG5vbmUp"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
                 }
               ],
               "id": "9a2dd33a49eac9652716-3aef3f5a80847582be0f",
@@ -914,8 +1776,28 @@
                   "expectedStatus": "passed",
                   "projectId": "probes",
                   "projectName": "probes",
-                  "results": [],
-                  "status": "skipped"
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 2775,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-11-26T11:51:52.957Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "request-ids",
+                          "contentType": "text/plain",
+                          "body": "KG5vbmUp"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
                 }
               ],
               "id": "9a2dd33a49eac9652716-425460290c1c029e780e",
@@ -937,8 +1819,28 @@
                   "expectedStatus": "passed",
                   "projectId": "probes",
                   "projectName": "probes",
-                  "results": [],
-                  "status": "skipped"
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 764,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-11-26T11:51:55.747Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "request-ids",
+                          "contentType": "text/plain",
+                          "body": "KG5vbmUp"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
                 }
               ],
               "id": "9a2dd33a49eac9652716-9c89cb9b28bf2b189301",
@@ -960,7 +1862,7 @@
         {
           "title": "staff write boundaries and stored script text @probe",
           "file": "probes/50-staff-writes.probe.spec.ts",
-          "line": 38,
+          "line": 43,
           "column": 6,
           "specs": [
             {
@@ -977,13 +1879,33 @@
                   "expectedStatus": "passed",
                   "projectId": "probes",
                   "projectName": "probes",
-                  "results": [],
-                  "status": "skipped"
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 1802,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-11-26T11:51:56.539Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "request-ids",
+                          "contentType": "text/plain",
+                          "body": "KG5vbmUp"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
                 }
               ],
               "id": "7cb534c70317a19ab718-1f2d38fe9ba2dce4c321",
               "file": "probes/50-staff-writes.probe.spec.ts",
-              "line": 39,
+              "line": 44,
               "column": 3
             },
             {
@@ -1000,13 +1922,33 @@
                   "expectedStatus": "passed",
                   "projectId": "probes",
                   "projectName": "probes",
-                  "results": [],
-                  "status": "skipped"
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 9930,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-11-26T11:51:58.351Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "request-ids",
+                          "contentType": "text/plain",
+                          "body": "KG5vbmUp"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
                 }
               ],
               "id": "7cb534c70317a19ab718-eb4a1820a339f9d748b3",
               "file": "probes/50-staff-writes.probe.spec.ts",
-              "line": 75,
+              "line": 80,
               "column": 3
             },
             {
@@ -1023,13 +1965,129 @@
                   "expectedStatus": "passed",
                   "projectId": "probes",
                   "projectName": "probes",
-                  "results": [],
-                  "status": "skipped"
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 1253,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-11-26T11:52:08.290Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "request-ids",
+                          "contentType": "text/plain",
+                          "body": "KG5vbmUp"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
                 }
               ],
               "id": "7cb534c70317a19ab718-5acf8b6c21cc5bcb9185",
               "file": "probes/50-staff-writes.probe.spec.ts",
-              "line": 169,
+              "line": 174,
+              "column": 3
+            },
+            {
+              "title": "@probe PRB-44 an unpaired surrogate or invalid UTF-8 in the staff note or in the search text is refused or handled, never a 5xx",
+              "ok": true,
+              "tags": [
+                "probe",
+                "probe"
+              ],
+              "tests": [
+                {
+                  "timeout": 90000,
+                  "annotations": [],
+                  "expectedStatus": "passed",
+                  "projectId": "probes",
+                  "projectName": "probes",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 2086,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-11-26T11:52:09.553Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "request-ids",
+                          "contentType": "text/plain",
+                          "body": "KG5vbmUp"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "7cb534c70317a19ab718-533ef7b04d79922d1461",
+              "file": "probes/50-staff-writes.probe.spec.ts",
+              "line": 189,
+              "column": 3
+            },
+            {
+              "title": "@probe PRB-45 BUG-QA2-4 a version above 2147483647 on a quote save or a status change is 422 naming version (409 is a bug), 2147483647 itself is a valid stale version (409), never a 5xx, and changes nothing",
+              "ok": true,
+              "tags": [
+                "probe",
+                "probe"
+              ],
+              "tests": [
+                {
+                  "timeout": 90000,
+                  "annotations": [
+                    {
+                      "type": "cases",
+                      "description": "24 requests (2 request ids x 6 versions x 2 writes)"
+                    }
+                  ],
+                  "expectedStatus": "passed",
+                  "projectId": "probes",
+                  "projectName": "probes",
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 3795,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-11-26T11:52:11.649Z",
+                      "annotations": [
+                        {
+                          "type": "cases",
+                          "description": "24 requests (2 request ids x 6 versions x 2 writes)"
+                        }
+                      ],
+                      "attachments": [
+                        {
+                          "name": "request-ids",
+                          "contentType": "text/plain",
+                          "body": "KG5vbmUp"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
+                }
+              ],
+              "id": "7cb534c70317a19ab718-6c3364c45fa90b9aac11",
+              "file": "probes/50-staff-writes.probe.spec.ts",
+              "line": 222,
               "column": 3
             },
             {
@@ -1046,13 +2104,38 @@
                   "expectedStatus": "passed",
                   "projectId": "probes",
                   "projectName": "probes",
-                  "results": [],
-                  "status": "skipped"
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 8707,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-11-26T11:52:15.455Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "request-ids",
+                          "contentType": "text/plain",
+                          "body": "MjAwIFBPU1QgL2FwaS9hdXRoL3NpZ24taW4geXVsMTo6eXVsMTo6MmpoNDgtMTc5NTY5MzkzNzA2Ny0zNjIzMmNlZTM5NzUKMjAwIEdFVCAvYXBpL3dlZWtseS1jb3VudHMvY3VycmVudCB5dWwxOjp5dWwxOjoyamg0OC0xNzk1NjkzOTM3NzY3LTgyYTUzOWZjYWY2OQoyMDAgR0VUIC9hcGkvc3RhZmYvbWUgeXVsMTo6eXVsMTo6a2dmbXMtMTc5NTY5MzkzNzc2Ny1iZjFhOGEwOTQxOWEKMjAwIEdFVCAvYXBpL3F1b3RlLXJlcXVlc3RzIHl1bDE6Onl1bDE6OjJqaDQ4LTE3OTU2OTM5Mzc3NjctN2U3MDQ4ODYyNGY0CjIwMCBHRVQgL2FwaS9zdGFmZi9tZSB5dWwxOjp5dWwxOjp2bm5nZC0xNzk1NjkzOTM4NjMzLWQwZmE1NGQ1OWVjMgoyMDAgR0VUIC9hcGkvcXVvdGUtcmVxdWVzdHMgeXVsMTo6eXVsMTo6dDZtenQtMTc5NTY5MzkzODYzMy1hNWQzYThhODJkNDMKMjAwIEdFVCAvYXBpL3dlZWtseS1jb3VudHMvY3VycmVudCB5dWwxOjp5dWwxOjoyamg0OC0xNzk1NjkzOTM4NjMzLTZmYzFjNDY3ZjBhNAoyMDAgR0VUIC9hcGkvcXVvdGUtcmVxdWVzdHMgeXVsMTo6eXVsMTo6aDZjcG0tMTc5NTY5MzkzODYzOS1mNTFhZmY5MTFmMWIKMjAwIEdFVCAvYXBpL3F1b3RlLXJlcXVlc3RzIHl1bDE6Onl1bDE6OnF3bmpuLTE3OTU2OTM5Mzg2NDAtODE4NjE3NTIzODBlCjIwMCBHRVQgL2FwaS9xdW90ZS1yZXF1ZXN0cyB5dWwxOjp5dWwxOjptdDJzNC0xNzk1NjkzOTM4NjQwLWFmMTcyNDBjZjQxZgoyMDAgR0VUIC9hcGkvcXVvdGUtcmVxdWVzdHMvOWNjZTE1NWEtYjYwNi00YTc4LTkyMTYtNWI2NDdlZTNiOTgxIHl1bDE6Onl1bDE6OnQ2bXp0LTE3OTU2OTM5Mzk1OTUtOTM0MTg2MmQ2YWUyCjIwMCBHRVQgL2FwaS9zdGFmZi9tZSB5dWwxOjp5dWwxOjpoNmNwbS0xNzk1NjkzOTM5NTk1LWU0MzNiODVhYWY3OAoyMDAgUE9TVCAvYXBpL2F1dGgvc2lnbi1pbiB5dWwxOjp5dWwxOjp2bm5nZC0xNzk1NjkzOTQwNjY2LWVhYTA3MmRhNjA5ZAoyMDAgR0VUIC9hcGkvc3RhZmYvbWUgeXVsMTo6eXVsMTo6dm5uZ2QtMTc5NTY5Mzk0MTIwMi0wMDhmZDE4MWRhMTAKMjAwIEdFVCAvYXBpL3dlZWtseS1jb3VudHMvY3VycmVudCB5dWwxOjp5dWwxOjp3azRzdy0xNzk1NjkzOTQxMjEwLWRmMDIyZTllNGY3ZgoyMDAgR0VUIC9hcGkvcXVvdGUtcmVxdWVzdHMgeXVsMTo6eXVsMTo6dzQyY2otMTc5NTY5Mzk0MTIwOS0yNzIyMDIwYWQ4YmEKMjAwIEdFVCAvYXBpL3N0YWZmL21lIHl1bDE6Onl1bDE6OmpwYnh0LTE3OTU2OTM5NDE5NzctM2VlZDY5NmU0ZDg0CjIwMCBHRVQgL2FwaS93ZWVrbHktY291bnRzL2N1cnJlbnQgeXVsMTo6eXVsMTo6OG1sdmQtMTc5NTY5Mzk0MTk3OC1lZGVmNGIwNzMzY2QKMjAwIEdFVCAvYXBpL3F1b3RlLXJlcXVlc3RzIHl1bDE6Onl1bDE6Onh0ZG1xLTE3OTU2OTM5NDE5ODQtODRmMjA0MjI2NTU4CjIwMCBHRVQgL2FwaS9xdW90ZS1yZXF1ZXN0cyB5dWwxOjp5dWwxOjo3amJkay0xNzk1NjkzOTQxOTg1LWIwZjc1Y2U3NTVjOQoyMDAgR0VUIC9hcGkvcXVvdGUtcmVxdWVzdHMgeXVsMTo6eXVsMTo6dm5uZ2QtMTc5NTY5Mzk0MTk4NS1iMGQ0MmE5MjU3YjYKMjAwIEdFVCAvYXBpL3F1b3RlLXJlcXVlc3RzIHl1bDE6Onl1bDE6OjlyOGZqLTE3OTU2OTM5NDE5ODUtNjBlZDFmNjQ1NTRhCjIwMCBHRVQgL2FwaS9zdGFmZi9tZSB5dWwxOjp5dWwxOjo5cjhmai0xNzk1NjkzOTQyOTQ5LTYzYWQyNWIyMzk3NgoyMDAgR0VUIC9hcGkvcXVvdGUtcmVxdWVzdHMvOWNjZTE1NWEtYjYwNi00YTc4LTkyMTYtNWI2NDdlZTNiOTgxIHl1bDE6Onl1bDE6OnZubmdkLTE3OTU2OTM5NDI5NTYtYjQzMjg4MTZhNmZh"
+                        },
+                        {
+                          "name": "aborted-requests",
+                          "contentType": "text/plain",
+                          "body": "R0VUIGh0dHBzOi8vbm9ydGhzaWRlLXF1b3Rlcy1naXQtc3RhZ2luZy1iYXNlbGVhcC52ZXJjZWwuYXBwL3JlcXVlc3RzLzViMDE3NjFkLTZiOGYtNDU0OS04MjM1LTUxZmI3YjhmZWM1MT9fcnNjPXAzUTU3Vm9jaE9xY1FOc2cgbmV0OjpFUlJfQUJPUlRFRApHRVQgaHR0cHM6Ly9ub3J0aHNpZGUtcXVvdGVzLWdpdC1zdGFnaW5nLWJhc2VsZWFwLnZlcmNlbC5hcHAvcmVxdWVzdHMvOWNjZTE1NWEtYjYwNi00YTc4LTkyMTYtNWI2NDdlZTNiOTgxP19yc2M9bkl6TGdGMU03bld4bkhsViBuZXQ6OkVSUl9BQk9SVEVECkdFVCBodHRwczovL25vcnRoc2lkZS1xdW90ZXMtZ2l0LXN0YWdpbmctYmFzZWxlYXAudmVyY2VsLmFwcC9yZXF1ZXN0cy80MGQwNzYxOC1lYzdmLTQ5NTItYmFiMC02M2NiOGMwNjgzMDY/X3JzYz1uSXpMZ0YxTTduV3huSGxWIG5ldDo6RVJSX0FCT1JURUQKR0VUIGh0dHBzOi8vbm9ydGhzaWRlLXF1b3Rlcy1naXQtc3RhZ2luZy1iYXNlbGVhcC52ZXJjZWwuYXBwL3BpcGVsaW5lLzQwZDA3NjE4LWVjN2YtNDk1Mi1iYWIwLTYzY2I4YzA2ODMwNj9fcnNjPTdxM3VzOFZWYm5nTm5SMVcgbmV0OjpFUlJfQUJPUlRFRApHRVQgaHR0cHM6Ly9ub3J0aHNpZGUtcXVvdGVzLWdpdC1zdGFnaW5nLWJhc2VsZWFwLnZlcmNlbC5hcHAvcmVxdWVzdHMvMDNlMmI2NDMtOWU3YS00NzMzLTg5M2ItZmFlMjExNTA2YzJjP19yc2M9bkl6TGdGMU03bld4bkhsViBuZXQ6OkVSUl9BQk9SVEVECkdFVCBodHRwczovL25vcnRoc2lkZS1xdW90ZXMtZ2l0LXN0YWdpbmctYmFzZWxlYXAudmVyY2VsLmFwcC9waXBlbGluZS80MGQwNzYxOC1lYzdmLTQ5NTItYmFiMC02M2NiOGMwNjgzMDY/X3JzYz03cTN1czhWVmJuZ05uUjFXIG5ldDo6RVJSX0FCT1JURUQKR0VUIGh0dHBzOi8vbm9ydGhzaWRlLXF1b3Rlcy1naXQtc3RhZ2luZy1iYXNlbGVhcC52ZXJjZWwuYXBwL3BpcGVsaW5lLzljY2UxNTVhLWI2MDYtNGE3OC05MjE2LTViNjQ3ZWUzYjk4MT9fcnNjPTdxM3VzOFZWYm5nTm5SMVcgbmV0OjpFUlJfQUJPUlRFRApHRVQgaHR0cHM6Ly9ub3J0aHNpZGUtcXVvdGVzLWdpdC1zdGFnaW5nLWJhc2VsZWFwLnZlcmNlbC5hcHAvcGlwZWxpbmUvZTMxYzMwYjYtMmU2Yy00OGYzLWFmY2QtNjljODcyNTM0YTg3P19yc2M9N3EzdXM4VlZibmdOblIxVyBuZXQ6OkVSUl9BQk9SVEVECkdFVCBodHRwczovL25vcnRoc2lkZS1xdW90ZXMtZ2l0LXN0YWdpbmctYmFzZWxlYXAudmVyY2VsLmFwcC9waXBlbGluZS81YjAxNzYxZC02YjhmLTQ1NDktODIzNS01MWZiN2I4ZmVjNTE/X3JzYz03cTN1czhWVmJuZ05uUjFXIG5ldDo6RVJSX0FCT1JURUQ="
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
                 }
               ],
               "id": "7cb534c70317a19ab718-6fe1068fdcfa031a880c",
               "file": "probes/50-staff-writes.probe.spec.ts",
-              "line": 184,
+              "line": 276,
               "column": 3
             }
           ]
@@ -1082,12 +2165,42 @@
               "tests": [
                 {
                   "timeout": 90000,
-                  "annotations": [],
+                  "annotations": [
+                    {
+                      "type": "throwaway-email",
+                      "description": "qa-probe-hqw4q-lock@example.test (no account; 20 attempts: 5 counted as failures, 15 refused)"
+                    }
+                  ],
                   "expectedStatus": "passed",
                   "projectId": "probes",
                   "projectName": "probes",
-                  "results": [],
-                  "status": "skipped"
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 2508,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-11-26T11:52:24.178Z",
+                      "annotations": [
+                        {
+                          "type": "throwaway-email",
+                          "description": "qa-probe-hqw4q-lock@example.test (no account; 20 attempts: 5 counted as failures, 15 refused)"
+                        }
+                      ],
+                      "attachments": [
+                        {
+                          "name": "request-ids",
+                          "contentType": "text/plain",
+                          "body": "KG5vbmUp"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
                 }
               ],
               "id": "3b81891fb658bd72fa59-d038f951c68a3f9bc0d1",
@@ -1109,8 +2222,28 @@
                   "expectedStatus": "passed",
                   "projectId": "probes",
                   "projectName": "probes",
-                  "results": [],
-                  "status": "skipped"
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 518,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-11-26T11:52:26.698Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "request-ids",
+                          "contentType": "text/plain",
+                          "body": "KG5vbmUp"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
                 }
               ],
               "id": "3b81891fb658bd72fa59-ce7520c87e8850f0ebee",
@@ -1128,12 +2261,42 @@
               "tests": [
                 {
                   "timeout": 90000,
-                  "annotations": [],
+                  "annotations": [
+                    {
+                      "type": "cases",
+                      "description": "6 sign-ins as the owner (successful), each in a fresh browser"
+                    }
+                  ],
                   "expectedStatus": "passed",
                   "projectId": "probes",
                   "projectName": "probes",
-                  "results": [],
-                  "status": "skipped"
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 7918,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-11-26T11:52:27.225Z",
+                      "annotations": [
+                        {
+                          "type": "cases",
+                          "description": "6 sign-ins as the owner (successful), each in a fresh browser"
+                        }
+                      ],
+                      "attachments": [
+                        {
+                          "name": "request-ids",
+                          "contentType": "text/plain",
+                          "body": "MjAwIFBPU1QgL2FwaS9hdXRoL3NpZ24taW4geXVsMTo6eXVsMTo6cjZ3NGItMTc5NTY5Mzk0ODAxNS1mNTlkMjdiZDhiYzYKMjAwIFBPU1QgL2FwaS9hdXRoL3NpZ24taW4geXVsMTo6eXVsMTo6OG1sdmQtMTc5NTY5Mzk0OTI5OC02ZDI1OTU5MzE5ZjAKMjAwIFBPU1QgL2FwaS9hdXRoL3NpZ24taW4geXVsMTo6eXVsMTo6bW1qeGYtMTc5NTY5Mzk1MDYwNC1iMjBmMjUxNGQ1NDIKMjAwIFBPU1QgL2FwaS9hdXRoL3NpZ24taW4geXVsMTo6eXVsMTo6d2s0c3ctMTc5NTY5Mzk1MTkxNy05YzQ2YTgwMTM3Y2YKMjAwIFBPU1QgL2FwaS9hdXRoL3NpZ24taW4geXVsMTo6eXVsMTo6dDZtenQtMTc5NTY5Mzk1MzE5NS00Yzg3MTI4YjNmZTkKMjAwIFBPU1QgL2FwaS9hdXRoL3NpZ24taW4geXVsMTo6eXVsMTo6OGJiNHQtMTc5NTY5Mzk1NDM5OC1lMmFmNDU0ZDJmMGY="
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
                 }
               ],
               "id": "3b81891fb658bd72fa59-43e0558c813dc5026439",
@@ -1172,8 +2335,28 @@
                   "expectedStatus": "passed",
                   "projectId": "probes",
                   "projectName": "probes",
-                  "results": [],
-                  "status": "skipped"
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 200,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-11-26T11:52:35.158Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "request-ids",
+                          "contentType": "text/plain",
+                          "body": "KG5vbmUp"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
                 }
               ],
               "id": "2897bd6078babb73e59b-98e59bf8ba31bac6f9e8",
@@ -1191,12 +2374,42 @@
               "tests": [
                 {
                   "timeout": 90000,
-                  "annotations": [],
+                  "annotations": [
+                    {
+                      "type": "checked",
+                      "description": "25 response bodies against the generated schema (60 list rows seen, 2 requests with photos)"
+                    }
+                  ],
                   "expectedStatus": "passed",
                   "projectId": "probes",
                   "projectName": "probes",
-                  "results": [],
-                  "status": "skipped"
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 4612,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-11-26T11:52:35.369Z",
+                      "annotations": [
+                        {
+                          "type": "checked",
+                          "description": "25 response bodies against the generated schema (60 list rows seen, 2 requests with photos)"
+                        }
+                      ],
+                      "attachments": [
+                        {
+                          "name": "request-ids",
+                          "contentType": "text/plain",
+                          "body": "KG5vbmUp"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
                 }
               ],
               "id": "2897bd6078babb73e59b-de69b9416a282696179b",
@@ -1218,8 +2431,28 @@
                   "expectedStatus": "passed",
                   "projectId": "probes",
                   "projectName": "probes",
-                  "results": [],
-                  "status": "skipped"
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 1613,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-11-26T11:52:39.989Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "request-ids",
+                          "contentType": "text/plain",
+                          "body": "KG5vbmUp"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
                 }
               ],
               "id": "2897bd6078babb73e59b-4c376f28af130f183e74",
@@ -1241,8 +2474,28 @@
                   "expectedStatus": "passed",
                   "projectId": "probes",
                   "projectName": "probes",
-                  "results": [],
-                  "status": "skipped"
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 1606,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-11-26T11:52:41.613Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "request-ids",
+                          "contentType": "text/plain",
+                          "body": "KG5vbmUp"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
                 }
               ],
               "id": "2897bd6078babb73e59b-941dfa6a0ea738bdb8d4",
@@ -1264,8 +2517,28 @@
                   "expectedStatus": "passed",
                   "projectId": "probes",
                   "projectName": "probes",
-                  "results": [],
-                  "status": "skipped"
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 4850,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-11-26T11:52:43.228Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "request-ids",
+                          "contentType": "text/plain",
+                          "body": "KG5vbmUp"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
                 }
               ],
               "id": "2897bd6078babb73e59b-c8f5bc41c7aaa92064ce",
@@ -1304,8 +2577,28 @@
                   "expectedStatus": "passed",
                   "projectId": "probes",
                   "projectName": "probes",
-                  "results": [],
-                  "status": "skipped"
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 614,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-11-26T11:52:48.092Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "request-ids",
+                          "contentType": "text/plain",
+                          "body": "KG5vbmUp"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
                 }
               ],
               "id": "c3bdc3425be12ffb9eaf-ec0dce6e77cfc8550120",
@@ -1327,8 +2620,28 @@
                   "expectedStatus": "passed",
                   "projectId": "probes",
                   "projectName": "probes",
-                  "results": [],
-                  "status": "skipped"
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 1263,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-11-26T11:52:48.718Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "request-ids",
+                          "contentType": "text/plain",
+                          "body": "KG5vbmUp"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
                 }
               ],
               "id": "c3bdc3425be12ffb9eaf-d9753219346037dcf0f9",
@@ -1346,12 +2659,47 @@
               "tests": [
                 {
                   "timeout": 90000,
-                  "annotations": [],
+                  "annotations": [
+                    {
+                      "type": "scanned",
+                      "description": "22 documents and scripts, 2 real secret values checked by value"
+                    }
+                  ],
                   "expectedStatus": "passed",
                   "projectId": "probes",
                   "projectName": "probes",
-                  "results": [],
-                  "status": "skipped"
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 4192,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-11-26T11:52:49.991Z",
+                      "annotations": [
+                        {
+                          "type": "scanned",
+                          "description": "22 documents and scripts, 2 real secret values checked by value"
+                        }
+                      ],
+                      "attachments": [
+                        {
+                          "name": "request-ids",
+                          "contentType": "text/plain",
+                          "body": "MjAwIFBPU1QgL2FwaS9hdXRoL3NpZ24taW4geXVsMTo6eXVsMTo6bXQyczQtMTc5NTY5Mzk3MTkyOS1mYjAzYjQ5NzdhMzYKMjAwIEdFVCAvYXBpL3N0YWZmL21lIHl1bDE6Onl1bDE6OnF3bmpuLTE3OTU2OTM5NzI0NDctZTkzOWYwMWJlMDE4CjIwMCBHRVQgL2FwaS9xdW90ZS1yZXF1ZXN0cyB5dWwxOjp5dWwxOjp4dGRtcS0xNzk1NjkzOTcyNDUzLTIxNTZiOTcyN2ZlNwoyMDAgR0VUIC9hcGkvd2Vla2x5LWNvdW50cy9jdXJyZW50IHl1bDE6Onl1bDE6Ojl6NGh3LTE3OTU2OTM5NzI0NTMtOWExNGRkOTU2NGNjCjIwMCBHRVQgL2FwaS9zdGFmZi9tZSB5dWwxOjp5dWwxOjptdDJzNC0xNzk1NjkzOTczMTkyLTEwNTA5NzMxNWI5ZgoyMDAgR0VUIC9hcGkvcXVvdGUtcmVxdWVzdHMgeXVsMTo6eXVsMTo6cXduam4tMTc5NTY5Mzk3MzIwMS1iN2U4NjJmOTM4MmEKMjAwIEdFVCAvYXBpL3F1b3RlLXJlcXVlc3RzIHl1bDE6Onl1bDE6OjlyOGZqLTE3OTU2OTM5NzMyMDEtMTAyMzcyYjg4MGJiCjIwMCBHRVQgL2FwaS93ZWVrbHktY291bnRzL2N1cnJlbnQgeXVsMTo6eXVsMTo6dDZtenQtMTc5NTY5Mzk3MzE5OS00OGEzMTExNmI0ODQKMjAwIEdFVCAvYXBpL3F1b3RlLXJlcXVlc3RzIHl1bDE6Onl1bDE6OjJqaDQ4LTE3OTU2OTM5NzMyMDEtMjNhMzY4YmRiMWM2CjIwMCBHRVQgL2FwaS9xdW90ZS1yZXF1ZXN0cy85Y2NlMTU1YS1iNjA2LTRhNzgtOTIxNi01YjY0N2VlM2I5ODEgeXVsMTo6eXVsMTo6OGJiNHQtMTc5NTY5Mzk3Mzc3MS05NDZmM2E2NjAzZGMKMjAwIEdFVCAvYXBpL3N0YWZmL21lIHl1bDE6Onl1bDE6OjhiYjR0LTE3OTU2OTM5NzM3NjUtZGM1NzI3YzljZmIy"
+                        },
+                        {
+                          "name": "aborted-requests",
+                          "contentType": "text/plain",
+                          "body": "R0VUIGh0dHBzOi8vbm9ydGhzaWRlLXF1b3Rlcy1naXQtc3RhZ2luZy1iYXNlbGVhcC52ZXJjZWwuYXBwL3JlcXVlc3RzLzQwN2IzOWY3LTg3MTctNDQ4NS1hNTE1LWY3ZTIwYjc0MTQ2MD9fcnNjPW5JekxnRjFNN25XeG5IbFYgbmV0OjpFUlJfQUJPUlRFRApHRVQgaHR0cHM6Ly9ub3J0aHNpZGUtcXVvdGVzLWdpdC1zdGFnaW5nLWJhc2VsZWFwLnZlcmNlbC5hcHAvcmVxdWVzdHMvMDNlMmI2NDMtOWU3YS00NzMzLTg5M2ItZmFlMjExNTA2YzJjP19yc2M9bkl6TGdGMU03bld4bkhsViBuZXQ6OkVSUl9BQk9SVEVECkdFVCBodHRwczovL25vcnRoc2lkZS1xdW90ZXMtZ2l0LXN0YWdpbmctYmFzZWxlYXAudmVyY2VsLmFwcC9hcGkvcXVvdGUtcmVxdWVzdHM/bGltaXQ9NTAmc3RhdHVzPXF1b3RlZCBuZXQ6OkVSUl9BQk9SVEVE"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
                 }
               ],
               "id": "c3bdc3425be12ffb9eaf-4e88b8fc831aa2254cc9",
@@ -1373,7 +2721,7 @@
         {
           "title": "photo bucket and create-route input @probe",
           "file": "probes/80-storage-and-create.probe.spec.ts",
-          "line": 90,
+          "line": 91,
           "column": 6,
           "specs": [
             {
@@ -1385,18 +2733,48 @@
               ],
               "tests": [
                 {
-                  "timeout": 90000,
-                  "annotations": [],
+                  "timeout": 634641,
+                  "annotations": [
+                    {
+                      "type": "rate-limit-wait",
+                      "description": "waited 544s for a submission slot (5 per 10 minutes per address)"
+                    }
+                  ],
                   "expectedStatus": "passed",
                   "projectId": "probes",
                   "projectName": "probes",
-                  "results": [],
-                  "status": "skipped"
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 565666,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-11-26T11:52:54.204Z",
+                      "annotations": [
+                        {
+                          "type": "rate-limit-wait",
+                          "description": "waited 544s for a submission slot (5 per 10 minutes per address)"
+                        }
+                      ],
+                      "attachments": [
+                        {
+                          "name": "request-ids",
+                          "contentType": "text/plain",
+                          "body": "KG5vbmUp"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
                 }
               ],
               "id": "d37fd92ee2ae5b677e79-22806f2eb76235cfe025",
               "file": "probes/80-storage-and-create.probe.spec.ts",
-              "line": 91,
+              "line": 92,
               "column": 3
             },
             {
@@ -1413,13 +2791,33 @@
                   "expectedStatus": "passed",
                   "projectId": "probes",
                   "projectName": "probes",
-                  "results": [],
-                  "status": "skipped"
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 3507,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-11-26T12:02:19.882Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "request-ids",
+                          "contentType": "text/plain",
+                          "body": "KG5vbmUp"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
                 }
               ],
               "id": "d37fd92ee2ae5b677e79-297fc30a199c2904e84b",
               "file": "probes/80-storage-and-create.probe.spec.ts",
-              "line": 113,
+              "line": 114,
               "column": 3
             },
             {
@@ -1436,13 +2834,33 @@
                   "expectedStatus": "passed",
                   "projectId": "probes",
                   "projectName": "probes",
-                  "results": [],
-                  "status": "skipped"
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 3107,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-11-26T12:02:23.401Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "request-ids",
+                          "contentType": "text/plain",
+                          "body": "KG5vbmUp"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
                 }
               ],
               "id": "d37fd92ee2ae5b677e79-5b1ff299e153bdefc49b",
               "file": "probes/80-storage-and-create.probe.spec.ts",
-              "line": 206,
+              "line": 207,
               "column": 3
             },
             {
@@ -1459,13 +2877,33 @@
                   "expectedStatus": "passed",
                   "projectId": "probes",
                   "projectName": "probes",
-                  "results": [],
-                  "status": "skipped"
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 4939,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-11-26T12:02:26.518Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "request-ids",
+                          "contentType": "text/plain",
+                          "body": "KG5vbmUp"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
                 }
               ],
               "id": "d37fd92ee2ae5b677e79-d02919d146db458eaa92",
               "file": "probes/80-storage-and-create.probe.spec.ts",
-              "line": 263,
+              "line": 264,
               "column": 3
             },
             {
@@ -1482,13 +2920,33 @@
                   "expectedStatus": "passed",
                   "projectId": "probes",
                   "projectName": "probes",
-                  "results": [],
-                  "status": "skipped"
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 6950,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-11-26T12:02:31.468Z",
+                      "annotations": [],
+                      "attachments": [
+                        {
+                          "name": "request-ids",
+                          "contentType": "text/plain",
+                          "body": "KG5vbmUp"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
                 }
               ],
               "id": "d37fd92ee2ae5b677e79-d0baff3bff9097782862",
               "file": "probes/80-storage-and-create.probe.spec.ts",
-              "line": 347,
+              "line": 348,
               "column": 3
             },
             {
@@ -1501,17 +2959,47 @@
               "tests": [
                 {
                   "timeout": 90000,
-                  "annotations": [],
+                  "annotations": [
+                    {
+                      "type": "accepted-edge-cases",
+                      "description": "INFO [name that is all emoji] was accepted as an update (200) | INFO [SQL-looking name] was accepted as an update (200) | INFO [PostgREST-looking problem] was accepted as an update (200) | INFO [website null] was accepted as an update (200) | INFO [marketing_consent null] was accepted as an update (200)"
+                    }
+                  ],
                   "expectedStatus": "passed",
                   "projectId": "probes",
                   "projectName": "probes",
-                  "results": [],
-                  "status": "skipped"
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 13111,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-11-26T12:02:38.427Z",
+                      "annotations": [
+                        {
+                          "type": "accepted-edge-cases",
+                          "description": "INFO [name that is all emoji] was accepted as an update (200) | INFO [SQL-looking name] was accepted as an update (200) | INFO [PostgREST-looking problem] was accepted as an update (200) | INFO [website null] was accepted as an update (200) | INFO [marketing_consent null] was accepted as an update (200)"
+                        }
+                      ],
+                      "attachments": [
+                        {
+                          "name": "request-ids",
+                          "contentType": "text/plain",
+                          "body": "KG5vbmUp"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
                 }
               ],
               "id": "d37fd92ee2ae5b677e79-264c44974ea7cdadba7c",
               "file": "probes/80-storage-and-create.probe.spec.ts",
-              "line": 396,
+              "line": 397,
               "column": 3
             },
             {
@@ -1524,17 +3012,47 @@
               "tests": [
                 {
                   "timeout": 90000,
-                  "annotations": [],
+                  "annotations": [
+                    {
+                      "type": "mass-assignment-create",
+                      "description": "all ten extra fields together: 422 validation_failed naming status, price_cents, reference, marketing_consent_at, id, ghl_contact_id, state, submitted_at, version, submission_key"
+                    }
+                  ],
                   "expectedStatus": "passed",
                   "projectId": "probes",
                   "projectName": "probes",
-                  "results": [],
-                  "status": "skipped"
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 8873,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-11-26T12:02:51.548Z",
+                      "annotations": [
+                        {
+                          "type": "mass-assignment-create",
+                          "description": "all ten extra fields together: 422 validation_failed naming status, price_cents, reference, marketing_consent_at, id, ghl_contact_id, state, submitted_at, version, submission_key"
+                        }
+                      ],
+                      "attachments": [
+                        {
+                          "name": "request-ids",
+                          "contentType": "text/plain",
+                          "body": "KG5vbmUp"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
                 }
               ],
               "id": "d37fd92ee2ae5b677e79-b54d807fe14b0e807d64",
               "file": "probes/80-storage-and-create.probe.spec.ts",
-              "line": 521,
+              "line": 535,
               "column": 3
             },
             {
@@ -1547,17 +3065,47 @@
               "tests": [
                 {
                   "timeout": 90000,
-                  "annotations": [],
+                  "annotations": [
+                    {
+                      "type": "visible-probe-requests",
+                      "description": "NQ-PXT8ZD, NQ-GNA3VU, NQ-SQGS23, NQ-EJTP2N, NQ-3D967A, NQ-22A4N8, NQ-ZM87Z3"
+                    }
+                  ],
                   "expectedStatus": "passed",
                   "projectId": "probes",
                   "projectName": "probes",
-                  "results": [],
-                  "status": "skipped"
+                  "results": [
+                    {
+                      "workerIndex": 0,
+                      "parallelIndex": 0,
+                      "status": "passed",
+                      "duration": 488,
+                      "errors": [],
+                      "stdout": [],
+                      "stderr": [],
+                      "retry": 0,
+                      "startTime": "2026-11-26T12:03:00.431Z",
+                      "annotations": [
+                        {
+                          "type": "visible-probe-requests",
+                          "description": "NQ-PXT8ZD, NQ-GNA3VU, NQ-SQGS23, NQ-EJTP2N, NQ-3D967A, NQ-22A4N8, NQ-ZM87Z3"
+                        }
+                      ],
+                      "attachments": [
+                        {
+                          "name": "request-ids",
+                          "contentType": "text/plain",
+                          "body": "KG5vbmUp"
+                        }
+                      ]
+                    }
+                  ],
+                  "status": "expected"
                 }
               ],
               "id": "d37fd92ee2ae5b677e79-617ecc38cb27ce871712",
               "file": "probes/80-storage-and-create.probe.spec.ts",
-              "line": 579,
+              "line": 595,
               "column": 3
             }
           ]
@@ -1567,10 +3115,10 @@
   ],
   "errors": [],
   "stats": {
-    "startTime": "2026-11-25T02:08:30.122Z",
-    "duration": 147.69099999999997,
-    "expected": 0,
-    "skipped": 53,
+    "startTime": "2026-11-26T11:50:36.845Z",
+    "duration": 744147.3910000001,
+    "expected": 55,
+    "skipped": 0,
     "unexpected": 0,
     "flaky": 0
   }

@@ -11,8 +11,8 @@ import { TAG } from '../support/pool';
 import type { Detail, StaffApi } from '../support/api';
 
 export const DV1_DIR = path.resolve(__dirname, '../../../docs/qa-reports/visual/DV1');
-/** The commit under test; the same default as fe2-screens.both.spec.ts (that spec checks it against /api/health). */
-export const EXPECTED_SHA = process.env.QA_EXPECTED_SHA ?? '42208a4';
+/** The commit under test as named by QA_EXPECTED_SHA; "unset" when the run did not name one (fe2-screens.both.spec.ts records the real version in deployment.json). */
+export const EXPECTED_SHA = process.env.QA_EXPECTED_SHA ?? 'unset';
 
 const AXE_SOURCE = fs.readFileSync(require.resolve('axe-core/axe.min.js'), 'utf8');
 
