@@ -13,10 +13,10 @@ on:
 permissions:
   contents: read
 
-# Concurrency is declared per job, not for the whole workflow (REV-3): a workflow-level `cancel-in-progress` would kill an
-# `api-tests` run halfway (before its cleanup) when a newer push arrives. Jobs that do not touch the staging database keep a
-# per-ref group (own name per job, so the jobs of one run never queue behind each other); `api-tests` takes the one global
-# `staging-db` group, shared with qa-smoke.yml, and is never cancelled while running.
+# Concurrency is declared per job, not for the whole workflow: a per-ref group with its own name per job, so the jobs of one run
+# never queue behind each other and a newer push cancels the older run of the same job. No job here touches a shared database
+# (`api-tests` makes its own inside the runner since OPS1, Nov 27); the one global `staging-db` group, which is never
+# cancelled while running, is now used only by qa-smoke.yml, whose QA suite writes to the real staging project (REV-3).
 
 defaults:
   run:
@@ -55,33 +55,18 @@ jobs:
       - run: npm run build
 
   api-tests:
-    # Backend tests against the staging Supabase project. Skipped for PRs from forks (they get no secrets).
-    if: github.event_name == 'push' || github.event.pull_request.head.repo.full_name == github.repository
-    # One run at a time against the one shared staging database, across every branch and workflow (REV-3). Never cancelled
-    # while running, so its cleanup always happens. (GitHub keeps one running and one waiting run per group.)
+    # Backend API tests on a THROWAWAY database made inside this job (OPS1, Nov 27, kit lesson K5): the runner starts the
+    # repository's own local Supabase stack in Docker, applies every migration, creates the two test staff accounts with fixed
+    # test passwords and runs the tests against it. No GitHub environment, no secret, no hosted project: a wrong or rotated
+    # staging password can no longer fail this check, and a fork's pull request can run it too. The real staging project is
+    # used only by qa-smoke.yml (the deployed preview). The same script runs on a laptop: docs/runbook.md, "How api-tests run".
+    # The staging-db concurrency group is dropped for this job (the database is private to the run, so nothing needs to queue),
+    # and a newer push may cancel an older run (nothing outside the runner is left half done).
     concurrency:
-      group: staging-db
-      cancel-in-progress: false
+      group: ci-api-tests-${{ github.ref }}
+      cancel-in-progress: true
     runs-on: ubuntu-24.04
-    timeout-minutes: 20
-    environment: staging
-    env:
-      # The tests read the app's own names and the staging names; both come from the staging environment.
-      NEXT_PUBLIC_SUPABASE_URL: ${{ secrets.SUPABASE_STAGING_URL }}
-      NEXT_PUBLIC_SUPABASE_ANON_KEY: ${{ secrets.SUPABASE_STAGING_ANON_KEY }}
-      SUPABASE_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_STAGING_SERVICE_ROLE_KEY }}
-      SUPABASE_STAGING_URL: ${{ secrets.SUPABASE_STAGING_URL }}
-      SUPABASE_STAGING_ANON_KEY: ${{ secrets.SUPABASE_STAGING_ANON_KEY }}
-      SUPABASE_STAGING_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_STAGING_SERVICE_ROLE_KEY }}
-      SUPABASE_STAGING_REF: ${{ vars.SUPABASE_STAGING_REF }}
-      PRODUCTION_HOSTS: ${{ vars.PRODUCTION_HOSTS }}
-      # OPS1 (Release 1 diagnosis): the backend and INT2 helpers (tests/helpers/staging-env.ts REQUIRED_STAGING_ENV, STAFF_PASSWORD_ENV)
-      # also need the staging database address, for the psql cleanup and fixtures, and the two staff passwords for the real
-      # sign-in tests (tests/api/auth/sign-in.test.ts, staff-me.test.ts). Without SUPABASE_STAGING_DB_URL every test of
-      # tests/integrations/routes/db.test.ts fails on its first line. All three live in the staging environment only.
-      SUPABASE_STAGING_DB_URL: ${{ secrets.SUPABASE_STAGING_DB_URL }}
-      QA_OWNER_PASSWORD: ${{ secrets.QA_OWNER_PASSWORD }}
-      QA_HELPER_PASSWORD: ${{ secrets.QA_HELPER_PASSWORD }}
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
         with:
@@ -90,35 +75,14 @@ jobs:
         with:
           node-version-file: .nvmrc
           cache: npm
+      # npm ci also installs the Supabase CLI (devDependency, pinned by the lockfile), so supabase/setup-cli is not needed.
+      # Docker and the PostgreSQL client (psql) ship with the ubuntu-24.04 runner image; the script stops with a clear message if psql is missing.
       - run: npm ci
-      - name: The staging settings and the psql client are present, and the database address connects (names and classes only; no value is printed)
-        run: |
-          missing=""
-          for name in NEXT_PUBLIC_SUPABASE_URL NEXT_PUBLIC_SUPABASE_ANON_KEY SUPABASE_SERVICE_ROLE_KEY SUPABASE_STAGING_DB_URL QA_OWNER_PASSWORD QA_HELPER_PASSWORD; do
-            if [ -z "${!name:-}" ]; then missing="$missing $name"; fi
-          done
-          if [ -n "$missing" ]; then
-            echo "::error::Not set (or empty) in the GitHub staging environment, so the staging tests cannot run:$missing. Add the matching secrets (SUPABASE_STAGING_URL, SUPABASE_STAGING_ANON_KEY, SUPABASE_STAGING_SERVICE_ROLE_KEY, SUPABASE_STAGING_DB_URL, QA_OWNER_PASSWORD, QA_HELPER_PASSWORD)."
-            exit 1
-          fi
-          # The tests clean up with psql (tests/helpers/staging.ts, inbox.ts). The runner image ships the PostgreSQL 16 client with its
-          # PostgreSQL package; if that ever changes, stop here with a clear message instead of 27 failing tests.
-          if ! command -v psql >/dev/null 2>&1; then
-            echo "::error::psql is not installed on this runner image; the staging tests need it for cleanup."
-            exit 1
-          fi
-          psql --version
-          # OPS1 (api-tests psql diagnosis): the tests' psql cleanup reports only "failed (exit 2)" by design, so a wrong
-          # SUPABASE_STAGING_DB_URL cost 16 suites and no explanation. This prints the shape of the address (yes/no and classes),
-          # runs `psql "$SUPABASE_STAGING_DB_URL" -c 'select 1'` once, names the failure class and fails here with what Matthew
-          # must fix. It never prints the value, user, password, host or psql's stderr, and never uses `set -x`.
-          # Fix steps: docs/runbook.md, "Staging database address for CI".
-          node .github/scripts/staging-db-check.mjs
-      # APP_SIGNING_SECRET and CRON_SECRET are deliberately NOT provided here (Vercel only); tests set their own.
-      # test:offline excludes tests/integrations/**/db.test.ts (they need the staging database), so those run here, named
-      # explicitly. A filter that matches no file is harmless while another one matches (the routes file lands from the
-      # backend lane).
-      - run: npm test -- tests/api tests/integrations/ghl/db.test.ts tests/integrations/routes/db.test.ts
+      # APP_SIGNING_SECRET and CRON_SECRET are deliberately NOT provided (Vercel only); the tests set their own.
+      # test:offline excludes tests/integrations/**/db.test.ts (they need a database), so those run here, named explicitly.
+      # The script sets every variable the tests read, and removes the ones that could aim them at a hosted project.
+      - name: Start the local Supabase stack, migrate, add the test staff, run the API and database tests
+        run: node .github/scripts/api-tests-local-db.mjs
 
   security:
     concurrency:
@@ -206,8 +170,8 @@ jobs:
           "$RUNNER_TEMP/bin/actionlint" -color
       - name: Release pre-flight rejects every unprotected setup (fixtures, no network)
         run: node .github/scripts/release-preflight.mjs --self-test
-      - name: Staging database address check classifies every suspected cause and never prints a value (fixtures, no network)
-        run: node .github/scripts/staging-db-check.mjs --self-test
+      - name: api-tests runner reads the stack status, scrubs the hosted-project guards and refuses non-local addresses (fixtures, no Docker)
+        run: node .github/scripts/api-tests-local-db.mjs --self-test
       - name: Policy (actions pinned to a full SHA, permissions declared, no privileged trigger)
         run: |
           fail=0
