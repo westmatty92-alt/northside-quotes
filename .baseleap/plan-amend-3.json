@@ -1,0 +1,29 @@
+{
+  "amend_reason": "SEC-28 source fix. Matthew approved one more QA1 attempt (escalation 01:43 UTC) but the gate-guard still enforces QA1's 3-attempt budget (kit gap K4), so the fix needs its own step. Scope: stop the E2E fixtures logging request URLs with query strings and stop committing the raw Playwright JSON report.",
+  "tasks": [
+    {
+      "id": "QA3",
+      "agent": "qa",
+      "phase": "verify",
+      "title": "SEC-28: no query strings or raw Playwright JSON in tracked QA output",
+      "description": "Log failed/aborted requests as origin + pathname only (tests/e2e/support/fixtures.ts), raw JSON reporter output to test-results/ (gitignored), and replace the tracked docs/qa-reports/playwright-results.json with a redacted summary (counts, durations, titles, pass/fail; no attachments, no URLs) that the run writes from now on. Check every tracked QA output file for tokens, bypass headers, auth cookies and JWTs (plain and base64). No assertion weakened.",
+      "acceptance": [
+        "a unit test proves a URL with ?token= and #frag is logged bare",
+        "raw Playwright JSON goes to test-results/ only",
+        "docs/qa-reports/playwright-results.json is a redacted summary with no attachments or URLs",
+        "no tracked file under docs/qa-reports/ or tests/e2e/ contains token=, x-vercel-protection-bypass, sb- auth cookies or eyJ JWTs, plain or base64"
+      ],
+      "out_of_scope": ["test assertions", "application code", "history rewrite"],
+      "depends_on": ["QA2"],
+      "files": ["tests/e2e/support/**", "playwright.config.ts", "docs/qa-reports/**"],
+      "verify": [
+        "npx vitest run tests/e2e/support --passWithNoTests=false",
+        "! grep -rlE 'token=|x-vercel-protection-bypass|sb-[a-z0-9]+-auth-token' docs/qa-reports",
+        "! grep -c '\"attachments\"' docs/qa-reports/playwright-results.json"
+      ],
+      "context": [".baseleap/reviews/SEC1.md (Leak triage)", "tests/e2e/support/fixtures.ts", "playwright.config.ts"],
+      "model": "opus",
+      "estimated_hours": 1
+    }
+  ]
+}
