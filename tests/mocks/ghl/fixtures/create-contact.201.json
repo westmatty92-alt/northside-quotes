@@ -1,0 +1,15 @@
+{
+  "contact": {
+    "id": "simcontact0000000001",
+    "locationId": "SIMLOCATION0000000001",
+    "name": "Sample Person",
+    "firstName": "Sample",
+    "lastName": "Person",
+    "email": "sample.person@example.test",
+    "phone": "+15555550100",
+    "address1": "1 Example Street",
+    "tags": ["quote-request", "quote-new"],
+    "type": "lead",
+    "dateAdded": "2026-11-20T12:00:00.000Z"
+  }
+}

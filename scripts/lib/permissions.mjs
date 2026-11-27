@@ -4,7 +4,8 @@
 import fs from 'node:fs';
 import path from 'node:path';
 
-export const LANES = { 'bl-frontend': 'wt-frontend', 'bl-backend': 'wt-backend' };
+// bl-integration shares wt-backend (Nov 23 2026, rehearsal INT2): see LANE_OF in ledger-core.mjs.
+export const LANES = { 'bl-frontend': 'wt-frontend', 'bl-backend': 'wt-backend', 'bl-integration': 'wt-backend' };
 
 export function loadPermissions(root) {
   const file = path.join(root, '.claude', 'permissions.json');

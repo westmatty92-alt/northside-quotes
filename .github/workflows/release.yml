@@ -1,0 +1,294 @@
+# .github/workflows/release.yml (owned by bl-devops). The ONLY path to production. Started by the push of a merged
+# staging-to-main pull request (after Gate 3); nothing else deploys production (Git deploys of main are off in vercel.json).
+#
+# APPROVAL: the job is bound to the GitHub `production` environment, which has Matthew's account as required reviewer, so it
+# waits for his approval before any production secret is readable. Repo is public: environment secrets are still only
+# released to a run on `main` that a reviewer approved (deployment branches: main only).
+#
+# Flow: approval
+#   -> drift check (Vercel variable names only, nothing decrypted)
+#   -> record the restore point (the production deployment live right now; none = first release)
+#   -> pull production settings, check the database is the one this app talks to (project refs only)
+#   -> migrations: list what is pending, then apply (production connection string; token A, no Supabase access token)
+#   -> prebuilt deploy WITHOUT domain assignment -> explicit promote
+#   -> read-only smoke (health must report THIS commit, every smokePaths entry 200)
+#   -> on failure: promote the RECORDED deployment back (Instant Rollback), then smoke must report the previous commit.
+#
+# Why explicit promote: after an Instant Rollback in the dashboard, Vercel stops auto-assigning the production domains to new
+# production deployments until one is promoted. Deploy + promote works in both states. The CLI is used only to pull, build and
+# deploy, with --token and NO --scope (the project is linked from VERCEL_ORG_ID + VERCEL_PROJECT_ID). Promote and rollback use
+# the Vercel REST API with ?teamId=; a rollback is the same promote call with the recorded deployment id.
+# CLI flags checked against vercel@65.16.0 (kit template, 2026-11-17): -t/--token, deploy --prebuilt --prod --skip-domain.
+# REST endpoints: GET /v13/deployments/{host|id}, POST /v10/projects/{project}/promote/{deploymentId}.
+# Migrations: `supabase migration list|up --remote=<url>` (flags per Supabase CLI v3 reference); the same CLI call the
+# staging scripts use (supabase/scripts/db.mjs). The database URL is a secret; GitHub masks it and lines that show it are dropped.
+name: release
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-production
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash # adds pipefail
+
+env:
+  VERCEL_CLI_VERSION: "65.16.0" # exact x.y.z of the `vercel` CLI; bump deliberately after re-running the release drill
+
+jobs:
+  release:
+    runs-on: ubuntu-24.04
+    timeout-minutes: 30
+    environment:
+      name: production
+      url: ${{ steps.deploy.outputs.url }}
+    env:
+      VERCEL_ORG_ID: ${{ vars.VERCEL_ORG_ID }}
+      VERCEL_PROJECT_ID: ${{ vars.VERCEL_PROJECT_ID }}
+      PRODUCTION_URL: ${{ vars.PRODUCTION_URL }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+
+      - name: Configuration is complete
+        run: |
+          : "${VERCEL_ORG_ID:?GitHub variable VERCEL_ORG_ID is not set in the production environment}"
+          : "${VERCEL_PROJECT_ID:?GitHub variable VERCEL_PROJECT_ID is not set in the production environment}"
+          : "${PRODUCTION_URL:?GitHub repository variable PRODUCTION_URL is not set}"
+          if ! [[ "$VERCEL_CLI_VERSION" =~ ^[0-9]+\.[0-9]+\.[0-9]+$ ]]; then
+            echo "::error::VERCEL_CLI_VERSION is not pinned to an exact version."; exit 1
+          fi
+
+      - run: npm ci # lockfile-exact; no secrets in this step
+      - run: npm install --global "vercel@${VERCEL_CLI_VERSION}" # no secrets in this step
+
+      - name: Environment drift check (names only, nothing decrypted)
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          VERCEL_TEAM_ID: ${{ vars.VERCEL_ORG_ID }}
+        run: node scripts/env-check.mjs --vercel
+
+      - name: Record the restore point (production deployment live right now)
+        id: restore
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          # Metadata only (id, url, commit); no env values are read.
+          host="${PRODUCTION_URL#https://}"
+          host="${host#http://}"
+          host="${host%%/*}"
+          code=$(curl --silent --show-error --max-time 30 \
+            --header "Authorization: Bearer ${VERCEL_TOKEN}" \
+            --output "$RUNNER_TEMP/restore.json" \
+            --write-out '%{http_code}' \
+            "https://api.vercel.com/v13/deployments/${host}?teamId=${VERCEL_ORG_ID}") || code=000
+          case "$code" in
+            200) ;;
+            404)
+              # Nothing has ever been live at this address (the failed import build of a new project is never aliased).
+              # Allowed once: this is the first release, so there is nothing to restore and nothing to break.
+              echo "::notice::No production deployment is live at ${host}: this is the first release, so there is no restore point."
+              printf 'id=\nurl=\nsha=\nfirst=true\n' >> "$GITHUB_OUTPUT"
+              exit 0 ;;
+            *)
+              echo "::error::Could not read the current production deployment of ${host} (HTTP ${code}); refusing to release without a restore point."
+              exit 1 ;;
+          esac
+          RESTORE_FILE="$RUNNER_TEMP/restore.json" node - <<'NODE'
+            const fs = require("fs");
+            const d = JSON.parse(fs.readFileSync(process.env.RESTORE_FILE, "utf8"));
+            const ok = (v, re) => typeof v === "string" && re.test(v);
+            if (!ok(d.id, /^dpl_[A-Za-z0-9]+$/) || !ok(d.url, /^[A-Za-z0-9.-]+$/)) {
+              console.error("::error::Unexpected deployment metadata; refusing to release without a restore point.");
+              process.exit(1);
+            }
+            const sha = d.meta && ok(d.meta.githubCommitSha, /^[0-9a-f]{40}$/) ? d.meta.githubCommitSha : "";
+            fs.appendFileSync(process.env.GITHUB_OUTPUT, `id=${d.id}\nurl=${d.url}\nsha=${sha}\nfirst=false\n`);
+          NODE
+
+      - name: Pull the production settings
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: vercel pull --yes --environment=production --token="$VERCEL_TOKEN"
+
+      # Token A (Matthew, Nov 19 2026): no Supabase personal access token anywhere (it reaches every organization the owner
+      # belongs to). Production migrations use the production database's own session-pooler connection string, stored only
+      # as a secret in this GitHub environment. With the connection string the project-ref and database-password variables
+      # are redundant, so this step proves the string is for the same project the production app talks to instead.
+      - name: The database to migrate is the one the production app uses (project refs only)
+        env:
+          SUPABASE_PRODUCTION_DB_URL: ${{ secrets.SUPABASE_PRODUCTION_DB_URL }}
+        run: |
+          node - <<'NODE'
+            const fs = require("fs");
+            const fail = (m) => { console.error(`::error::${m}`); process.exit(1); };
+            const raw = process.env.SUPABASE_PRODUCTION_DB_URL || "";
+            if (!raw) fail("Secret SUPABASE_PRODUCTION_DB_URL is not set in the production environment.");
+            let db;
+            try { db = new URL(raw); } catch { fail("SUPABASE_PRODUCTION_DB_URL is not a valid URL."); }
+            // GitHub masks the whole secret; also mask its parts so no later log line can show them.
+            for (const part of [db.password, decodeURIComponent(db.password), db.username, decodeURIComponent(db.username), db.hostname]) {
+              if (part && part.length >= 4) console.log(`::add-mask::${part}`);
+            }
+            if (!/^postgres(ql)?:$/.test(db.protocol)) fail("SUPABASE_PRODUCTION_DB_URL must be a postgresql:// URL.");
+            if (!/^aws-\d+-ca-central-1\.pooler\.supabase\.com$/.test(db.hostname)) fail("SUPABASE_PRODUCTION_DB_URL must be the Session pooler string of a ca-central-1 project.");
+            if (db.port !== "5432") fail("SUPABASE_PRODUCTION_DB_URL must use the Session pooler port 5432.");
+            const user = /^postgres\.([a-z0-9]{20})$/.exec(decodeURIComponent(db.username));
+            if (!user) fail("SUPABASE_PRODUCTION_DB_URL user must be postgres.<project ref>.");
+            const pulled = fs.readFileSync(".vercel/.env.production.local", "utf8");
+            const app = /^NEXT_PUBLIC_SUPABASE_URL="?([^"\r\n]*)"?\s*$/m.exec(pulled);
+            if (!app) fail("NEXT_PUBLIC_SUPABASE_URL is not set for Production in Vercel.");
+            let appHost = "";
+            try { appHost = new URL(app[1]).hostname; } catch { fail("Production NEXT_PUBLIC_SUPABASE_URL is not a valid URL."); }
+            const appRef = /^([a-z0-9]{20})\.supabase\.co$/.exec(appHost);
+            if (!appRef) fail("Production NEXT_PUBLIC_SUPABASE_URL is not a <project ref>.supabase.co address.");
+            if (appRef[1] !== user[1]) fail(`The database string is for project ${user[1]} but the production app uses project ${appRef[1]}; nothing was changed.`);
+            fs.appendFileSync(process.env.GITHUB_STEP_SUMMARY, `Database project ${user[1]} matches the production app's Supabase URL.\n`);
+            console.log(`Database project ${user[1]} matches the production app's Supabase URL.`);
+          NODE
+
+      - name: Migrations (pending list, then apply) on the production database only
+        env:
+          SUPABASE_PRODUCTION_DB_URL: ${{ secrets.SUPABASE_PRODUCTION_DB_URL }}
+        run: |
+          # The CLI gets the URL as an argument only, never as an environment variable of its own.
+          db_url="$SUPABASE_PRODUCTION_DB_URL"
+          env -u SUPABASE_PRODUCTION_DB_URL npx --no-install supabase migration list --remote="$db_url" --agent no 2>&1 \
+            | sed -E '/postgres(ql)?:\/\//d' | tee "$RUNNER_TEMP/migrations-pending.txt"
+          env -u SUPABASE_PRODUCTION_DB_URL npx --no-install supabase migration up --remote="$db_url" --yes --agent no 2>&1 \
+            | sed -E '/postgres(ql)?:\/\//d'
+
+      - name: Build and deploy the prebuilt output (not yet live)
+        id: deploy
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+        run: |
+          # The build runs without the token: it only needs the pulled project settings.
+          env -u VERCEL_TOKEN vercel build --prod
+          # --skip-domain: create the production deployment without assigning the domains; promoted next.
+          url=$(vercel deploy --prebuilt --prod --skip-domain --token="$VERCEL_TOKEN")
+          echo "url=$url" >> "$GITHUB_OUTPUT"
+
+      - name: Promote the new deployment to production (REST API)
+        id: promote
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          DEPLOY_URL: ${{ steps.deploy.outputs.url }}
+        run: |
+          host="${DEPLOY_URL#https://}"
+          host="${host#http://}"
+          host="${host%%/*}"
+          if ! [[ "$host" =~ ^[A-Za-z0-9.-]+$ ]]; then
+            echo "::error::Unexpected deployment address from vercel deploy."; exit 1
+          fi
+          if ! curl --silent --show-error --fail-with-body --max-time 60 \
+            --header "Authorization: Bearer ${VERCEL_TOKEN}" \
+            --output "$RUNNER_TEMP/new-deployment.json" \
+            --write-out 'lookup HTTP %{http_code}\n' \
+            "https://api.vercel.com/v13/deployments/${host}?teamId=${VERCEL_ORG_ID}"; then
+            echo "::error::Could not read the new deployment ${host}:"; cat "$RUNNER_TEMP/new-deployment.json"; echo; exit 1
+          fi
+          id=$(node -e 'const d=JSON.parse(require("fs").readFileSync(process.argv[1],"utf8")); process.stdout.write(typeof d.id==="string"?d.id:"")' "$RUNNER_TEMP/new-deployment.json")
+          if ! [[ "$id" =~ ^dpl_[A-Za-z0-9]+$ ]]; then
+            echo "::error::Unexpected deployment id for ${host}."; exit 1
+          fi
+          echo "id=$id" >> "$GITHUB_OUTPUT"
+          if ! curl --silent --show-error --fail-with-body --max-time 60 \
+            --request POST \
+            --header "Authorization: Bearer ${VERCEL_TOKEN}" \
+            --output "$RUNNER_TEMP/promote.json" \
+            --write-out 'promote HTTP %{http_code}\n' \
+            "https://api.vercel.com/v10/projects/${VERCEL_PROJECT_ID}/promote/${id}?teamId=${VERCEL_ORG_ID}"; then
+            echo "::error::Promote failed:"; cat "$RUNNER_TEMP/promote.json"; echo; exit 1
+          fi
+          echo "Promoted ${id} (${host})."
+
+      - name: Smoke check (read-only; health must report this commit)
+        id: smoke
+        env:
+          EXPECTED_SHA: ${{ github.sha }}
+        run: node scripts/smoke.mjs "$PRODUCTION_URL" "$EXPECTED_SHA" --wait 120
+
+      - name: Roll back to the recorded deployment (Instant Rollback)
+        id: rollback
+        if: failure() && steps.deploy.outcome == 'success' && steps.restore.outputs.first != 'true' && (steps.promote.outcome == 'failure' || steps.smoke.outcome == 'failure')
+        env:
+          VERCEL_TOKEN: ${{ secrets.VERCEL_TOKEN }}
+          RESTORE_ID: ${{ steps.restore.outputs.id }}
+        run: |
+          # Restore the KNOWN deployment recorded before this release, never "whatever was before".
+          if ! [[ "$RESTORE_ID" =~ ^dpl_[A-Za-z0-9]+$ ]]; then
+            echo "::error::No valid recorded deployment id to restore."; exit 1
+          fi
+          if ! curl --silent --show-error --fail-with-body --max-time 60 \
+            --request POST \
+            --header "Authorization: Bearer ${VERCEL_TOKEN}" \
+            --output "$RUNNER_TEMP/rollback.json" \
+            --write-out 'rollback HTTP %{http_code}\n' \
+            "https://api.vercel.com/v10/projects/${VERCEL_PROJECT_ID}/promote/${RESTORE_ID}?teamId=${VERCEL_ORG_ID}"; then
+            echo "::error::Rollback (promote of the recorded deployment) failed:"; cat "$RUNNER_TEMP/rollback.json"; echo; exit 1
+          fi
+          echo "::error::Release failed (promotion error, wrong or missing version, or a smoke path not 200): production restored to the recorded deployment. Migrations stay applied (expand/contract)."
+
+      - name: First release failed (nothing to roll back to)
+        if: failure() && steps.deploy.outcome == 'success' && steps.restore.outputs.first == 'true' && (steps.promote.outcome == 'failure' || steps.smoke.outcome == 'failure')
+        run: echo "::error::The first release failed its checks. No production deployment existed before it, so there is nothing to restore. Matthew decides next (docs/runbook.md, Incidents)."
+
+      - name: Smoke check after rollback (informational; must report the previous commit)
+        id: smoke_after
+        if: always() && steps.rollback.outcome == 'success'
+        continue-on-error: true
+        env:
+          PREVIOUS_SHA: ${{ steps.restore.outputs.sha }}
+        run: |
+          if [ -n "$PREVIOUS_SHA" ]; then
+            node scripts/smoke.mjs "$PRODUCTION_URL" "$PREVIOUS_SHA" --wait 60
+          else
+            echo "::warning::Restore point has no commit metadata; checking paths only."
+            node scripts/smoke.mjs "$PRODUCTION_URL" --wait 60
+          fi
+
+      - name: Release summary
+        if: always()
+        env:
+          DEPLOY_URL: ${{ steps.deploy.outputs.url }}
+          RESTORE_ID: ${{ steps.restore.outputs.id }}
+          RESTORE_URL: ${{ steps.restore.outputs.url }}
+          RESTORE_SHA: ${{ steps.restore.outputs.sha }}
+          FIRST: ${{ steps.restore.outputs.first }}
+          PROMOTE: ${{ steps.promote.outcome }}
+          SMOKE: ${{ steps.smoke.outcome }}
+          ROLLBACK: ${{ steps.rollback.outcome }}
+          SMOKE_AFTER: ${{ steps.smoke_after.outcome }}
+        run: |
+          {
+            echo "### Release ${GITHUB_SHA::7}"
+            if [ "$FIRST" = "true" ]; then
+              echo "- Restore point: none (first release; nothing was live before)"
+            else
+              echo "- Restore point: ${RESTORE_URL:-not recorded} (${RESTORE_ID:-no id}, commit ${RESTORE_SHA:0:7})"
+            fi
+            echo "- New deployment: ${DEPLOY_URL:-not deployed}"
+            echo "- Promoted to production: ${PROMOTE:-skipped}"
+            echo "- Smoke: ${SMOKE:-skipped}"
+            echo "- Rollback to the recorded deployment: ${ROLLBACK:-skipped} (smoke on the previous commit afterwards: ${SMOKE_AFTER:-skipped})"
+            echo "- Manual rollback: Vercel dashboard > Deployments > last good production deployment > Instant Rollback; the next release promotes explicitly"
+            if [ -f "$RUNNER_TEMP/migrations-pending.txt" ]; then
+              echo "- Migrations (pending list taken before applying):"
+              echo '```'
+              cat "$RUNNER_TEMP/migrations-pending.txt"
+              echo '```'
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"

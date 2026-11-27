@@ -1,0 +1,99 @@
+# .github/workflows/qa-smoke.yml (owned by bl-devops). Smoke checks on every successful deployment of `staging`.
+#
+# Vercel creates the GitHub deployment with ref = the commit SHA (never the branch name) and environment = Preview, and only
+# when Settings > Git > "deployment_status Events" is on. So "is this staging?" = the deployment's sha equals the head of the
+# staging branch. Never test deployment.ref == 'staging' (always false). GitHub runs deployment_status workflows from the
+# deployment's commit, so a fix pushed to staging takes effect on its own deployment.
+#
+# Step 1 is ours and always runs: scripts/smoke.mjs (health reports this commit, every smokePaths entry answers 200).
+# Step 2 is QA's @smoke Playwright run; it starts once QA has committed playwright.config.ts.
+name: qa-smoke
+
+on:
+  deployment_status:
+
+permissions:
+  contents: read
+
+defaults:
+  run:
+    shell: bash # adds pipefail
+
+jobs:
+  gate:
+    if: github.event.deployment_status.state == 'success' && github.event.deployment.environment == 'Preview'
+    runs-on: ubuntu-24.04
+    timeout-minutes: 5
+    outputs:
+      staging: ${{ steps.head.outputs.staging }}
+    env:
+      GH_TOKEN: ${{ github.token }}
+      DEPLOY_SHA: ${{ github.event.deployment.sha }}
+      REPO: ${{ github.repository }}
+    steps:
+      - name: Is this deployment the head of staging?
+        id: head
+        run: |
+          staging_sha=$(gh api "repos/${REPO}/branches/staging" --jq .commit.sha)
+          if [ -n "$staging_sha" ] && [ "$DEPLOY_SHA" = "$staging_sha" ]; then
+            echo "staging=true" >> "$GITHUB_OUTPUT"
+            echo "Staging deployment of ${DEPLOY_SHA}: running smoke." >> "$GITHUB_STEP_SUMMARY"
+          else
+            echo "staging=false" >> "$GITHUB_OUTPUT"
+            echo "Deployment ${DEPLOY_SHA} is not staging (head is ${staging_sha}): skipped." >> "$GITHUB_STEP_SUMMARY"
+          fi
+
+  smoke:
+    needs: gate
+    if: needs.gate.outputs.staging == 'true'
+    # On this job only, so skipped lane deploys cannot cancel a running staging check. The QA suite signs in and writes to
+    # the shared staging database, so it takes the same global group as ci.yml `api-tests` (REV-3) and is never cancelled
+    # while running; a newer waiting run replaces an older waiting one.
+    concurrency:
+      group: staging-db
+      cancel-in-progress: false
+    runs-on: ubuntu-24.04
+    timeout-minutes: 20
+    environment: staging
+    env:
+      STAGING_URL: ${{ github.event.deployment_status.environment_url }}
+      DEPLOY_SHA: ${{ github.event.deployment.sha }}
+      PRODUCTION_HOSTS: ${{ vars.PRODUCTION_HOSTS }}
+      VERCEL_AUTOMATION_BYPASS_SECRET: ${{ secrets.VERCEL_AUTOMATION_BYPASS_SECRET }}
+      SUPABASE_STAGING_URL: ${{ secrets.SUPABASE_STAGING_URL }}
+      SUPABASE_STAGING_ANON_KEY: ${{ secrets.SUPABASE_STAGING_ANON_KEY }}
+      SUPABASE_STAGING_SERVICE_ROLE_KEY: ${{ secrets.SUPABASE_STAGING_SERVICE_ROLE_KEY }}
+      QA_OWNER_EMAIL: ${{ secrets.QA_OWNER_EMAIL }}
+      QA_OWNER_PASSWORD: ${{ secrets.QA_OWNER_PASSWORD }}
+      QA_HELPER_EMAIL: ${{ secrets.QA_HELPER_EMAIL }}
+      QA_HELPER_PASSWORD: ${{ secrets.QA_HELPER_PASSWORD }}
+    steps:
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          ref: ${{ github.event.deployment.sha }}
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - name: Smoke check of this exact deployment (read-only; health must report this commit)
+        run: node scripts/smoke.mjs "$STAGING_URL" "$DEPLOY_SHA" --wait 120
+      - name: QA suite
+        id: qa
+        if: hashFiles('playwright.config.ts') != ''
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+          npx playwright test --grep @smoke
+      - name: QA suite not present yet
+        if: hashFiles('playwright.config.ts') == ''
+        run: echo "::notice::playwright.config.ts is not in the repo yet (QA's step); only the DevOps smoke check ran."
+      - if: always() && steps.qa.outcome != 'skipped'
+        uses: actions/upload-artifact@cf430e030ddbb5b0abf93d22962f4752f3646cd9 # v7.0.2
+        with:
+          name: qa-smoke
+          path: |
+            docs/qa-reports/
+            .baseleap/reports/playwright-html/
+          if-no-files-found: ignore
+          retention-days: 14

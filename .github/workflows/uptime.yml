@@ -1,0 +1,73 @@
+# .github/workflows/uptime.yml (owned by bl-devops). Scheduled read-only smoke check of production; one issue per outage.
+#
+# The repository is public (Matthew's choice), so Actions minutes are free; the schedule stays modest anyway: every 30
+# minutes, a run takes well under a minute. GitHub may delay scheduled runs, and disables scheduled workflows in a public
+# repository after 60 days without repository activity (docs/runbook.md, "Uptime"). Schedules only run from the default
+# branch, so this starts working after the first release PR (staging to main) is merged.
+# No paid uptime service (spend gate). The issue notifies Matthew; it is closed when production recovers.
+name: uptime
+
+on:
+  schedule:
+    - cron: "11,41 * * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: uptime
+  cancel-in-progress: false
+
+defaults:
+  run:
+    shell: bash # adds pipefail
+
+jobs:
+  check:
+    runs-on: ubuntu-24.04
+    # Only this job writes, and only issues.
+    permissions:
+      contents: read
+      issues: write
+    timeout-minutes: 5
+    env:
+      PRODUCTION_URL: ${{ vars.PRODUCTION_URL }}
+    steps:
+      - name: Configuration is complete
+        run: |
+          : "${PRODUCTION_URL:?GitHub repository variable PRODUCTION_URL is not set}"
+      - uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7.0.1
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@949feb2413d6458794dcd2491c4babbbce0c15c1 # v7.1.0
+        with:
+          node-version-file: .nvmrc
+      - name: Smoke check production (read-only; waits 30 s to ride out a blip)
+        id: smoke
+        continue-on-error: true
+        run: node scripts/smoke.mjs "$PRODUCTION_URL" --wait 30 > smoke.txt 2>&1
+      - name: Open or update the uptime issue
+        if: steps.smoke.outcome == 'failure'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          gh label create uptime --color B60205 --description "Production smoke check failing" --force >/dev/null
+          fence="\`\`\`"
+          body="$(printf 'Production smoke check failed at %s.\n\n%s\n%s\n%s\nRunbook: docs/runbook.md (Incidents)' "$(date -u +%FT%TZ)" "$fence" "$(cat smoke.txt)" "$fence")"
+          n=$(gh issue list --label uptime --state open --json number --jq '.[0].number')
+          if [ -n "$n" ]; then
+            gh issue comment "$n" --body "$body"
+          else
+            gh issue create --title "Production is down" --label uptime --body "$body"
+          fi
+          exit 1
+      - name: Close the uptime issue on recovery
+        if: steps.smoke.outcome == 'success'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          n=$(gh issue list --label uptime --state open --json number --jq '.[0].number')
+          if [ -n "$n" ]; then
+            gh issue close "$n" --comment "Recovered at $(date -u +%FT%TZ)."
+          fi

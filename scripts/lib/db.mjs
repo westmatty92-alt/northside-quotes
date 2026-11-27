@@ -41,6 +41,26 @@ function need(name) {
   return v;
 }
 
+
+/**
+ * fetch with a retry on network errors only (never on an HTTP error status).
+ * A long verify blocks the process for many minutes; the pooled keep-alive socket
+ * then goes stale and the next request dies with "fetch failed" (rehearsal QA1, Nov 24 2026).
+ * Retrying opens a fresh connection.
+ */
+export async function fetchWithRetry(url, init, { tries = 3, delayMs = 750, fetchImpl = fetch } = {}) {
+  let last;
+  for (let i = 0; i < tries; i++) {
+    try {
+      return await fetchImpl(url, init);
+    } catch (e) {
+      last = e;
+      if (i < tries - 1) await new Promise((r) => setTimeout(r, delayMs * (i + 1)));
+    }
+  }
+  throw last;
+}
+
 export class LedgerConfigError extends Error {}
 
 // ---------------------------------------------------------------------------
@@ -77,11 +97,9 @@ class SupabaseAdapter {
   }
 
   async req(method, table, { filters, body, opts, token } = {}) {
-    const res = await fetch(`${this.url}/rest/v1/${table}${this.qs(filters, opts)}`, {
-      method,
-      headers: this.headers(token),
-      body: body === undefined ? undefined : JSON.stringify(body),
-    });
+    const url = `${this.url}/rest/v1/${table}${this.qs(filters, opts)}`;
+    const init = { method, headers: this.headers(token), body: body === undefined ? undefined : JSON.stringify(body) };
+    const res = await fetchWithRetry(url, init);
     const text = await res.text();
     if (!res.ok) throw new Error(`${method} ${table} failed (${res.status}): ${text.slice(0, 400)}`);
     return text ? JSON.parse(text) : [];

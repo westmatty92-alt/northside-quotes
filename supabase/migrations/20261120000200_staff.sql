@@ -21,6 +21,11 @@ create trigger staff_set_updated_at before update on public.staff
 -- 7 days ago. Supabase Free cannot time-box sessions, so the 7-day rule (FR-9) lives here and
 -- every staff policy and RPC inherits it. Fails closed: no session_id, no staff row, or an old
 -- session all give false.
+-- Forced RLS (S0 SEC-1): this definer function reads public.staff as its owner, postgres. On
+-- Supabase postgres has BYPASSRLS, so forced RLS does not apply to it (Supabase RLS guide, cited in
+-- docs/SECURITY_MODEL.md). supabase/tests/rls/all_tables.sql asserts that attribute. If it were
+-- ever missing, the staff policies would apply to postgres (a member of authenticated) and this
+-- function would error or return false: staff would read nothing (fail closed), never more.
 create or replace function app_private.is_staff() returns boolean
 language sql
 stable
@@ -56,10 +61,14 @@ $$;
 revoke all on function public.current_staff() from public, anon;
 grant execute on function public.current_staff() to authenticated, service_role;
 
--- RLS: every table, same migration
+-- RLS: every table, same migration, enabled AND forced (S0 SEC-1). Grants are explicit so the
+-- result does not depend on the project's default privileges (S0 SEC-17; revoke all also removes
+-- Postgres 17's MAINTAIN).
 alter table public.staff enable row level security;
-revoke all on table public.staff from anon;
-revoke insert, update, delete, truncate, references, trigger on table public.staff from authenticated;
+alter table public.staff force row level security;
+revoke all on table public.staff from anon, authenticated, service_role;
+grant select on table public.staff to authenticated;
+grant select on table public.staff to service_role;
 
 drop policy if exists staff_select_staff on public.staff;
 create policy staff_select_staff on public.staff

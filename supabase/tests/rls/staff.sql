@@ -3,6 +3,7 @@
 -- no staff row (should never exist, sign-up is off); the owner's second session is 8 days old.
 -- Each identity sets BOTH claim settings (request.jwt.claims and request.jwt.claim.sub).
 begin;
+create extension if not exists pgtap with schema extensions;  -- test-only; removed again by the rollback (S0 SEC-18)
 select no_plan();
 
 insert into auth.users (id, email, aud, role) values
@@ -19,12 +20,19 @@ insert into public.staff (user_id, display_name) values
   ('a0000000-0000-4000-8000-000000000002', 'Office helper');
 
 select ok((select relrowsecurity from pg_class where oid = 'public.staff'::regclass), 'staff: RLS is enabled');
+select ok((select relforcerowsecurity from pg_class where oid = 'public.staff'::regclass), 'staff: RLS is forced');
+
+-- The real staff accounts may already exist on this database (staging has owner@ and helper@ since A2).
+-- So "sees every staff row" compares with the total read here as the table owner, not with a literal 2.
+select set_config('test.staff_total', (select count(*) from public.staff)::text, true);
 
 -- owner, fresh session
 set local "request.jwt.claims" to '{"sub":"a0000000-0000-4000-8000-000000000001","role":"authenticated","session_id":"b0000000-0000-4000-8000-000000000001"}';
 set local "request.jwt.claim.sub" to 'a0000000-0000-4000-8000-000000000001';
 set local role authenticated;
-select is((select count(*) from public.staff), 2::bigint, 'owner sees both staff rows');
+select is((select count(*) from public.staff), current_setting('test.staff_total')::bigint, 'owner sees every staff row');
+select is((select count(*) from public.staff where user_id in ('a0000000-0000-4000-8000-000000000001', 'a0000000-0000-4000-8000-000000000002')),
+  2::bigint, 'owner sees both fixture staff rows');
 select is((select display_name from public.current_staff()), 'Owner', 'current_staff() names the owner');
 select throws_ok($$ insert into public.staff (user_id, display_name) values ('a0000000-0000-4000-8000-000000000003', 'Intruder') $$,
   '42501', null, 'owner cannot add staff (no in-app user management)');
@@ -35,7 +43,9 @@ reset role;
 set local "request.jwt.claims" to '{"sub":"a0000000-0000-4000-8000-000000000002","role":"authenticated","session_id":"b0000000-0000-4000-8000-000000000002"}';
 set local "request.jwt.claim.sub" to 'a0000000-0000-4000-8000-000000000002';
 set local role authenticated;
-select is((select count(*) from public.staff), 2::bigint, 'helper sees both staff rows');
+select is((select count(*) from public.staff), current_setting('test.staff_total')::bigint, 'helper sees every staff row');
+select is((select count(*) from public.staff where user_id in ('a0000000-0000-4000-8000-000000000001', 'a0000000-0000-4000-8000-000000000002')),
+  2::bigint, 'helper sees both fixture staff rows');
 reset role;
 
 -- owner with a session older than 7 days

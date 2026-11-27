@@ -1,0 +1,41 @@
+# Schemathesis settings for tests/fuzz/run.mjs (passed with --config-file). Everything else is on the command line.
+#
+# request_id is pinned to one well-formed uuid that no request has.
+#
+# Why (second ledger run, staging dfaaa6c, 2026-11-24): in its coverage phase Schemathesis tries an EMPTY request_id as
+# negative data. The URL then loses that segment and lands on a different, valid route of the app:
+#   POST /api/quote-requests/{id}/submission with an empty id  ->  POST /api/quote-requests/submission  ->  405
+#   (the same for PUT .../quote, POST .../status-changes and POST .../ghl-copy-retries: 4 operations x 2 runs)
+#   GET  /api/quote-requests/{id}               with an empty id  ->  GET  /api/quote-requests/            ->  200 list page
+# The app answered each of those correctly for the URL it really received (405 problem+json for a method the route does
+# not have, the list page for the list route). Schemathesis then judged the answer against the operation it thought it
+# was testing and reported 16 "undocumented status / accepted negative data", 1 "response violates schema" and 1 more
+# "accepted negative data" (18 of the 21 failures). None of them is a statement about the operation under test.
+#
+# What this keeps: every body, query and header case on those five operations (the 500s found in the first run were
+# all body cases on an unknown id, so validation runs before the lookup and still gets fuzzed), and the documented 404
+# for an id that does not exist.
+# What this gives up, stated plainly: Schemathesis no longer varies the id itself (non-uuid text, empty, too long).
+# That is covered by probe PRB-04 (malformed ids never 5xx and leak nothing) in tests/e2e/probes, not by the fuzz run.
+# No check is switched off by this file.
+[parameters]
+request_id = "00000000-0000-4000-8000-000000000000"
+
+# positive_data_acceptance is off for ONE operation: GET /quote-requests (operationId listQuoteRequests). Nothing else.
+#
+# Why (architect ruling, A3, staging 4b20835): a cursor the API did not issue is answered 400 bad_request, and that is the
+# contract (docs/openapi.yaml, components/parameters/Cursor, now with the pattern ^c1\.[A-Za-z0-9_-]+$ and a 400
+# description). A pattern cannot say "decodes to a valid time and id", so Schemathesis still generates cursors that match
+# the pattern and are not ones the API issued, and the server rightly answers 400. The check reads that documented 400 as
+# "rejected positive data". It is a statement about what a schema pattern can express, not about the product.
+# What stays on for this operation: not_a_server_error, status_code_conformance, content_type_conformance,
+# response_schema_conformance, response_headers_conformance, negative_data_rejection. Every other operation keeps
+# positive_data_acceptance too (this is how the two `version` findings are judged after the A3 maximum).
+# Matched by operationId, a single filter: include-path and include-method together would be an OR in Schemathesis 4.0.0
+# (two separate include filters) and would switch the check off for every GET and for POST /quote-requests as well.
+# Bad cursors are also probed by PRB-66 (list parameters at their edges, never a 5xx), which this change does not touch.
+[[operations]]
+include-operation-id = "listQuoteRequests"
+
+[operations.checks.positive_data_acceptance]
+enabled = false

@@ -1,40 +1,37 @@
 <!doctype html>
-<!-- SCR-05 · Inbox, Board view · Stories: US-016 · State: errors (AC-016.15 board cannot load, AC-016.13 save failed and card returns, AC-016.12 changed by someone else, AC-016.14 session expired) -->
+<!-- SCR-05 · Pipeline tab · Stories: US-016 · State: errors (AC-016.15 board cannot load, AC-016.13 save failed and card returns, AC-016.12 changed by someone else, AC-016.14 session expired) -->
 <html lang="en-CA">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>SCR-05 · Inbox, Board view · errors</title>
+  <title>SCR-05 · Pipeline · errors</title>
   <link rel="stylesheet" href="./tokens.css">
+  <link rel="stylesheet" href="./fonts.css">
   <link rel="stylesheet" href="./app.css">
 </head>
-<body>
-  <a class="skip" href="#main">Skip to the board</a>
+<body class="has-tabs">
+  <a class="skip" href="#main">Skip to the pipeline</a>
   <header class="nav on-dark">
     <div class="nav-inner">
-      <a class="brand" href="#main">Northside Plumbing</a>
-      <nav class="nav-links" aria-label="Main">
-        <a class="nav-link" href="#main" aria-current="page">Inbox</a>
-        <span class="nav-user">Signed in as Owner</span>
-        <button class="btn-nav" type="button"><span class="ic ic-sm ic-out" aria-hidden="true"></span>Sign out</button>
+      <a class="brand" href="#main" aria-label="Northside Plumbing, Requests"><svg class="wordmark" viewBox="0 0 260 64" role="img" aria-label="Northside Plumbing, Hamilton"><path class="wm-pipe-line" d="M10 54 V30 a14 14 0 0 1 14 -14 H44"/><rect class="wm-pipe" x="40" y="9" width="10" height="14" rx="2"/><rect class="wm-pipe" x="5" y="50" width="10" height="10" rx="2"/><text class="wm-name" x="62" y="36">NORTHSIDE</text><text class="wm-sub" x="63" y="55">PLUMBING · HAMILTON</text></svg></a>
+      <nav class="nav-tabs" aria-label="Main">
+        <a class="nav-tab" href="#main"><span class="ic ic-sm ic-list" aria-hidden="true"></span>Requests</a>
+        <a class="nav-tab" href="#main" aria-current="page"><span class="ic ic-sm ic-board" aria-hidden="true"></span>Pipeline</a>
       </nav>
+      <div class="nav-end"><span class="nav-user">Signed in as Owner</span><button class="btn-nav" type="button"><span class="ic ic-sm ic-out" aria-hidden="true"></span>Sign out</button></div>
     </div>
   </header>
 
   <main id="main" class="page page-wide">
-    <div class="page-head"><h1>Inbox</h1></div>
+    <div class="page-head"><h1>Pipeline</h1></div>
 
     <section class="stack" aria-labelledby="e1-h">
-      <h2 id="e1-h" class="sheet-label">1. THE BOARD CANNOT LOAD (AC-016.15)</h2>
-      <div class="segments segments-wide" role="group" aria-label="View">
-        <a class="segment" href="#main"><span class="ic ic-sm ic-list" aria-hidden="true"></span>List</a>
-        <a class="segment is-active" href="#main" aria-current="true"><span class="ic ic-sm ic-board" aria-hidden="true"></span>Board</a>
-      </div>
+      <h2 id="e1-h" class="sheet-label">1. THE PIPELINE CANNOT LOAD (AC-016.15)</h2>
       <div class="banner banner-error" role="alert">
         <span class="ic ic-alert" aria-hidden="true"></span>
         <div class="banner-body">
           <p class="banner-title">Couldn't load requests. Try again.</p>
-          <p>No columns are shown, so an empty column is never mistaken for "no requests". The weekly count above still loads on its own.</p>
+          <p>No columns are shown, so an empty column is never mistaken for "no requests". The weekly count above still loads on its own, and the Requests tab is still one tap away.</p>
           <button class="btn btn-secondary" type="button"><span class="ic ic-sm ic-refresh" aria-hidden="true"></span>Try again</button>
         </div>
       </div>
@@ -83,7 +80,7 @@
         <div class="banner-body">
           <p class="banner-title">This request was changed by someone else. Reload to see the latest.</p>
           <p>NQ-7K3M9P stays as the other person left it. Your move was not saved.</p>
-          <button class="btn btn-secondary" type="button"><span class="ic ic-sm ic-refresh" aria-hidden="true"></span>Reload the board</button>
+          <button class="btn btn-secondary" type="button"><span class="ic ic-sm ic-refresh" aria-hidden="true"></span>Reload</button>
         </div>
       </div>
       <div class="board board-1">
@@ -107,10 +104,15 @@
         <span class="ic ic-info" aria-hidden="true"></span>
         <div class="banner-body">
           <p class="banner-title">No message on this screen: the card goes back and the owner is sent to Staff sign-in (SCR-03).</p>
-          <p>SCR-03 then shows "Your session ended. Your last change was not saved. Sign in again, then check the request." After signing in she lands on the Inbox.</p>
+          <p>SCR-03 then shows "Your session ended. Your last change was not saved. Sign in again, then check the request." After signing in from the Pipeline address she lands back on the Pipeline tab (AC-004.14); from a plain sign-in she lands on Requests.</p>
         </div>
       </div>
     </section>
   </main>
+
+  <nav class="tabbar" aria-label="Main">
+    <a class="tab" href="#main"><span class="ic ic-list" aria-hidden="true"></span>Requests</a>
+    <a class="tab" href="#main" aria-current="page"><span class="ic ic-board" aria-hidden="true"></span>Pipeline</a>
+  </nav>
 </body>
 </html>

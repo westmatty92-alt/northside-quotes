@@ -1,11 +1,12 @@
 <!doctype html>
-<!-- SCR-07 · Weekly count strip (component of SCR-04 and SCR-05) · Stories: US-008 · States: normal, updated after a save, zero, unavailable, loading (AC-008.1, AC-008.2, AC-008.7, AC-008.8, AC-005.4) -->
+<!-- SCR-07 · Weekly count strip (component of SCR-04 Requests and SCR-05 Pipeline, shown on both tabs) · Stories: US-008 · States: normal, updated after a save, zero, unavailable, loading (AC-008.1, AC-008.2, AC-008.7, AC-008.8, AC-005.4) -->
 <html lang="en-CA">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>SCR-07 · Weekly count strip</title>
   <link rel="stylesheet" href="./tokens.css">
+  <link rel="stylesheet" href="./fonts.css">
   <link rel="stylesheet" href="./app.css">
 </head>
 <body>
@@ -13,9 +14,9 @@
   <main id="main" class="page">
     <div class="page-head">
       <h1>Weekly count</h1>
-      <p class="meta">A strip at the top of the Inbox, the same in List and Board</p>
+      <p class="meta">A strip at the top of both the Requests tab and the Pipeline tab, identical on each</p>
     </div>
-    <p class="muted">Not a page of its own. It sits above the view switch on SCR-04 and SCR-05, shows the current Monday to Sunday week in Hamilton time, and never changes with the list filter. Three numbers, no chart.</p>
+    <p class="muted">Not a page of its own. It sits under the page title on SCR-04 (Requests) and SCR-05 (Pipeline), shows the current Monday to Sunday week in Hamilton time, and never changes with the Requests filter or search. Three numbers, no chart.</p>
 
     <section class="stack" aria-labelledby="n-h">
       <h2 id="n-h" class="sheet-label">1. NORMAL (AC-008.1) : OPENED ON THURSDAY NOV 19</h2>

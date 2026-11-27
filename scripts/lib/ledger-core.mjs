@@ -98,7 +98,9 @@ function writeRunPointer(planId) {
 const nowIso = () => new Date().toISOString();
 
 // ---- step checkouts + file ownership -------------------------------------------------------
-const LANE_OF = { frontend: 'wt-frontend', backend: 'wt-backend' };
+// Integration shares the backend lane (Nov 23 2026): its code is server code (src/lib/server/**, src/app/api/**) and needs
+// the backend's helpers, which never reach main. Steps in one lane run one at a time, so they never collide.
+const LANE_OF = { frontend: 'wt-frontend', backend: 'wt-backend', integration: 'wt-backend' };
 // Paths the orchestrator/ledger write in the main tree while specialists work; never a specialist's stray file.
 const ORCHESTRATOR_PATHS = [/^PLAN\.md$/, /^\.baseleap\//];
 
@@ -746,8 +748,16 @@ export async function markStep(db, planId, localId, status, { note = '', reopen 
  * Runs the step's plan-approved verify commands itself. Commands come from the
  * ledger row, never from the caller — the actor doesn't get to choose its own test.
  */
-export async function verifyStep(db, planId, localId, { cwd, timeoutMs = 10 * 60 * 1000, run = defaultRunner } = {}) {
+// Default limit for each verify command. Long E2E suites run 11-16 minutes (rehearsal QA1), so 10 was too short.
+// Per step: manifest.verify_timeout_min; per machine: BASELEAP_VERIFY_TIMEOUT_MIN.
+export function verifyTimeoutMs(step, env = process.env) {
+  const min = Number(step?.manifest?.verify_timeout_min ?? env.BASELEAP_VERIFY_TIMEOUT_MIN ?? 30);
+  return (Number.isFinite(min) && min > 0 ? min : 30) * 60 * 1000;
+}
+
+export async function verifyStep(db, planId, localId, { cwd, timeoutMs, run = defaultRunner } = {}) {
   const step = await findStep(db, planId, localId);
+  timeoutMs = timeoutMs ?? verifyTimeoutMs(step);
   if (step.status === 'done') throw new LedgerError(`step ${localId} is already verified done`);
   cwd = cwd ?? step.manifest.checkout ?? stepCheckout(repoRoot(), step.agent);
   const results = [];
@@ -852,4 +862,83 @@ export async function closeRun(db, planId, { summary = '' } = {}) {
   const plan = await getPlan(db, planId);
   await db.update('build_plans', { id: planId }, { status: 'complete', plan: { ...plan.plan, phase: 'close' }, updated_at: nowIso() });
   await event(db, planId, 'run.closed', { summary, catalog_candidate: true });
+}
+
+// ---------------------------------------------------------------------------------------------
+// Lane git operations (rehearsal finding, Nov 21 2026). Specialists can't merge or delete; the orchestrator does it
+// through these, which can only touch a lane or `staging` and never `main`.
+// ---------------------------------------------------------------------------------------------
+const PROTECTED_PREFIXES = ['.git/', '.claude/', 'scripts/'];
+
+function laneDir(root, lane) {
+  if (!LANE_OF[lane]) throw new LedgerError(`unknown lane "${lane}" (frontend or backend)`, 2);
+  const wt = path.join(path.dirname(root), `${path.basename(root)}-${LANE_OF[lane]}`);
+  if (!fs.existsSync(path.join(wt, '.git'))) throw new LedgerError(`lane ${lane} has no worktree at ${wt}`, 4);
+  return wt;
+}
+const run = (cwd, args) => spawnSync('git', args, { cwd, encoding: 'utf8' });
+const dirty = (cwd) => (porcelainPaths(cwd) ?? []).length > 0;
+function conflicts(cwd) {
+  return (run(cwd, ['diff', '--name-only', '--diff-filter=U']).stdout || '').split('\n').filter(Boolean);
+}
+
+/** Merge `from` (main or staging) into a lane. On conflict: abort and list the files. */
+export function laneSync(root, lane, from = 'main') {
+  if (!['main', 'staging'].includes(from)) throw new LedgerError('lane sync merges only main or staging into a lane', 2);
+  const wt = laneDir(root, lane);
+  if (dirty(wt)) throw new LedgerError(`lane ${lane} has uncommitted changes; commit the step first`, 4);
+  const r = run(wt, ['merge', '--no-ff', '--no-edit', from]);
+  if (r.status !== 0) {
+    const files = conflicts(wt);
+    run(wt, ['merge', '--abort']);
+    return { ok: false, lane, from, conflicts: files, detail: (r.stdout + r.stderr).trim().split('\n').slice(-3).join(' ') };
+  }
+  return { ok: true, lane, from, head: run(wt, ['rev-parse', '--short', 'HEAD']).stdout.trim() };
+}
+
+/** Merge a lane into `staging` in a dedicated staging checkout and push staging (never main). */
+export function laneMerge(root, lane, { push = true } = {}) {
+  const wt = laneDir(root, lane);
+  if (dirty(wt)) throw new LedgerError(`lane ${lane} has uncommitted changes; commit the step first`, 4);
+  const branch = run(wt, ['branch', '--show-current']).stdout.trim();
+  const st = path.join(path.dirname(root), `${path.basename(root)}-wt-staging`);
+  if (!fs.existsSync(path.join(st, '.git'))) {
+    const add = run(root, ['worktree', 'add', st, 'staging']);
+    if (add.status !== 0) throw new LedgerError(`could not open a staging checkout: ${add.stderr.trim()}`, 4);
+  }
+  if (run(st, ['branch', '--show-current']).stdout.trim() !== 'staging') throw new LedgerError(`${st} is not on staging`, 4);
+  if (dirty(st)) throw new LedgerError('the staging checkout has uncommitted changes', 4);
+  if (push) run(st, ['pull', '--ff-only', 'origin', 'staging']);
+  const r = run(st, ['merge', '--no-ff', '--no-edit', branch]);
+  if (r.status !== 0) {
+    const files = conflicts(st);
+    run(st, ['merge', '--abort']);
+    return { ok: false, lane, into: 'staging', conflicts: files };
+  }
+  let pushed = false;
+  if (push) {
+    const p = run(st, ['push', 'origin', 'staging:staging']);
+    if (p.status !== 0) throw new LedgerError(`merged locally but push failed: ${p.stderr.trim().split('\n').pop()}`, 4);
+    pushed = true;
+  }
+  return { ok: true, lane, into: 'staging', head: run(st, ['rev-parse', '--short', 'HEAD']).stdout.trim(), pushed };
+}
+
+/** Delete files inside a lane (tracked: git rm; untracked: unlink). Never outside the lane, never kit or git files. */
+export function laneRemove(root, lane, files) {
+  const wt = laneDir(root, lane);
+  if (!files.length) throw new LedgerError('lane rm needs at least one path', 2);
+  const removed = [];
+  for (const f of files) {
+    const abs = path.resolve(wt, f);
+    const rel = path.relative(wt, abs).split(path.sep).join('/');
+    if (rel.startsWith('..') || path.isAbsolute(rel)) throw new LedgerError(`"${f}" is outside lane ${lane}`, 2);
+    if (PROTECTED_PREFIXES.some((p) => rel === p.slice(0, -1) || rel.startsWith(p))) throw new LedgerError(`"${rel}" is a kit or git file; lane rm never deletes those`, 2);
+    if (!fs.existsSync(abs) || fs.statSync(abs).isDirectory()) throw new LedgerError(`"${rel}" is not a file in lane ${lane}`, 2);
+    const tracked = run(wt, ['ls-files', '--error-unmatch', rel]).status === 0;
+    if (tracked) { if (run(wt, ['rm', '-q', '--', rel]).status !== 0) throw new LedgerError(`git rm failed for ${rel}`, 4); }
+    else fs.unlinkSync(abs);
+    removed.push({ path: rel, tracked });
+  }
+  return { ok: true, lane, removed };
 }

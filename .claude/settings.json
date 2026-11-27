@@ -67,9 +67,19 @@
       "Bash(git branch*)",
       "Bash(git worktree list*)",
       "Bash(git rev-parse*)",
-      "WebFetch"
+      "WebFetch",
+      "Bash(git worktree add *)",
+      "Bash(git push origin main:staging)",
+      "Bash(git push origin HEAD:staging)",
+      "Bash(git push origin staging)",
+      "Bash(git push -u origin lane/*)",
+      "Bash(git push origin lane/*)"
     ],
-    "$comment": "allow (approved by Matthew, Nov 19 2026, full-team rehearsal): the build/test/lint/commit commands specialists need when they run in the background, where nobody can click an approval. deny always wins over allow, and the prod-guard and specialist-scope hooks still run on every call. No grep/cat/ls/printenv: from the shell they can read .env files; agents use the Read/Grep/Glob tools, which the deny list covers."
+    "$comment": "allow (approved by Matthew, Nov 19 2026, full-team rehearsal): the build/test/lint/commit commands specialists need when they run in the background, where nobody can click an approval. deny always wins over allow, and the prod-guard and specialist-scope hooks still run on every call. No grep/cat/ls/printenv: from the shell they can read .env files; agents use the Read/Grep/Glob tools, which the deny list covers. Lanes (Matthew, Nov 20 2026): git worktree add and pushes to staging and lane/* only; command-guard refuses any push to main/production, force/mirror/bulk pushes and pushes without a named branch.",
+    "additionalDirectories": [
+      "../northside-quotes-wt-backend",
+      "../northside-quotes-wt-frontend"
+    ]
   },
   "hooks": {
     "UserPromptSubmit": [

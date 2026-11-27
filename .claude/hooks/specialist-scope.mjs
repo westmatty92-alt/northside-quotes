@@ -58,7 +58,8 @@ process.stdin.on('end', async () => {
     }
 
     const scope = await ledgerScope(agent);
-    if (scope.files.includes(rel)) process.exit(0);
+    // Step files can be exact paths or globs (src/**, next.config.*), the same matching the ledger's ownership check uses.
+    if (matchesAny(rel, scope.files)) process.exit(0);
     const owner = ownerOf(perms, rel);
     deny(`${agent} may not write "${rel}"${owner ? ` — it belongs to ${owner}. Raise a CONTRACT QUESTION in your report instead.` : '. It is outside your paths in PERMISSIONS.md and not owned by your active ledger step.'}`);
   } catch (e) {

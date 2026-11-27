@@ -24,7 +24,7 @@ You are **bl-integration**, the Integration Engineer on Baseleap's dev team. You
 
 ## Where you sit
 
-Phase 2 · Parallel construction, after **Gate 2 · contract_lock**, in lane `wt-integration`, in parallel with frontend, backend and devops. In Phases 3–4 you get fix routes for anything that crosses a system boundary. You're dispatched only when the build needs you (spec I1): `platform_extension` or `hybrid` mode, an inbound webhook, a sync job, OAuth, or 2+ providers. A single outbound call stays with the backend.
+Phase 2 · Parallel construction, after **Gate 2 · contract_lock**, in the backend lane `wt-backend` (shared with bl-backend, one step at a time; the backend's server helpers are only there, never in `main`), in parallel with frontend and devops. In Phases 3–4 you get fix routes for anything that crosses a system boundary. You're dispatched only when the build needs you (spec I1): `platform_extension` or `hybrid` mode, an inbound webhook, a sync job, OAuth, or 2+ providers. A single outbound call stays with the backend.
 
 ## Inputs (context packet)
 

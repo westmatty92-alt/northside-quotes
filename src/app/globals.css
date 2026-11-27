@@ -1,0 +1,51 @@
+/* globals.css: scaffold-owned (A2, bl-architect). The frontend lane does not edit this file; ask through a
+   contract question.
+
+   1. Tailwind v4.
+   2. The designer's generated tokens, imported unchanged (src/app/theme.css is compared byte for byte by
+      scripts/check-design.mjs; never edit it here or there).
+   3. Fonts: theme.css names the families literally ("Barlow Semi Condensed", "Source Sans 3"), but next/font/local
+      serves them under generated family names exposed as --font-barlow-semi-condensed and --font-source-sans-3
+      (set on <html> by src/app/layout.tsx). The block below points every --font-* token at those variables, with
+      DESIGN.md's fallbacks (Arial Narrow for headings, system-ui for body). A later @theme definition overrides
+      an earlier one.
+   4. Page background and text colour from DESIGN.md tokens.
+   5. Source scanning: Tailwind v4 scans every non-gitignored file in the project for class names. The agent kit,
+      reports, docs and design mockups mention arbitrary values (e.g. `text-[#00D4A0]`) and Tailwind emitted junk rules
+      for them (FE1). `@source not` drops those folders; paths are relative to this file
+      (https://tailwindcss.com/docs/detecting-classes-in-source-files). */
+@import "tailwindcss";
+@import "./theme.css";
+
+@source not "../../.claude";
+@source not "../../.baseleap";
+@source not "../../docs";
+@source not "../../design";
+
+@theme {
+  --font-display: var(--font-barlow-semi-condensed), "Arial Narrow", sans-serif;
+  --font-h1: var(--font-barlow-semi-condensed), "Arial Narrow", sans-serif;
+  --font-h2: var(--font-barlow-semi-condensed), "Arial Narrow", sans-serif;
+  --font-h3: var(--font-barlow-semi-condensed), "Arial Narrow", sans-serif;
+  --font-ref: var(--font-barlow-semi-condensed), "Arial Narrow", sans-serif;
+  --font-ref-display: var(--font-barlow-semi-condensed), "Arial Narrow", sans-serif;
+  --font-body-lg: var(--font-source-sans-3), system-ui, sans-serif;
+  --font-body: var(--font-source-sans-3), system-ui, sans-serif;
+  --font-body-sm: var(--font-source-sans-3), system-ui, sans-serif;
+  --font-ui-label: var(--font-source-sans-3), system-ui, sans-serif;
+  --font-label-sm: var(--font-source-sans-3), system-ui, sans-serif;
+}
+
+@layer base {
+  html,
+  body {
+    background-color: var(--color-surface);
+    color: var(--color-text);
+  }
+
+  body {
+    font-family: var(--font-body);
+    font-size: var(--text-body);
+    font-weight: var(--font-weight-body);
+  }
+}

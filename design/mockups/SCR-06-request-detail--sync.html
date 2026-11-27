@@ -1,30 +1,31 @@
 <!doctype html>
-<!-- SCR-06 · Request detail · Stories: US-009, US-010, US-014, US-015, US-017 · State: GoHighLevel copy and stage tag states, retry, last updated (AC-010.1 to .4, AC-009.2, AC-009.3, AC-014.1 to .3, AC-017.1, .9, .10, .11, AC-015.1, .2) -->
+<!-- SCR-06 · Request detail · Stories: US-009, US-010, US-014, US-015, US-017 · State: GoHighLevel copy and stage tag states, retry, last updated (AC-010.1 to .4, AC-009.2, AC-009.3, AC-014.1 to .3, AC-017.1, .9, .10, .11, AC-015.1, .2) and the unticked-offers state (AC-010.6, AC-014.4, AC-017.16, .17, AC-009.9). Opened from the Pipeline tab, so Back goes to Pipeline. -->
 <html lang="en-CA">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>SCR-06 · Request NQ-7K3M9P · GoHighLevel states</title>
   <link rel="stylesheet" href="./tokens.css">
+  <link rel="stylesheet" href="./fonts.css">
   <link rel="stylesheet" href="./app.css">
 </head>
-<body>
+<body class="has-tabs">
   <a class="skip" href="#main">Skip to the request</a>
   <header class="nav on-dark">
     <div class="nav-inner">
-      <a class="brand" href="#main">Northside Plumbing</a>
-      <nav class="nav-links" aria-label="Main">
-        <a class="nav-link" href="#main" aria-current="page">Inbox</a>
-        <span class="nav-user">Signed in as Owner</span>
-        <button class="btn-nav" type="button"><span class="ic ic-sm ic-out" aria-hidden="true"></span>Sign out</button>
+      <a class="brand" href="#main" aria-label="Northside Plumbing, Requests"><svg class="wordmark" viewBox="0 0 260 64" role="img" aria-label="Northside Plumbing, Hamilton"><path class="wm-pipe-line" d="M10 54 V30 a14 14 0 0 1 14 -14 H44"/><rect class="wm-pipe" x="40" y="9" width="10" height="14" rx="2"/><rect class="wm-pipe" x="5" y="50" width="10" height="10" rx="2"/><text class="wm-name" x="62" y="36">NORTHSIDE</text><text class="wm-sub" x="63" y="55">PLUMBING · HAMILTON</text></svg></a>
+      <nav class="nav-tabs" aria-label="Main">
+        <a class="nav-tab" href="#main"><span class="ic ic-sm ic-list" aria-hidden="true"></span>Requests</a>
+        <a class="nav-tab" href="#main" aria-current="true"><span class="ic ic-sm ic-board" aria-hidden="true"></span>Pipeline</a>
       </nav>
+      <div class="nav-end"><span class="nav-user">Signed in as Owner</span><button class="btn-nav" type="button"><span class="ic ic-sm ic-out" aria-hidden="true"></span>Sign out</button></div>
     </div>
   </header>
 
   <main id="main" class="page">
-    <a class="back" href="#main"><span class="ic ic-sm ic-back" aria-hidden="true"></span>Back to Inbox</a>
+    <a class="back" href="#main"><span class="ic ic-sm ic-back" aria-hidden="true"></span>Back to Pipeline</a>
     <header class="detail-head">
-      <div class="who"><p class="tag tag-display" aria-label="Reference number N Q, 7, K, 3, M, 9, P">NQ-7K3M9P</p></div>
+      <div class="who"><div class="tag-hang"><span class="pipe" aria-hidden="true"></span><p class="tag tag-display" aria-label="Reference number N Q, 7, K, 3, M, 9, P">NQ-7K3M9P</p></div></div>
       <h1>Dana Whitfield</h1>
       <p class="meta">Sheet of the GoHighLevel card in each state. The card sits under the status control on the real page. The owner can still change price, note and status in every state.</p>
     </header>
@@ -110,8 +111,23 @@
           <p>Last updated by Office helper at 2:05 p.m.</p>
           <p class="muted">A request nobody has changed shows: Not updated yet</p>
         </section>
+
+        <h2 class="sheet-label">7. THE HOMEOWNER DID NOT TICK THE OFFERS BOX (AC-010.6, AC-014.4, AC-017.16, AC-017.17, AC-009.9)</h2>
+        <section class="card sync" aria-labelledby="s7-h">
+          <h3 id="s7-h">GoHighLevel</h3>
+          <div class="sync-row">
+            <p class="sync-state"><span class="ic ic-info" aria-hidden="true"></span><span>Not copied: no offers consent</span></p>
+            <p class="hint">The homeowner did not tick the box to get offers, so nothing is sent to GoHighLevel for this request, now or when its status changes. The request is fully editable here.</p>
+          </div>
+        </section>
+        <p class="annot">No Retry copy button and no stage tag line appear for this request, in any status. It looks the same even when the same person has another request that was copied.</p>
       </div>
     </div>
   </main>
+
+  <nav class="tabbar" aria-label="Main">
+    <a class="tab" href="#main"><span class="ic ic-list" aria-hidden="true"></span>Requests</a>
+    <a class="tab" href="#main" aria-current="true"><span class="ic ic-board" aria-hidden="true"></span>Pipeline</a>
+  </nav>
 </body>
 </html>

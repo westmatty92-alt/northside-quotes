@@ -89,6 +89,25 @@ export function refuse(line) {
         return 'starting or approving deployments through the GitHub API is Matthew\'s';
       if (args[0] === 'run' && ['rerun', 'cancel'].includes(args[1])) return 'release runs are re-run or cancelled by Matthew';
     }
+    if (cmd === 'git') {
+      // git [-C dir] [-c k=v] push …: production code reaches main only through a reviewed PR + release.yml.
+      let i = 0;
+      while (i < args.length && (args[i] === '-C' || args[i] === '-c')) i += 2;
+      if (args[i] === 'push') {
+        const rest = args.slice(i + 1);
+        if (rest.some((a) => ['-f', '--force', '--force-with-lease', '--mirror', '--all', '--delete', '-d', '--tags'].includes(a) || a.startsWith('--force') || a.startsWith('--mirror')))
+          return 'force, mirror, delete and bulk pushes are never an agent action';
+        const positional = rest.filter((a) => !a.startsWith('-'));
+        const refspecs = positional.slice(1); // first positional is the remote
+        if (refspecs.length === 0) return 'name the branch explicitly (git push origin <src>:<branch>); a bare push could reach main';
+        for (const r of refspecs) {
+          if (r.startsWith('+')) return 'forced refspecs (+…) are never an agent action';
+          const dst = (r.includes(':') ? r.split(':').pop() : r).replace(/^refs\/heads\//, '');
+          if (['main', 'master', 'production', 'HEAD'].includes(dst) || dst === '')
+            return 'pushing to main (or production) is never an agent action: it goes through a reviewed PR and release.yml';
+        }
+      }
+    }
     if ((cmd === 'terraform' || cmd === 'tofu') && args.some((a) => ['apply', 'destroy', 'import'].includes(a)))
       return 'infrastructure changes are applied by Matthew';
     if (cmd === 'printenv') return 'environment values are never printed';

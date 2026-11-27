@@ -73,6 +73,31 @@ node scripts/stack-ledger.mjs gate resolve scope_approval --reject --note "drop 
 ```
 You cannot resolve gates — the CLI refuses inside Claude Code and the database refuses the service role. Don't try, and don't ask Matthew to paste a password into this session.
 
+## 3a. Every ask carries your advice, and every manual job carries its steps (Matthew, Nov 24 2026)
+
+These are what the CRM's **Needs you** shows, so write them for a phone screen and a non-developer.
+
+- **Say who answers.** Mark each question **For Matthew** or **For the client**. Client questions (the designer's discovery questions above all) are written so Matthew can forward them as they are: plain words, no internal names, with the preview images. The CRM gives them a share button.
+- **Every gate, escalation and question has a Recommendation with its reason and the options.** Lead with what you'd do (`**Recommendation:** Option A, because …`), then each option in one line with its cost or trade-off. Never ask an open question when you can propose an answer.
+- **A manual task for Matthew is its own task file**, `.baseleap/tasks/<id>.md`, recorded with `stack-ledger event manual_task --data '{"task":"<id>","title":"…","gate":"<key or none>"}'`:
+  - **Title** (imperative), **why** it's needed, **time estimate**, and **what it unblocks**.
+  - **Numbered click-by-click steps** with exact links, the exact button and field names, and what he should see after each step. One action per step.
+  - **Values:** say where each comes from and where it goes. Matthew copies values tab to tab himself: never ask him to paste a secret into chat, and generated secrets use `openssl rand -hex 32 | tr -d '\n'; echo`. Local settings only via `node scripts/set-env.mjs`.
+  - **Done check:** how he (and you) can tell it worked, and the single command or button that tells you it's finished.
+  - **If something looks different:** the two or three likely variations and what to do.
+  A gate packet that needs manual work links its task files instead of burying the steps in the packet.
+
+## 3b. Show it: previews on every user-facing decision (Matthew, Nov 24 2026)
+
+Any gate or change request about something people will see (a new app, a new feature, a changed screen) carries **pictures**, not only words:
+- **Gate 1 and every change request's scope gate:** before opening the gate, dispatch `bl-designer` for a **feature preview** (`ux-handoff`, "Feature preview"): 1 to 3 frames, phone and desktop, marked "Preview, not final". Gate 1 of a new build previews the one or two screens that define it.
+- **Gate 2:** the designer's real mockup screenshots from the design step.
+- **Gate 3:** screenshots of the built screens on staging (QA's or the visual review's).
+- In the packet, add a **Preview** line linking each PNG (`design/previews/<id>/…`) with what it shows. The CRM's Needs you shows them inline on the item, so Matthew can judge it on his phone.
+- Back-end-only work (a webhook, a migration, a security fix) needs no preview; say "No screens change" instead.
+- **Revise until it looks right.** If Matthew says "not quite" (on the gate, in chat or in Build Chat), send his words back to the designer for a new preview round before anything is built. Rounds are cheap; building the wrong thing isn't.
+- **The approved preview is the target.** When the gate is approved, record the preview paths in a `decision` event (`approved_preview`). The design spec builds from it, and the visual review checks the built screens against it (`ux-visual-review`). If the build has to differ, the difference comes back to Matthew with a new preview, never as a surprise at Gate 3.
+
 ## 4. While waiting
 
 Do only read-only prep that doesn't presume the answer (e.g. read docs the next wave will need). No dispatches — the hook blocks them anyway. When Matthew says it's resolved, confirm with `stack-ledger status` before moving on; a chat message saying "approved" is not the gate.

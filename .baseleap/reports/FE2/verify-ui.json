@@ -1,0 +1,141 @@
+{
+  "base": "http://localhost:3202",
+  "checked_at": "2026-11-24T02:28:12.653Z",
+  "ok": false,
+  "problems": [
+    "SCR-06 @ mobile: console error: verify-ui: locator.click: Timeout 10000ms exceeded.",
+    "SCR-06 @ desktop: console error: verify-ui: locator.click: Timeout 10000ms exceeded.",
+    "SCR-06--no-consent @ mobile: console error: verify-ui: locator.click: Timeout 10000ms exceeded.",
+    "SCR-06--no-consent @ desktop: console error: verify-ui: locator.click: Timeout 10000ms exceeded."
+  ],
+  "results": [
+    {
+      "id": "SCR-03",
+      "width": "mobile",
+      "url": "http://localhost:3202/sign-in",
+      "screenshot": ".baseleap/reports/FE2/SCR-03-mobile.png",
+      "status": 200,
+      "console": [],
+      "failedRequests": [],
+      "axe": []
+    },
+    {
+      "id": "SCR-03",
+      "width": "desktop",
+      "url": "http://localhost:3202/sign-in",
+      "screenshot": ".baseleap/reports/FE2/SCR-03-desktop.png",
+      "status": 200,
+      "console": [],
+      "failedRequests": [],
+      "axe": []
+    },
+    {
+      "id": "SCR-03--error",
+      "width": "mobile",
+      "url": "http://localhost:3202/sign-in?mockScenario=error",
+      "screenshot": ".baseleap/reports/FE2/SCR-03--error-mobile.png",
+      "status": 200,
+      "console": [],
+      "failedRequests": [],
+      "axe": []
+    },
+    {
+      "id": "SCR-03--error",
+      "width": "desktop",
+      "url": "http://localhost:3202/sign-in?mockScenario=error",
+      "screenshot": ".baseleap/reports/FE2/SCR-03--error-desktop.png",
+      "status": 200,
+      "console": [],
+      "failedRequests": [],
+      "axe": []
+    },
+    {
+      "id": "SCR-04",
+      "width": "mobile",
+      "url": "http://localhost:3202/requests?mockScenario=signed-in",
+      "screenshot": ".baseleap/reports/FE2/SCR-04-mobile.png",
+      "status": 200,
+      "console": [],
+      "failedRequests": [],
+      "axe": []
+    },
+    {
+      "id": "SCR-04",
+      "width": "desktop",
+      "url": "http://localhost:3202/requests?mockScenario=signed-in",
+      "screenshot": ".baseleap/reports/FE2/SCR-04-desktop.png",
+      "status": 200,
+      "console": [],
+      "failedRequests": [],
+      "axe": []
+    },
+    {
+      "id": "SCR-04--empty",
+      "width": "mobile",
+      "url": "http://localhost:3202/requests?mockScenario=empty",
+      "screenshot": ".baseleap/reports/FE2/SCR-04--empty-mobile.png",
+      "status": 200,
+      "console": [],
+      "failedRequests": [],
+      "axe": []
+    },
+    {
+      "id": "SCR-04--empty",
+      "width": "desktop",
+      "url": "http://localhost:3202/requests?mockScenario=empty",
+      "screenshot": ".baseleap/reports/FE2/SCR-04--empty-desktop.png",
+      "status": 200,
+      "console": [],
+      "failedRequests": [],
+      "axe": []
+    },
+    {
+      "id": "SCR-06",
+      "width": "mobile",
+      "url": "http://localhost:3202/requests/mock-1?mockScenario=signed-in",
+      "screenshot": ".baseleap/reports/FE2/SCR-06-mobile.png",
+      "status": 200,
+      "console": [
+        "verify-ui: locator.click: Timeout 10000ms exceeded."
+      ],
+      "failedRequests": [],
+      "axe": []
+    },
+    {
+      "id": "SCR-06",
+      "width": "desktop",
+      "url": "http://localhost:3202/requests/mock-1?mockScenario=signed-in",
+      "screenshot": ".baseleap/reports/FE2/SCR-06-desktop.png",
+      "status": 200,
+      "console": [
+        "verify-ui: locator.click: Timeout 10000ms exceeded."
+      ],
+      "failedRequests": [],
+      "axe": []
+    },
+    {
+      "id": "SCR-06--no-consent",
+      "width": "mobile",
+      "url": "http://localhost:3202/requests/mock-2?mockScenario=signed-in",
+      "screenshot": ".baseleap/reports/FE2/SCR-06--no-consent-mobile.png",
+      "status": 200,
+      "console": [
+        "verify-ui: locator.click: Timeout 10000ms exceeded."
+      ],
+      "failedRequests": [],
+      "axe": []
+    },
+    {
+      "id": "SCR-06--no-consent",
+      "width": "desktop",
+      "url": "http://localhost:3202/requests/mock-2?mockScenario=signed-in",
+      "screenshot": ".baseleap/reports/FE2/SCR-06--no-consent-desktop.png",
+      "status": 200,
+      "console": [
+        "verify-ui: locator.click: Timeout 10000ms exceeded."
+      ],
+      "failedRequests": [],
+      "axe": []
+    }
+  ]
+}

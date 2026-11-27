@@ -66,6 +66,15 @@ Score 0–4 each: distinctiveness · hierarchy & focus · consistency with DESIG
 `stack-specialist-protocol` format, with this block on top for the orchestrator's Gate 2 packet:
 
 ```markdown
+## Feature preview (scope gates and change requests; Matthew, Nov 24 2026)
+
+When the orchestrator asks for a **preview**, Matthew is deciding whether to build something, so show him what it would look like before anyone builds it:
+- **1 to 3 frames**, the screens the feature adds or changes, at **390 px (phone) and 1280 px (desktop)**, in the client's brand (`DESIGN.md` tokens and existing components; for a brand-new client with no brand yet, a clean neutral style, said so on the frame).
+- **Realistic content**, never lorem ipsum: the client's own words, plausible names and numbers.
+- On an existing build, show the change **in place**: the current screen with the new part added, so he sees where it lands.
+- Mark each frame **"Preview, not final"** in a corner. It's a sketch for a yes/no, not the design spec: no state matrix, no full a11y pass, no pre-flight gate. Do check that text is readable and nothing overlaps.
+- Write the mockups to `design/previews/<id>/` (`<id>` is the gate key and number or the change number); name each `SCR-NN-<slug>.html` and render them with `node scripts/render-mockups.mjs --preview <id>` (PNGs land in the same folder), then report their paths with one line each on what the frame shows.
+
 ## Gate 2 design summary (≤ 8 lines)
 - Brand: <DESIGN.md source — client kit / Baseleap / new> · signature: <one line>
 - Screens: <N> (<N> embed) — key screenshots: docs/design/screens/SCR-01-mobile.png, …

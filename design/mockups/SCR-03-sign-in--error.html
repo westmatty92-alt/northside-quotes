@@ -1,16 +1,17 @@
 <!doctype html>
-<!-- SCR-03 · Staff sign-in · Stories: US-004 · State: wrong credentials, with the session-ended notice for comparison (AC-004.4, AC-004.5, AC-004.7, AC-016.14) -->
+<!-- SCR-03 · Staff sign-in · Stories: US-004 · State: notices shown together for review: session ended, wrong credentials, too many attempts, sign-in unavailable (AC-004.4, .5, .7, .11, .12, .13, AC-016.14) -->
 <html lang="en-CA">
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>SCR-03 · Staff sign-in · error</title>
   <link rel="stylesheet" href="./tokens.css">
+  <link rel="stylesheet" href="./fonts.css">
   <link rel="stylesheet" href="./app.css">
 </head>
 <body class="bg-raised">
   <a class="skip" href="#main">Skip to sign-in</a>
-  <header class="pub-head"><div class="pub-head-inner"><span class="brand">Northside Plumbing</span></div></header>
+  <header class="pub-head on-dark"><div class="pub-head-inner"><span class="brand"><svg class="wordmark" viewBox="0 0 260 64" role="img" aria-label="Northside Plumbing, Hamilton"><path class="wm-pipe-line" d="M10 54 V30 a14 14 0 0 1 14 -14 H44"/><rect class="wm-pipe" x="40" y="9" width="10" height="14" rx="2"/><rect class="wm-pipe" x="5" y="50" width="10" height="10" rx="2"/><text class="wm-name" x="62" y="36">NORTHSIDE</text><text class="wm-sub" x="63" y="55">PLUMBING · HAMILTON</text></svg></span></div></header>
 
   <main id="main" class="signin">
     <div class="sheet">
@@ -31,7 +32,7 @@
         <span class="ic ic-alert" aria-hidden="true"></span>
         <div class="banner-body">
           <p class="banner-title">Email or password is incorrect</p>
-          <p>After 5 wrong tries in 15 minutes, sign-in pauses for 15 minutes.</p>
+          <p>Check both and try again. Your email is still filled in.</p>
         </div>
       </div>
 
@@ -53,11 +54,19 @@
       <div class="banner banner-warning" role="alert">
         <span class="ic ic-lock" aria-hidden="true"></span>
         <div class="banner-body">
-          <p class="banner-title">Sign-in is paused for 15 minutes.</p>
-          <p>Too many wrong tries for this email. Try again after the pause, even with the right password.</p>
+          <p class="banner-title">Too many sign-in attempts. Try again in a few minutes.</p>
+          <p>Sign-in is paused for a short while, even with the right password. This message is the same for every account and every reason.</p>
         </div>
       </div>
-      <p class="annot">Mockup sheet: the three notices are shown together for review. On the real page only one appears at a time, above the form.</p>
+
+      <div class="banner banner-warning" role="alert">
+        <span class="ic ic-alert" aria-hidden="true"></span>
+        <div class="banner-body">
+          <p class="banner-title">Sign-in is unavailable. Try again in a few minutes.</p>
+          <p>Your password was not checked. If it keeps happening, phone Baseleap.</p>
+        </div>
+      </div>
+      <p class="annot">Mockup sheet: the four notices are shown together for review. On the real page only one appears at a time, above the form. The page never says which limit applied or whether an email has an account.</p>
     </div>
   </main>
 </body>

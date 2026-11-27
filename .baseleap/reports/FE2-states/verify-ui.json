@@ -1,0 +1,228 @@
+{
+  "base": "http://localhost:3202",
+  "checked_at": "2026-11-23T21:35:10.205Z",
+  "ok": true,
+  "problems": [],
+  "results": [
+    {
+      "id": "SCR-03--ended",
+      "width": "mobile",
+      "url": "http://localhost:3202/sign-in?session=ended",
+      "screenshot": ".baseleap/reports/FE2-states/SCR-03--ended-mobile.png",
+      "status": 200,
+      "console": [],
+      "failedRequests": [],
+      "axe": []
+    },
+    {
+      "id": "SCR-03--ended",
+      "width": "desktop",
+      "url": "http://localhost:3202/sign-in?session=ended",
+      "screenshot": ".baseleap/reports/FE2-states/SCR-03--ended-desktop.png",
+      "status": 200,
+      "console": [],
+      "failedRequests": [],
+      "axe": []
+    },
+    {
+      "id": "SCR-03--paused",
+      "width": "mobile",
+      "url": "http://localhost:3202/sign-in?mockScenario=paused",
+      "screenshot": ".baseleap/reports/FE2-states/SCR-03--paused-mobile.png",
+      "status": 200,
+      "console": [],
+      "failedRequests": [],
+      "axe": []
+    },
+    {
+      "id": "SCR-03--paused",
+      "width": "desktop",
+      "url": "http://localhost:3202/sign-in?mockScenario=paused",
+      "screenshot": ".baseleap/reports/FE2-states/SCR-03--paused-desktop.png",
+      "status": 200,
+      "console": [],
+      "failedRequests": [],
+      "axe": []
+    },
+    {
+      "id": "SCR-03--unavailable",
+      "width": "mobile",
+      "url": "http://localhost:3202/sign-in?mockScenario=unavailable",
+      "screenshot": ".baseleap/reports/FE2-states/SCR-03--unavailable-mobile.png",
+      "status": 200,
+      "console": [],
+      "failedRequests": [],
+      "axe": []
+    },
+    {
+      "id": "SCR-03--unavailable",
+      "width": "desktop",
+      "url": "http://localhost:3202/sign-in?mockScenario=unavailable",
+      "screenshot": ".baseleap/reports/FE2-states/SCR-03--unavailable-desktop.png",
+      "status": 200,
+      "console": [],
+      "failedRequests": [],
+      "axe": []
+    },
+    {
+      "id": "SCR-04--loading",
+      "width": "mobile",
+      "url": "http://localhost:3202/requests?mockScenario=slow",
+      "screenshot": ".baseleap/reports/FE2-states/SCR-04--loading-mobile.png",
+      "status": 200,
+      "console": [],
+      "failedRequests": [],
+      "axe": []
+    },
+    {
+      "id": "SCR-04--loading",
+      "width": "desktop",
+      "url": "http://localhost:3202/requests?mockScenario=slow",
+      "screenshot": ".baseleap/reports/FE2-states/SCR-04--loading-desktop.png",
+      "status": 200,
+      "console": [],
+      "failedRequests": [],
+      "axe": []
+    },
+    {
+      "id": "SCR-04--error",
+      "width": "mobile",
+      "url": "http://localhost:3202/requests?mockScenario=error",
+      "screenshot": ".baseleap/reports/FE2-states/SCR-04--error-mobile.png",
+      "status": 200,
+      "console": [],
+      "failedRequests": [],
+      "axe": []
+    },
+    {
+      "id": "SCR-04--error",
+      "width": "desktop",
+      "url": "http://localhost:3202/requests?mockScenario=error",
+      "screenshot": ".baseleap/reports/FE2-states/SCR-04--error-desktop.png",
+      "status": 200,
+      "console": [],
+      "failedRequests": [],
+      "axe": []
+    },
+    {
+      "id": "SCR-04--menu",
+      "width": "mobile",
+      "url": "http://localhost:3202/requests",
+      "screenshot": ".baseleap/reports/FE2-states/SCR-04--menu-mobile.png",
+      "status": 200,
+      "console": [],
+      "failedRequests": [],
+      "axe": []
+    },
+    {
+      "id": "SCR-04--menu",
+      "width": "desktop",
+      "url": "http://localhost:3202/requests",
+      "screenshot": ".baseleap/reports/FE2-states/SCR-04--menu-desktop.png",
+      "status": 200,
+      "console": [],
+      "failedRequests": [],
+      "axe": []
+    },
+    {
+      "id": "SCR-06--loading",
+      "width": "mobile",
+      "url": "http://localhost:3202/requests/mock-1?mockScenario=slow",
+      "screenshot": ".baseleap/reports/FE2-states/SCR-06--loading-mobile.png",
+      "status": 200,
+      "console": [],
+      "failedRequests": [],
+      "axe": []
+    },
+    {
+      "id": "SCR-06--loading",
+      "width": "desktop",
+      "url": "http://localhost:3202/requests/mock-1?mockScenario=slow",
+      "screenshot": ".baseleap/reports/FE2-states/SCR-06--loading-desktop.png",
+      "status": 200,
+      "console": [],
+      "failedRequests": [],
+      "axe": []
+    },
+    {
+      "id": "SCR-06--error",
+      "width": "mobile",
+      "url": "http://localhost:3202/requests/mock-1?mockScenario=error",
+      "screenshot": ".baseleap/reports/FE2-states/SCR-06--error-mobile.png",
+      "status": 200,
+      "console": [],
+      "failedRequests": [],
+      "axe": []
+    },
+    {
+      "id": "SCR-06--error",
+      "width": "desktop",
+      "url": "http://localhost:3202/requests/mock-1?mockScenario=error",
+      "screenshot": ".baseleap/reports/FE2-states/SCR-06--error-desktop.png",
+      "status": 200,
+      "console": [],
+      "failedRequests": [],
+      "axe": []
+    },
+    {
+      "id": "SCR-06--pipeline",
+      "width": "mobile",
+      "url": "http://localhost:3202/pipeline/mock-1",
+      "screenshot": ".baseleap/reports/FE2-states/SCR-06--pipeline-mobile.png",
+      "status": 200,
+      "console": [],
+      "failedRequests": [],
+      "axe": []
+    },
+    {
+      "id": "SCR-06--pipeline",
+      "width": "desktop",
+      "url": "http://localhost:3202/pipeline/mock-1",
+      "screenshot": ".baseleap/reports/FE2-states/SCR-06--pipeline-desktop.png",
+      "status": 200,
+      "console": [],
+      "failedRequests": [],
+      "axe": []
+    },
+    {
+      "id": "SCR-06--sync",
+      "width": "mobile",
+      "url": "http://localhost:3202/requests/a0000000-0000-4000-8000-000000000003",
+      "screenshot": ".baseleap/reports/FE2-states/SCR-06--sync-mobile.png",
+      "status": 200,
+      "console": [],
+      "failedRequests": [],
+      "axe": []
+    },
+    {
+      "id": "SCR-06--sync",
+      "width": "desktop",
+      "url": "http://localhost:3202/requests/a0000000-0000-4000-8000-000000000003",
+      "screenshot": ".baseleap/reports/FE2-states/SCR-06--sync-desktop.png",
+      "status": 200,
+      "console": [],
+      "failedRequests": [],
+      "axe": []
+    },
+    {
+      "id": "SCR-06--empty",
+      "width": "mobile",
+      "url": "http://localhost:3202/requests/a0000000-0000-4000-8000-000000000004",
+      "screenshot": ".baseleap/reports/FE2-states/SCR-06--empty-mobile.png",
+      "status": 200,
+      "console": [],
+      "failedRequests": [],
+      "axe": []
+    },
+    {
+      "id": "SCR-06--empty",
+      "width": "desktop",
+      "url": "http://localhost:3202/requests/a0000000-0000-4000-8000-000000000004",
+      "screenshot": ".baseleap/reports/FE2-states/SCR-06--empty-desktop.png",
+      "status": 200,
+      "console": [],
+      "failedRequests": [],
+      "axe": []
+    }
+  ]
+}

@@ -1,3 +1,31 @@
 .env.local
 .baseleap/run.json
 .baseleap/tools/
+
+# dependencies and build output
+/node_modules
+/.next/
+/out/
+/build
+/coverage
+*.tsbuildinfo
+next-env.d.ts
+
+# local env files (only .env.example is committed)
+.env
+.env*.local
+
+# test output
+/test-results/
+/playwright-report/
+/playwright/.cache/
+
+# Supabase CLI local state
+supabase/.branches
+supabase/.temp
+
+# misc
+.DS_Store
+*.pem
+npm-debug.log*
+.vercel

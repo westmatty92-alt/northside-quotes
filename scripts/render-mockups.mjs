@@ -32,17 +32,23 @@ export function embedScreens(dir) {
 }
 
 async function main() {
-  const dir = path.resolve(process.argv[2] ?? '.');
+  // Feature previews (stack-hitl §3b): node scripts/render-mockups.mjs --preview <id> [repoDir]
+  const args = process.argv.slice(2);
+  const pi = args.indexOf('--preview');
+  const previewId = pi >= 0 ? args.splice(pi, 2)[1] : null;
+  if (pi >= 0 && !/^[A-Za-z0-9._-]+$/.test(previewId ?? '')) throw new Error('--preview needs an id like scope_approval-1 or change-3');
+  const dir = path.resolve(args[0] ?? '.');
   const themePath = path.join(dir, 'src/app/theme.css');
-  const mockDir = path.join(dir, 'design/mockups');
-  if (!fs.existsSync(themePath)) throw new Error('src/app/theme.css missing — export DESIGN.md first (ux-brand §3)');
+  const mockDir = previewId ? path.join(dir, 'design/previews', previewId) : path.join(dir, 'design/mockups');
+  if (!previewId && !fs.existsSync(themePath)) throw new Error('src/app/theme.css missing — export DESIGN.md first (ux-brand §3)');
   fs.mkdirSync(mockDir, { recursive: true });
-  fs.writeFileSync(path.join(mockDir, 'tokens.css'), tokensCss(fs.readFileSync(themePath, 'utf8')));
+  // A preview for a client with no brand yet renders without tokens (the frame says it's a neutral style).
+  if (fs.existsSync(themePath)) fs.writeFileSync(path.join(mockDir, 'tokens.css'), tokensCss(fs.readFileSync(themePath, 'utf8')));
 
   const files = fs.readdirSync(mockDir).filter((f) => screenshotStem(f));
-  if (!files.length) { console.log('no design/mockups/SCR-*.html yet — tokens.css regenerated'); return; }
-  const embeds = embedScreens(dir);
-  const outDir = path.join(dir, 'docs/design/screens');
+  if (!files.length) { console.log(`no SCR-*.html in ${path.relative(dir, mockDir)} yet`); return; }
+  const embeds = previewId ? new Set() : embedScreens(dir);
+  const outDir = previewId ? mockDir : path.join(dir, 'docs/design/screens');
   fs.mkdirSync(outDir, { recursive: true });
 
   const { chromium } = await loadPlaywright(dir);
@@ -68,7 +74,7 @@ async function main() {
   } finally {
     await browser.close();
   }
-  console.log(`rendered ${files.length} mockup(s) → docs/design/screens/`);
+  console.log(`rendered ${files.length} mockup(s) → ${path.relative(dir, outDir)}/`);
   if (blocked.length) {
     console.log(`blocked ${blocked.length} network request(s) — mockups must be self-contained:\n  ${blocked.join('\n  ')}`);
     process.exitCode = 1;

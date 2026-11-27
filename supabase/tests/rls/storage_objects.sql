@@ -1,8 +1,10 @@
 -- RLS: storage.objects in the private quote-photos bucket (FR-6, FR-7, US-002, AC-002.8).
 -- Anonymous homeowners may insert only into their own pending request's folder, only planned
--- positions, at most 3 photos; only staff read; no client updates or deletes.
+-- positions, at most 3 photos; only staff read, and only photos stored with a submitted request
+-- (S0 SEC-8); no client updates or deletes.
 -- Inserts below go through RLS exactly as the Storage API does for an upload with the public key.
 begin;
+create extension if not exists pgtap with schema extensions;  -- test-only; removed again by the rollback (S0 SEC-18)
 select no_plan();
 
 insert into auth.users (id, email, aud, role) values
@@ -16,6 +18,7 @@ insert into public.staff (user_id, display_name) values ('a0000000-0000-4000-800
 
 -- d...01 pending, plans 3 photos · d...02 pending, plans 1 photo · d...03 submitted
 -- d...04 pending but created 2 hours ago (upload window is 60 minutes)
+-- d...05 pending, plans 1 photo; submitted below once its photo is uploaded (the real flow)
 insert into public.quote_requests
   (id, submission_key, state, reference, name, phone, email, address, problem, urgency, photo_count, submitted_at, created_at)
 values
@@ -26,7 +29,9 @@ values
   ('d0000000-0000-4000-8000-000000000003', gen_random_uuid(), 'submitted', 'NQ-ABCD23', 'Kim Done', '9055550103',
    'kim@example.com', '3 James St N, Hamilton ON', 'Outdoor tap is frozen and cracked', 'flexible', 0, now(), now()),
   ('d0000000-0000-4000-8000-000000000004', gen_random_uuid(), 'pending', null, 'Old Pending', '9055550104',
-   'old@example.com', '4 James St N, Hamilton ON', 'Slow drain in the upstairs bathroom', 'flexible', 3, null, now() - interval '2 hours');
+   'old@example.com', '4 James St N, Hamilton ON', 'Slow drain in the upstairs bathroom', 'flexible', 3, null, now() - interval '2 hours'),
+  ('d0000000-0000-4000-8000-000000000005', gen_random_uuid(), 'pending', null, 'Robin Sent', '9055550105',
+   'robin@example.com', '5 James St N, Hamilton ON', 'Sump pump runs without stopping', 'soon', 1, null, now());
 
 -- The bucket exists, is private, and enforces size and type (AC-002.9)
 select is((select public from storage.buckets where id = 'quote-photos'), false, 'quote-photos bucket is private');
@@ -61,15 +66,29 @@ select throws_ok($$ insert into storage.objects (bucket_id, name) values ('quote
   '42501', null, 'a folder that is not a pending request is refused');
 select throws_ok($$ insert into storage.objects (bucket_id, name) values ('quote-photos', 'photo-1') $$,
   '42501', null, 'an upload outside any request folder is refused');
+select lives_ok($$ insert into storage.objects (bucket_id, name) values ('quote-photos', 'd0000000-0000-4000-8000-000000000005/photo-1') $$,
+  'anon uploads the one planned photo of d...05');
 select is((select count(*) from storage.objects where bucket_id = 'quote-photos'), 0::bigint,
   'anon cannot list or read photos, not even its own (AC-002.8)');
 reset role;
+
+-- the server completes d...05 (what complete_quote_request does: photo row, reference, submitted)
+insert into public.quote_photos (request_id, position, storage_path, content_type, size_bytes)
+values ('d0000000-0000-4000-8000-000000000005', 1, 'd0000000-0000-4000-8000-000000000005/photo-1', 'image/jpeg', 1000);
+update public.quote_requests set state = 'submitted', reference = 'NQ-ABCD24', submitted_at = now()
+ where id = 'd0000000-0000-4000-8000-000000000005';
 
 -- staff, fresh session
 set local "request.jwt.claims" to '{"sub":"a0000000-0000-4000-8000-000000000001","role":"authenticated","session_id":"b0000000-0000-4000-8000-000000000001"}';
 set local "request.jwt.claim.sub" to 'a0000000-0000-4000-8000-000000000001';
 set local role authenticated;
-select is((select count(*) from storage.objects where bucket_id = 'quote-photos'), 3::bigint, 'staff can read the photos');
+-- scoped to this test's folders (d...01 to d...05), so real photos on staging never change the count;
+-- the 0-row assertions for anon, old sessions and non-staff stay unscoped (stronger)
+select is((select count(*) from storage.objects where bucket_id = 'quote-photos'
+             and name like 'd0000000-0000-4000-8000-00000000000_/%'), 1::bigint,
+  'staff read the photo stored with the submitted request, and nothing else');
+select is((select count(*) from storage.objects where bucket_id = 'quote-photos' and name like 'd0000000-0000-4000-8000-000000000001/%'), 0::bigint,
+  'staff cannot read photos of a pending, never-submitted request (invariant 5, S0 SEC-8)');
 reset role;
 
 -- staff, session older than 7 days
