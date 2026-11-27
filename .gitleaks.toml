@@ -18,6 +18,14 @@
 #      construction, each pinned to named files AND an anchored value (condition AND); the history entry is also pinned
 #      to three commits. Reasons are written next to each entry. Evidence: .baseleap/reviews/SEC1.md, "Allowlist
 #      implementation".
+# Change in SEC1 "CI pre-push scan" (2026-11-27):
+#   6. One history-only entry for the literal placeholder URL user:password at host that devops' OPS1 report quoted in
+#      commit 42d15a3 (line 300). Pinned to that one commit AND that one file AND rule postgres-connection-string-with-password
+#      AND the whole matched URL. The working tree no longer holds the line.
+#   7. A second history-only entry for the 14 self-test fixtures and the one help string in commit b0df843,
+#      .github/scripts/staging-db-check.mjs (lines 225, 294, 306, 310, 352, 354, 381, 383, 391, 399, 409, 410, 412, 414).
+#      Pinned to that one commit AND that one file AND the same rule AND ten anchored whole-match shapes, one per distinct
+#      fixture text. The working tree no longer holds these lines.
 # Rule of thumb for every entry below: a different value, file, commit or rule still fails. No directory or rule is
 # switched off. In regexes, the "at" sign is written \x40 (the same character to RE2) so this file's own text never
 # holds a credentialed URL for a rule to report.
@@ -141,6 +149,79 @@ paths = [
 regexTarget = "secret"
 regexes = [
   '''^eyJ[A-Za-z0-9_-]{7,69}(?:\.[A-Za-z0-9_-]{0,68})?$''',
+]
+
+# OPS1 report placeholder (history only). Commit 42d15a3, .baseleap/reports/OPS1.md:300 quotes the literal text
+# postgresql://user:password at host (inside backticks) while describing fixtures devops had already rewritten. It is
+# a placeholder by name, not a credential; the line was reworded in the working tree, but the commit stays in CI's
+# scan range. All four conditions must hold: this one commit (full SHA, immutable, so it can never cover new work),
+# this one file, this one rule, and the WHOLE matched URL: user "user", password "password", host "host", then at most
+# the closing backtick the rule's host part swallows, then the end. Any other user, password, host, port, path or
+# trailing text, any other file, commit or rule, still fails. The tree scan never matches it (no commit on tree findings).
+[[allowlists]]
+description = "OPS1 report: literal user:password at host placeholder in commit 42d15a3 only (history only)"
+targetRules = ["postgres-connection-string-with-password"]
+condition = "AND"
+commits = [
+  "42d15a30be83e476ee57d26e07ab558419821364",
+]
+paths = [
+  '''(?:^|/)\.baseleap/reports/OPS1\.md$''',
+]
+regexTarget = "match"
+regexes = [
+  '''^postgresql://user:password\x40host`?$''',
+]
+
+# staging-db-check self-test fixtures (history only). Commit b0df843, .github/scripts/staging-db-check.mjs, which devops
+# has since rewritten in the working tree. The 14 matches are all fake by construction, read line by line in the commit:
+#   225       verdict() help text: the placeholder address user / password / host, then "...)." (the rule's host part
+#             swallows those characters up to the closing quote).
+#   294       selfTest() "good" fixture: a fixed made-up password word with the template placeholders ${REF} (set to the
+#             fake ref abcdefghijklmnopqrst at :292) and ${POOLER}, ending in a backtick and ";".
+#   306, 381, 383, 399   the same made-up word with plain user postgres and the template direct host db.${REF}.supabase.co.
+#   310, 391  Supabase's own [YOUR-PASSWORD] placeholder with ${REF} and ${POOLER}.
+#   352       an already percent-encoded made-up password, 354 a made-up password of allowed punctuation, both with
+#             ${REF} and ${POOLER}.
+#   409, 410, 412, 414   the "no secret reaches the output" check: every part is a ${secrets[n]} interpolation of the four
+#             sentinel strings in its own array (:407); 410 adds a literal backslash-n.
+# All four conditions must hold: this one commit (full SHA, immutable, so it can never cover new work), this one file,
+# this one rule, and the WHOLE match equal to one of the ten shapes below, from the scheme to the trailing backtick and
+# "," or ";" the rule's host part swallows. The user, password, host (still a ${...} template where the fixture had
+# one), port, database and trailing text are all fixed. The sentinels written out literally, a real project ref, any
+# other password, host, port or scheme, any other file, commit or rule, still fails. The tree scan never matches it.
+[[allowlists]]
+description = "staging-db-check.mjs self-test fixtures and help text in commit b0df843 only (history only)"
+targetRules = ["postgres-connection-string-with-password"]
+condition = "AND"
+commits = [
+  "b0df84353a0a7f7e717e5c5c4b46768202a035fe",
+]
+paths = [
+  '''(?:^|/)\.github/scripts/staging-db-check\.mjs$''',
+]
+regexTarget = "match"
+regexes = [
+  # :225 help text
+  '''^postgresql://user:password\x40host\.\.\.\)\.$''',
+  # :294 good (pooler)
+  '''^postgresql://postgres\.\$\{REF\}:Sup3rSecret\x40\$\{POOLER\}:5432/postgres`;$''',
+  # :306, :381, :383, :399 direct host
+  '''^postgresql://postgres:Sup3rSecret\x40db\.\$\{REF\}\.supabase\.co:5432/postgres`,$''',
+  # :310, :391 Supabase placeholder
+  '''^postgresql://postgres\.\$\{REF\}:\[YOUR-PASSWORD\]\x40\$\{POOLER\}:5432/postgres`,$''',
+  # :352 already percent-encoded
+  '''^postgresql://postgres\.\$\{REF\}:p%40ss%2Fw%23rd\x40\$\{POOLER\}:5432/postgres`,$''',
+  # :354 allowed punctuation
+  '''^postgresql://postgres\.\$\{REF\}:p!\$&'\(\)\*\+,;=-\._~x\x40\$\{POOLER\}:5432/postgres`,$''',
+  # :409 sentinels
+  '''^postgresql://\$\{secrets\[1\]\}:\$\{secrets\[0\]\}\x40\$\{secrets\[2\]\}:5432/\$\{secrets\[3\]\}`,$''',
+  # :410 sentinels plus a literal backslash-n
+  '''^postgresql://\$\{secrets\[1\]\}:\$\{secrets\[0\]\}\x40\$\{secrets\[2\]\}:5432/\$\{secrets\[3\]\}\\n`,$''',
+  # :412 sentinels, direct-host shape, sentinel as port
+  '''^postgresql://\$\{secrets\[1\]\}:\$\{secrets\[0\]\}\x40db\.\$\{secrets\[3\]\}\.supabase\.co:\$\{secrets\[0\]\}/\$\{secrets\[3\]\}`,$''',
+  # :414 sentinels, no port or path
+  '''^postgresql://\$\{secrets\[1\]\}:\$\{secrets\[0\]\}\x40\$\{secrets\[2\]\}`,$''',
 ]
 
 # Plan dummy: the FE1-FE3 verify commands set the app's signing variable to a named 40-character dummy for a local,
