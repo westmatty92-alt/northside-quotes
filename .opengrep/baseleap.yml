@@ -11,9 +11,15 @@
 #     signed photo URL it was given, a seed helper spreading options into an insert): not request input, not a server.
 #   - baseleap-open-redirect knows the project's sanitizer: safeNextPath() (src/lib/server/auth/next-path.ts), the
 #     invariant-22 allow-list `^/(requests|pipeline)(/[0-9a-f-]{36})?$` with a constant fallback.
-# These changes are proven on every scan: scripts/security-scan.sh builds a small fixture repo and runs
-# node .claude/skills/sec-appsec/tests/check-rules.mjs on it with THIS file (every `expect:` line must fire, nothing else
-# may). A failed self-test fails the scan, so a rule that cannot fire is reported, not trusted.
+# SEC1 "Opengrep self-test fix", 2026-11-26. On staging 291a344 the self-test flagged all 6 guarded fixture handlers:
+#   - baseleap-route-without-auth-guard no longer recognises a guard with the deep-expression operator
+#     `withApi(..., <... requireStaff(...) ...>)`. In CI that exclusion matched none of the guarded handlers, which are all
+#     block-bodied arrows with the guard as a statement. The likely reason is that the operator does not reach the
+#     statements of a block-bodied arrow passed as an argument. The guard is now matched as the FIRST statement of the
+#     handler body, in the shapes this codebase uses (see the rule).
+# These changes are proven on every scan: scripts/security-scan.sh writes a small fixture repo and scans it with THIS file
+# (the comparison of .claude/skills/sec-appsec/tests/check-rules.mjs, inlined): every `expect:` line must fire and nothing
+# else may. A failed self-test fails the scan, so a rule that cannot fire, or fires on guarded code, is reported, not trusted.
 # Validate: opengrep scan --validate --config .opengrep/baseleap.yml
 rules:
   - id: baseleap-service-role-import-in-ui
@@ -41,12 +47,14 @@ rules:
 
   - id: baseleap-route-without-auth-guard
     message: >-
-      API route handler with no auth guard. SECURITY_MODEL.md invariant 3: every /api route needs a staff bearer token
-      (requireStaff), except GET /api/health, POST /api/auth/sign-in, the two formToken operations (POST /api/quote-requests,
-      POST /api/quote-requests/[request_id]/submission) and /api/jobs/*, which need CRON_SECRET (isCronRequest, invariant 12).
-      Invariant 11: every handler is `export const <METHOD> = withApi('<METHOD> <path>', ...)`, so a plain
-      `export (async) function <METHOD>` is flagged too. The public list is matched on withApi's route label, which must
-      be the real method and path. A new public operation needs a security-model change first. Confirm by reading the handler.
+      API route handler with no auth guard as its first statement. SECURITY_MODEL.md invariant 3: every /api route needs a
+      staff bearer token (requireStaff), except GET /api/health, POST /api/auth/sign-in, the two formToken operations
+      (POST /api/quote-requests, POST /api/quote-requests/[request_id]/submission) and /api/jobs/*, which need CRON_SECRET
+      (isCronRequest, invariant 12). The guard must be the handler's first statement, as
+      `const <name> = await requireStaff(...)`, `await requireStaff(...)` or `if (!isCronRequest(...)) throw ...`, so that
+      a refused call reads and calls nothing. Invariant 11: every handler is `export const <METHOD> = withApi('<METHOD> <path>', ...)`,
+      so a plain `export (async) function <METHOD>` is flagged too. The public list is matched on withApi's route label, which
+      must be the real method and path. A new public operation needs a security-model change first. Confirm by reading the handler.
     severity: ERROR
     languages: [typescript]
     paths:
@@ -67,12 +75,40 @@ rules:
       - metavariable-regex:
           metavariable: $METHOD
           regex: ^(GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS)$
-      # A withApi handler that calls one of the two guards anywhere in its body is fine. (The 405 handlers,
-      # `export const PUT = notAllowed`, are not withApi calls and never match above.)
-      - pattern-not: export const $METHOD = withApi(..., <... requireStaff(...) ...>)
-      - pattern-not: export const $METHOD = withApi<$T>(..., <... requireStaff(...) ...>)
-      - pattern-not: export const $METHOD = withApi(..., <... isCronRequest(...) ...>)
-      - pattern-not: export const $METHOD = withApi<$T>(..., <... isCronRequest(...) ...>)
+      # A withApi handler whose FIRST statement is a guard is fine. These are statement patterns, not the deep-expression
+      # operator: `<... X ...>` excluded none of the guarded block-bodied handlers (self-test, staging 291a344).
+      # The body has no leading `...`, so a guard placed after other work, or nested in a branch, is still flagged.
+      # (The 405 handlers, `export const PUT = notAllowed`, are not withApi calls and never match above.)
+      - pattern-not: |
+          export const $METHOD = withApi(..., async (...) => {
+            const $STAFF = await requireStaff(...);
+            ...
+          })
+      - pattern-not: |
+          export const $METHOD = withApi<$T>(..., async (...) => {
+            const $STAFF = await requireStaff(...);
+            ...
+          })
+      - pattern-not: |
+          export const $METHOD = withApi(..., async (...) => {
+            await requireStaff(...);
+            ...
+          })
+      - pattern-not: |
+          export const $METHOD = withApi<$T>(..., async (...) => {
+            await requireStaff(...);
+            ...
+          })
+      - pattern-not: |
+          export const $METHOD = withApi(..., async (...) => {
+            if (!isCronRequest(...)) throw $ERR;
+            ...
+          })
+      - pattern-not: |
+          export const $METHOD = withApi<$T>(..., async (...) => {
+            if (!isCronRequest(...)) throw $ERR;
+            ...
+          })
 
   - id: baseleap-request-body-into-write
     message: The raw request body is written to the database (mass assignment). Parse it with the generated strict Zod schema and write only contract fields.
