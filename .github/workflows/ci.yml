@@ -91,7 +91,7 @@ jobs:
           node-version-file: .nvmrc
           cache: npm
       - run: npm ci
-      - name: The staging settings and the psql client are present (names only; no value is printed)
+      - name: The staging settings and the psql client are present, and the database address connects (names and classes only; no value is printed)
         run: |
           missing=""
           for name in NEXT_PUBLIC_SUPABASE_URL NEXT_PUBLIC_SUPABASE_ANON_KEY SUPABASE_SERVICE_ROLE_KEY SUPABASE_STAGING_DB_URL QA_OWNER_PASSWORD QA_HELPER_PASSWORD; do
@@ -108,6 +108,12 @@ jobs:
             exit 1
           fi
           psql --version
+          # OPS1 (api-tests psql diagnosis): the tests' psql cleanup reports only "failed (exit 2)" by design, so a wrong
+          # SUPABASE_STAGING_DB_URL cost 16 suites and no explanation. This prints the shape of the address (yes/no and classes),
+          # runs `psql "$SUPABASE_STAGING_DB_URL" -c 'select 1'` once, names the failure class and fails here with what Matthew
+          # must fix. It never prints the value, user, password, host or psql's stderr, and never uses `set -x`.
+          # Fix steps: docs/runbook.md, "Staging database address for CI".
+          node .github/scripts/staging-db-check.mjs
       # APP_SIGNING_SECRET and CRON_SECRET are deliberately NOT provided here (Vercel only); tests set their own.
       # test:offline excludes tests/integrations/**/db.test.ts (they need the staging database), so those run here, named
       # explicitly. A filter that matches no file is harmless while another one matches (the routes file lands from the
@@ -200,6 +206,8 @@ jobs:
           "$RUNNER_TEMP/bin/actionlint" -color
       - name: Release pre-flight rejects every unprotected setup (fixtures, no network)
         run: node .github/scripts/release-preflight.mjs --self-test
+      - name: Staging database address check classifies every suspected cause and never prints a value (fixtures, no network)
+        run: node .github/scripts/staging-db-check.mjs --self-test
       - name: Policy (actions pinned to a full SHA, permissions declared, no privileged trigger)
         run: |
           fail=0
