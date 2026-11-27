@@ -450,3 +450,122 @@ Round 2: nothing new in range. Both rows above still stand. Round 3: nothing new
   1. The template rule `baseleap-route-without-session-guard` cannot fire in any project that wraps handlers in a `withApi`-style function. `baseleap-route-without-auth-guard` plus its self-test fixtures could go back into the kit.
   2. `check-rules.mjs` starts with `opengrep scan --validate`. If opengrep keeps upstream Semgrep's behaviour, that fetches the `p/semgrep-rule-lints` registry pack, against the "no registry rule packs" rule. Suggest dropping `--validate`, because opengrep already exits non-zero on an invalid config.
 - **Round 1 rule proposal closed:** `baseleap-route-without-staff-guard` is now implemented as `baseleap-route-without-auth-guard` (change 3).
+
+## Opengrep self-test fix
+
+*(2026-11-26, the third and last attempt at the CI scan fix. Scope: one rule, `baseleap-route-without-auth-guard` in `.opengrep/baseleap.yml`. `scripts/security-scan.sh` and `.gitleaks.toml` are unchanged, and no fixture or expectation changed. Not a re-review of application code. **The verdict line at the top is unchanged:** the self-test failure was a false positive in my rule, not a finding in the app, and the real scan of staging found 0 findings.)*
+
+**Input.** Matthew read CI's result on staging `291a344` from the log: the `security` job failed on "opengrep rule self-test: FAILED … expected 7, fired 13, missed 0, unwanted 6, engine errors 0". All 6 unwanted hits were `baseleap-route-without-auth-guard`, at `src/app/api/go/route.ts:6, :11`, `src/app/api/guarded/route.ts:6, :11, :17` and `src/app/api/jobs/sweep/route.ts:4` in the self-test's temporary fixture tree. The real scan found 0 findings in 93 changed files, and gitleaks and the other steps passed. **Read:** `.opengrep/baseleap.yml` and `scripts/security-scan.sh` in full (the fixture writer at `:54-200` and the comparison at `:203-231`). On `origin/staging` (= `291a344`, `git log -1`): every method export under `src/app/api/` (`git grep`), every `requireStaff` / `isCronRequest` line, `jobs/ghl-sync/route.ts` and `quote-requests/[request_id]/ghl-copy-retries/route.ts` in full, and `docs/SECURITY_MODEL.md` invariants 3, 11 and 12.
+
+### Which side was wrong: the rule
+I counted each fixture file's lines inside its heredoc in `security-scan.sh`. **Each of the 6 unwanted lines is the `export const … = withApi(` line of a guarded handler, and together they are every guarded withApi handler in the fixtures.** Each one uses a guard shape that the real code also uses:
+
+| Unwanted (CI) | Fixture handler | Its first statement | Real handlers on `291a344` with the same shape |
+|---|---|---|---|
+| `guarded/route.ts:6` | `GET = withApi('GET /api/guarded', async (req, ctx) => {` | `const staff = await requireStaff(req);` | 8, character for character: `quote-requests/route.ts:12→13`, `[request_id]/route.ts:9→10`, `[request_id]/photos/route.ts:9→10`, `[request_id]/quote/route.ts:10→11`, `[request_id]/status-changes/route.ts:14→15`, `[request_id]/ghl-copy-retries/route.ts:39→40`, `staff/me/route.ts:8→9`, `weekly-counts/current/route.ts:8→9` |
+| `guarded/route.ts:11` | `PUT = withApi<Params>(…)` | `const staff = await requireStaff(req);` | the 5 generic (`withApi<Params>`) handlers among those 8 |
+| `guarded/route.ts:17` | `PATCH = withApi(…)` | `await requireStaff(req);` | none today; a valid guard, so it must not be flagged |
+| `go/route.ts:6`, `:11` | `GET` / `POST = withApi(…)` (the open-redirect fixture) | `await requireStaff(req);` | none today; same |
+| `jobs/sweep/route.ts:4` | `GET = withApi('GET /api/jobs/sweep', …)` | `if (!isCronRequest(req.headers.get('authorization'))) throw new ProblemError(401, 'unauthorized');` | 2, character for character: `jobs/ghl-sync/route.ts:19→20`, `jobs/housekeeping/route.ts:8→9` |
+
+**The fixtures are labelled correctly.** Each one is a guarded handler written the way the real handlers are written, so I changed no expectation. The rule was wrong. Its four `pattern-not` lines used the deep-expression operator, `withApi(..., <... requireStaff(...) ...>)`. In CI those exclusions matched none of the six guarded handlers. All six are block-bodied arrows with the guard as a statement. Meanwhile all 4 expected hits fired, so the positive patterns, the public-label regex and the METHOD regex all behave as written.
+- **Confirmed** (CI result): the exclusion removed no guarded handler.
+- **Likely** (opengrep can't run here): the mechanism is that the deep-expression operator does not descend from a call argument into the *statements* of a block-bodied arrow function. My predecessor listed that assumption as unverified ("the deep expression descends into arrow-function bodies"), and the self-test caught it, as intended.
+
+**What it means for the real code.** The rule as committed at `291a344` would flag **all 10 guarded real handlers** as soon as their files were in a scan's changed set. The real scan shows 0 only because no `route.ts` changed in `origin/main..staging`. So nothing was hidden, but the first release that touched a route would have gone red with 10 false Criticals. That would have taught everyone to ignore the rule. No application finding follows from this.
+
+### Change: guard recognised as the first statement of the handler (`.opengrep/baseleap.yml`)
+- The four deep-expression `pattern-not` lines are **removed**. Six statement-shaped `pattern-not` lines replace them, one for each of 3 guard shapes × `withApi(…)` / `withApi<$T>(…)`. Each has the form `export const $METHOD = withApi(..., async (...) => { <GUARD> ... })`, where `<GUARD>` is:
+  1. `const $STAFF = await requireStaff(...);` (8 real handlers)
+  2. `await requireStaff(...);` (fixtures `guarded` PATCH and both `go` handlers)
+  3. `if (!isCronRequest(...)) throw $ERR;` (2 real handlers)
+- **Stricter than the old rule, not weaker:**
+  - The body has no leading `...`, so the guard must be the **first** statement. A handler that reads or calls something before it checks the caller, or that guards only in a branch, is flagged. That is the codebase's own rule: `jobs/ghl-sync/route.ts:5` says "the check runs before anything else, so a refused call reads and calls nothing".
+  - A cron guard must **reject** (`throw`). The old rule accepted any `isCronRequest(…)` call anywhere, including one whose result was ignored.
+- **Unchanged:** the positive patterns, the exact public-operation label regex (invariant 3), the METHOD regex, the flagging of a plain `export (async) function <METHOD>` or bare arrow export (invariant 11), the `paths`, the severity and the other 11 rules. The rule's message now names the three accepted guard shapes. The file header records the change.
+
+### Line-by-line trace: every handler export in the self-test fixtures
+Fixture line numbers are counted inside each heredoc. "Excluded by" names the matching `pattern-not` by shape (1, 2 or 3 above), with `g` for the `withApi<$T>` variant.
+
+| Fixture `file:line` | Export | Positive match? | Public label? | Excluded by | Result | `expect:` marker | OK |
+|---|---|---|---|---|---|---|---|
+| `guarded/route.ts:6` | `GET = withApi('GET /api/guarded', async (req, ctx) => {` | yes | no | 1 (first statement `const staff = await requireStaff(req);`) | clean | none | ✓ |
+| `guarded/route.ts:11` | `PUT = withApi<Params>('PUT /api/guarded/[request_id]', …) => {` | yes | no | 1g (and 1, if opengrep ignores type arguments) | clean | none | ✓ |
+| `guarded/route.ts:17` | `PATCH = withApi('PATCH /api/guarded', …) => {` | yes | no | 2 (`await requireStaff(req);`) | clean | none | ✓ |
+| `guarded/route.ts:23` | `DELETE = notAllowed` | no (not a withApi call or a function) | — | — | clean | none | ✓ |
+| `jobs/sweep/route.ts:4` | `GET = withApi('GET /api/jobs/sweep', …) => {` | yes | no | 3 (`if (!isCronRequest(…)) throw new ProblemError(…);`) | clean | none | ✓ |
+| `health/route.ts:3` | `GET = withApi('GET /api/health', …)` | no: label is public | yes | — | clean | none | ✓ |
+| `auth/sign-in/route.ts:3` | `POST = withApi('POST /api/auth/sign-in', …)` | no: public | yes | — | clean | none | ✓ |
+| `quote-requests/route.ts:3` | `POST = withApi('POST /api/quote-requests', …)` | no: public | yes | — | clean | none | ✓ |
+| `quote-requests/[request_id]/submission/route.ts:5` | `POST = withApi<Params>('POST /api/quote-requests/[request_id]/submission', …)` | no: public (`\[request_id\]` in the regex) | yes | — | clean | none | ✓ |
+| `unguarded/route.ts:6` | `GET = withApi('GET /api/unguarded', …) => {` | yes | no | none: first statement is `return json(…)` | **fires** | `baseleap-route-without-auth-guard` | ✓ |
+| `unguarded/route.ts:10` | `POST = withApi<Params>('POST /api/unguarded/[request_id]', …) => {` | yes | no | none: first statement is `const { request_id } = await params;` | **fires** | same | ✓ |
+| `unguarded/route.ts:15` | `PUT = withApi('GET /api/quote-requests', async (_req, ctx) => json(ctx, []))` | yes | no (only `POST` on that path is public) | none: expression body, no guard | **fires** | same | ✓ |
+| `unguarded/route.ts:17` | `export async function DELETE(req: Request) {` | yes (plain-function branch) | — | none: every exclusion needs `withApi` | **fires** (it calls `requireStaff`, but invariant 11 needs withApi) | same | ✓ |
+| `go/route.ts:6` | `GET = withApi('GET /api/go', async (req: NextRequest) => {` | yes | no | 2 | clean | none (`:8` is `baseleap-open-redirect`, a separate rule, unchanged) | ✓ |
+| `go/route.ts:11` | `POST = withApi('POST /api/go', …) => {` | yes | no | 2 | clean | none | ✓ |
+| `go/route.ts:17` | `function redirectTo(…)` | no (not exported, not a METHOD name) | — | — | clean | none | ✓ |
+
+`src/lib/server/services/relay.ts` and `tests/helpers/photos.ts` sit outside this rule's `paths` (`src/app/api/**/route.ts`). The other rules on them are unchanged and produced no unwanted line on `291a344`.
+
+**Result:** the route rule fires on 4 lines, all expected. With the 3 expected hits of the other rules (`go/route.ts:8` open redirect, `relay.ts:5` SSRF, `relay.ts:10` mass assignment), that makes **expected 7 · fired 7 · missed 0 · unwanted 0**.
+
+### Line-by-line trace: the 14 real withApi handlers on `origin/staging` (`291a344`)
+| Handler (`file:line`) | Label public? | First statement (`file:line`) | Excluded by | Result |
+|---|---|---|---|---|
+| `auth/sign-in/route.ts:14` POST | yes | — | — | clean (public, invariant 3) |
+| `health/route.ts:6` GET | yes | — | — | clean (public) |
+| `quote-requests/route.ts:18` POST | yes | — | — | clean (public, formToken) |
+| `quote-requests/[request_id]/submission/route.ts:14` POST (`withApi<Params>`) | yes | — | — | clean (public, formToken) |
+| `quote-requests/route.ts:12` GET | no | `:13` `const staff = await requireStaff(req);` | 1 | clean |
+| `quote-requests/[request_id]/route.ts:9` GET (`<Params>`) | no | `:10` same | 1g | clean |
+| `quote-requests/[request_id]/photos/route.ts:9` GET (`<Params>`) | no | `:10` same | 1g | clean |
+| `quote-requests/[request_id]/quote/route.ts:10` PUT (`<Params>`) | no | `:11` same | 1g | clean |
+| `quote-requests/[request_id]/status-changes/route.ts:14` POST (`<Params>`) | no | `:15` same | 1g | clean |
+| `quote-requests/[request_id]/ghl-copy-retries/route.ts:39` POST (`<Params>`) | no | `:40` same (read in full) | 1g | clean |
+| `staff/me/route.ts:8` GET | no | `:9` same | 1 | clean |
+| `weekly-counts/current/route.ts:8` GET | no | `:9` same | 1 | clean |
+| `jobs/ghl-sync/route.ts:19` GET | no | `:20` `if (!isCronRequest(req.headers.get('authorization'))) throw new ProblemError(401, 'unauthorized');` (read in full) | 3 | clean |
+| `jobs/housekeeping/route.ts:8` GET | no | `:9` same | 3 | clean |
+
+In every one of the 10 guarded handlers, the guard is on the line right after the `withApi(` line, so it is the first statement. The 51 `export const <METHOD> = notAllowed` lines match no positive pattern. `git grep` finds no `export { … as GET }` re-export and no `export default` under `src/app/api/`. So the rule reports **0** on staging's routes today and would report 0 if every route file were in a changed set. A route that skips the guard, or calls it second, still fires, as `unguarded/route.ts:6, :10, :15, :17` show.
+
+### Expected result of the next CI run on staging
+| Step | Expected line in the log | If it shows something else |
+|---|---|---|
+| `opengrep rule self-test` | `opengrep rule self-test: PASS (expected 7 · fired 7 · missed 0 · unwanted 0 · engine errors 0)` | `UNWANTED src/app/api/guarded/route.ts:11` alone: the `withApi<$T>` statement form doesn't match generic calls. `UNWANTED` on all six again: opengrep doesn't match statement sequences inside an arrow passed as an argument. `MISSED` on an `unguarded` line: an exclusion matched more than its guard. An `exited N` message or an engine error: a `pattern-not` did not parse, and the log prints the stderr tail. Each of these is a rule problem, not a fixture problem |
+| `opengrep` (changed files) | `opengrep: 0 finding(s) in 93 changed file(s)`. The count stays 93 if the commit adds no file outside `.claude/` and `.baseleap/`. `.opengrep/baseleap.yml` is already in the range, and this review is in `.baseleap/` (excluded) | A finding on a real `route.ts` means a guard is missing or not first: Critical, route it. The new rule text adds no `NEXT_PUBLIC_…` or `Access-Control-Allow-Origin` text for the two path-less regex rules to match in the yml itself |
+| gitleaks (history, tree, bundle) | unchanged from `291a344` (passed) | The yml change holds no secret-shaped text. This section quotes no value |
+| osv-scanner, npm audit | unchanged from `291a344` (passed) | — |
+| Job | **green** | — |
+
+### Not proven by the self-test (limits, stated plainly)
+- **The first-statement anchor is my reading of opengrep's semantics, and no fixture proves it.** A function-body pattern with no leading `...` should match only bodies that *start* with the guard. If opengrep is more lenient, the rule weakens to "a guard statement somewhere in the body". It still catches every handler with no guard at all, but not a late or branch-only guard. I deliberately added no fixture for this on the last attempt, because an expectation I can't run risks another red job. **Proposal for the next security step, once opengrep can run locally:** add three expected-firing fixtures (a guard after a database read, a guard inside an `if`, and `isCronRequest(…)` with its result ignored), all marked `expect: baseleap-route-without-auth-guard`.
+- **Fail-safe gaps:** a destructured guard (`const { db } = await requireStaff(req)`), a non-`async` handler or a cron guard with a block body (`if (!isCronRequest(…)) { throw … }`) would be flagged and would need a rule update or a hand review. None exists today.
+- **Not enforced:** that `isCronRequest` guards only `/api/jobs/*` and `requireStaff` only the staff routes. Invariants 3 and 12 split guards by path. A staff route guarded by the cron secret alone would pass this rule, though it would still refuse anonymous callers, and QA's staff flows would break on it. A per-path split is a follow-up rule proposal, not done here.
+- **`export { handler as GET }`** is not matched. None exists (`git grep`).
+
+### Checks this round
+| Check | Result | Evidence |
+|---|---|---|
+| The 6 unwanted hits are guarded handlers, so the fixtures are correctly labelled | **passed (code)** | Fixture lines counted in `security-scan.sh:63-98, 152-172`. Each guard shape matches the real code (table "Which side was wrong") |
+| The rule fires on every unguarded fixture and on no guarded or public one | **passed (hand trace)**; firing **not assessable** here | Fixture trace table. The next CI run is the proof |
+| The rule is clean on all 14 real handlers, and every one of the 10 guards is the first statement | **passed (code)** | `git grep` on `origin/staging` (handler line N, guard line N+1 in all 10); two files read in full |
+| The rule can still fire, not weakened | **passed (hand trace)** | 4 expected fires kept. The exclusions are stricter than before (first statement; a cron guard must `throw`) |
+| No other rule, fixture or expectation changed | **passed** | Only the route rule's `pattern-not` list, its message and the file header changed. `security-scan.sh` and `.gitleaks.toml` were not edited |
+| Scanner results | **not assessable** | See Tools |
+
+### Tools this round
+| Tool | Result |
+|---|---|
+| `which opengrep semgrep gitleaks node` | ran: **opengrep, semgrep and gitleaks are now installed** under `~/.local/bin` (they weren't in the previous attempt) |
+| `opengrep --version` | **refused** ("This command requires approval"). I did not route opengrep through `node .claude/skills/sec-appsec/tests/check-rules.mjs`, because that would repackage a refused command (stack-specialist-protocol §5a). That script's `--validate` step also carries the registry-pack concern noted above |
+| `git fetch origin staging` | **refused**. `origin/staging` was already at `291a344` (`git log -1`), so nothing was lost |
+| `git grep` / `git show` on `origin/staging` | ran; results above |
+| A Node parse of the yml (the `yaml` package) | **refused**. Indentation checked by reading: the six `pattern-not` block scalars sit at the same list depth as the existing entries |
+| `node scripts/review-check.mjs .baseleap/reviews/SEC1.md --kind security` | ran; result in the summary to the orchestrator |
+
+### Notes for the orchestrator
+- **One local command would settle this before CI:** opengrep is now installed on this machine. If Matthew allows `opengrep scan` (or `bash scripts/security-scan.sh`) for bl-security, the self-test can run locally. That would prove the first-statement anchor and let the three proposed fixtures go in safely.
+- **Kit:** the template-replacement note above ("`baseleap-route-without-auth-guard` could go back into the kit") should carry this statement-shaped form, not the deep-expression one. Any kit rule that relies on `<... X ...>` reaching into a callback's block body has the same trap.
+- **Verdict:** unchanged (APPROVED, 0 Critical, 0 Important). This was a scanner configuration defect in my file, with no application finding.
