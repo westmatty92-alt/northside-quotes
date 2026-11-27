@@ -1,20 +1,27 @@
 // The deployed preview itself: which commit it serves, the Request page is rendered per request with a
 // fresh form token and is never cached, /inbox does not exist, and the sign-in route answers the way the
 // contract says. SECURITY_MODEL "One token per page load" (S0 SEC-2), architecture "Build requirements from S0 -> QA".
+import fs from 'node:fs';
+import path from 'node:path';
 import { test, expect } from './support/fixtures';
 import { fetchPublicPage, newApi, nonceOf, describe } from './support/api';
 import { loadEnv } from './support/env';
+
+const DEPLOYED_VERSION_FILE = path.resolve(__dirname, '../../docs/qa-reports/deployed-version.json');
 
 test.describe('preview platform', () => {
   test.use({ storageState: { cookies: [], origins: [] } });
 
   test('@smoke health answers ok and reports the commit under test', async ({ playwright }, testInfo) => {
     loadEnv();
-    const expected = process.env.QA_EXPECTED_SHA ?? '0dff609';
+    // QA_EXPECTED_SHA set: the version must start with that commit. Not set (the ledger cannot pass an env var):
+    // /api/health must be ok and report a 40-hex version, and that version is attached and written to
+    // docs/qa-reports/deployed-version.json so the run report records the commit that was tested.
+    const expected = process.env.QA_EXPECTED_SHA ?? '';
     // QA_WAIT_BUILD_MS (optional): a new build may take minutes to land, so poll for that long. The assertion
     // itself is unchanged: the version must start with the commit under test.
     const waitMs = Number(process.env.QA_WAIT_BUILD_MS ?? 0);
-    if (waitMs > 0) test.setTimeout(waitMs + 60_000);
+    if (waitMs > 0 && expected) test.setTimeout(waitMs + 60_000);
     const anon = await newApi(playwright);
     const read = async () => {
       const res = await anon.get('/api/health');
@@ -22,7 +29,7 @@ test.describe('preview platform', () => {
       return (await res.json()) as { status?: string; version?: string };
     };
     let body = await read();
-    if (waitMs > 0) {
+    if (waitMs > 0 && expected) {
       await expect
         .poll(async () => String((body = await read()).version ?? '').startsWith(expected), {
           timeout: waitMs,
@@ -33,7 +40,11 @@ test.describe('preview platform', () => {
     }
     expect(body.status).toBe('ok');
     await testInfo.attach('health', { body: JSON.stringify(body), contentType: 'application/json' });
-    expect(String(body.version ?? ''), 'deployed commit').toContain(expected);
+    const version = String(body.version ?? '');
+    if (expected) expect(version, 'deployed commit').toContain(expected);
+    else expect(version, 'deployed commit (no QA_EXPECTED_SHA: any 40-hex commit)').toMatch(/^[0-9a-f]{40}$/);
+    fs.mkdirSync(path.dirname(DEPLOYED_VERSION_FILE), { recursive: true });
+    fs.writeFileSync(DEPLOYED_VERSION_FILE, `${JSON.stringify({ host: new URL(process.env.STAGING_URL ?? '').host, health: body.status, version, checked_against: expected || 'format only (40 hex)' }, null, 2)}\n`);
     await anon.dispose();
   });
 

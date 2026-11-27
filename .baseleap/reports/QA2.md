@@ -137,3 +137,38 @@ Not edited: `docs/test-plan.md` (it names `tests/e2e/api/permissions.spec.ts` fo
 **BLOCKED:** none for the probes. The fuzz run needs the ledger's verify to execute `bash tests/fuzz/run.sh` (needs network for pip, python3 venv).
 
 **Notes for the next step:** the probes command is green for the first time, so REV1 and SEC1 can start from this report (no Critical, no open ticket, fuzz pending). When the ledger runs the fuzz script, send its `tests/fuzz/last-run.txt` back so any first-run findings can be triaged into tickets.
+
+---
+
+## Attempt 2: SEC-25
+
+**Status:** partial. Minimal environment (must have): done. Guard: done. **Hash-locked install: NOT done, `tests/fuzz/requirements.lock` does not exist.** Nothing was run that needs approval; the fuzz was not run (as instructed).
+
+**Exactly which environment names reach Schemathesis** (`tests/fuzz/child-env.mjs`, used for the `--version` probe and for all three runs):
+- Copied from the parent only if set: `PATH`, `HOME`, `LANG`, `LC_ALL`, `TMPDIR`.
+- Set by the wrapper: `NO_COLOR=1`.
+- **Nothing else.** In particular none of `STAGING_URL`, `VERCEL_AUTOMATION_BYPASS_SECRET`, `QA_OWNER_PASSWORD`, any Supabase key or URL, `BASELEAP_LEDGER_SERVICE_KEY`, the staging DB URL, or the service-role keys. I did not pass the three names you listed as optional, because the fuzz does not need them in the environment: the target is `--url`, and the bypass value and the minted staff token already reach Schemathesis as `--header` arguments. Less environment, same behaviour. If a proxy or custom CA is needed on the ledger machine (`HTTPS_PROXY`, `SSL_CERT_FILE`), it is not passed and the run will fail with a connection error; add the one name to `ALLOWED_PARENT_NAMES` then.
+- `.env.local` is no longer loaded into `process.env`. `run.mjs` parses it (`util.parseEnv`) and `setting()` returns only the ten names in `WRAPPER_NAMES` (`STAGING_URL`, `PRODUCTION_HOSTS`, `VERCEL_AUTOMATION_BYPASS_SECRET`, `SUPABASE_STAGING_URL`, `NEXT_PUBLIC_SUPABASE_URL`, `SUPABASE_STAGING_ANON_KEY`, `NEXT_PUBLIC_SUPABASE_ANON_KEY`, `QA_OWNER_EMAIL`, `QA_OWNER_PASSWORD`, `SUPABASE_PROD_PROJECT_REF`); any other name throws. A name already in the real environment still wins over the file. The staff token is minted in Node as before: the password stays in the wrapper.
+- A second leak closed: the version probe (`spawnSync(schemathesis, ['--version'])`) also inherited the full environment; it now gets the same allow-listed one.
+- `run.sh` runs `pip install` under `env -i PATH HOME LANG`, so package build code does not see the shell's credentials either.
+
+**The lock: does not exist.** I cannot generate hashes here (pip, uv and the network need approval) and I wrote none by hand. The install is still the single pin `schemathesis==4.0.0` with ~54 floating, unhashed transitive packages, and `run.sh` prints "WARNING ... lock not done" to stderr on every run. What is ready: if `tests/fuzz/requirements.lock` exists, `run.sh` installs with `pip install --require-hashes --only-binary=:all: --no-deps -r tests/fuzz/requirements.lock` into a cleared venv, records the lock's sha256 in the venv, and reinstalls when the lock changes. The command to create it is in the comment in `run.sh` (`uv pip compile --generate-hashes --python-version 3.12` from a one-line `schemathesis==4.0.0` input; or `pip-compile --generate-hashes`). The remaining risk, for Matthew at Gate 3: a bad release of a transitive dependency would now run with no secret in its environment, but still with the network, the repo and the user's files. `--only-binary=:all:` is my addition to your command line (the review's direction); if one package has no wheel, the install fails closed with exit 3, never silently.
+
+**The guard** (`run.mjs`, before any process starts, including the version probe): builds the child environment once and exits **2** with the offending names (never values) if any name matches `/SERVICE|SECRET_KEY|DB_URL|LEDGER|PASSWORD/i`, except `VERCEL_AUTOMATION_BYPASS_SECRET`, or if any name is outside the allow-list. I made the match case-insensitive and added the allow-list check as a second line of defence. By construction it cannot fire today; it fires if someone later widens the allow-list or goes back to `...process.env`.
+
+**Files changed** (all inside owned paths)
+- `tests/fuzz/child-env.mjs` (new): allow-list, `buildChildEnv`, `offendingNames`.
+- `tests/fuzz/child-env.test.mjs` (new): the SEC-25 regression check (a parent environment full of placeholder secrets produces a child with only the allow-listed names; the guard names offenders and exempts only the bypass name). It uses the module directly, not a fake `schemathesis` binary.
+- `tests/fuzz/run.mjs`: no `loadEnvFile`; `setting()`; `CHILD_ENV` and guard; env on both spawns; header comment.
+- `tests/fuzz/run.sh`: lock-aware install, `env -i` for pip, warning when the lock is absent.
+- `docs/qa-reports/QA2-run.md`: one bullet under "Setup history".
+- Not changed: `schemathesis.toml`, the probes, any check list.
+
+**Commands run**
+- `npx eslint tests/fuzz tests/e2e/probes` → exit 0, no output.
+- `npx tsc --noEmit` → exit 0, no output.
+- Refused ("This command requires approval"): `node --test tests/fuzz/child-env.test.mjs`, `bash -n tests/fuzz/run.sh`. **Unverified:** that the new unit test passes (I checked its expected values by reading), that `run.sh` parses, and that Schemathesis still runs under the reduced environment. The ledger's `bash tests/fuzz/run.sh` will show the last one: a missing-`HOME`-style failure would exit 1 or 2 with Schemathesis's own message, never read as a pass. Suggest the ledger also runs `node --test tests/fuzz/child-env.test.mjs`.
+
+**Not done from SEC-25 (outside your three points):** the bypass value and the staff token are still `--header` arguments (readable through `/proc/<pid>/cmdline`), and the HAR reports in `.baseleap/tools/fuzz-reports/` still record them. I did not change either: Schemathesis 4.0.0's environment-variable header support is unverified here, and the HARs are what `serverErrors()` reads. Both are low in this setup (single-user machine, git-ignored folder, token is a short-lived staging owner token); they stay with the lock as risk for Gate 3.
+
+**CONTRACT QUESTION:** none. **BLOCKED:** the lock needs someone with pip/uv and network approval. **NEW SETTING:** none.

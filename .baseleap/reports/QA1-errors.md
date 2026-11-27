@@ -1,5 +1,7 @@
 # QA1 tickets (Critical first)
 
+**Attempt 5 (2026-11-25, commit `04dd79a77521284fdf0d7754e48ac650523be10f`, the same preview): no new tickets.** 156 of 156 passed in one full run, 0 flaky, 0 skipped; no earlier ticket regressed. BUG-QA1-6 is still OPEN (monitor): 0 occurrences in this run, so 3 clean full runs in a row. Details: `docs/qa-reports/latest-run.md`.
+
 **Attempt 4 (2026-11-24, commit `0dff609`, the same preview): no new tickets. BUG-QA1-2, -3, -4 and -5 are RESOLVED; BUG-QA1-6 is OPEN (monitor).** The text of each ticket below is attempt 3's and is kept as written; each one carries an "Attempt 4 status" line with the evidence. Counts and per-criterion results: `docs/qa-reports/latest-run.md`.
 
 Attempt 3, against https://northside-quotes-git-staging-baseleap.vercel.app at commit `e966fbc683ba3ae09b25c0be6b5d5f907c7a5c79`. One ticket per root cause. No secret, token or personal data appears; traces under `test-results/` contain the bypass header and must not be shared or committed.
@@ -9,7 +11,7 @@ Attempt 3, against https://northside-quotes-git-staging-baseleap.vercel.app at c
 | BUG-QA1-2 | Critical (4 smoke tests fail) | bl-frontend | ui | **RESOLVED** (attempt 4) |
 | BUG-QA1-3 | Important | bl-frontend | ui | **RESOLVED** (attempt 4) |
 | BUG-QA1-4 | Important | bl-frontend | ui | **RESOLVED** (attempt 4) |
-| BUG-QA1-6 | Important | bl-devops (first look) | env, cause unknown | **OPEN (monitor)**: did not recur in 2 runs |
+| BUG-QA1-6 | Important | bl-devops (first look) | env, cause unknown | **OPEN (monitor)**: did not recur in 3 runs (attempt 5: 0 in 5 photo-uploading tests at `04dd79a`) |
 | BUG-QA1-5 | Minor | bl-frontend (or bl-designer) | ui / spec | **RESOLVED** (attempt 4, by ruling) |
 | BUG-QA1-1 | was Critical | bl-devops | env | **RESOLVED** (attempt 3) |
 
@@ -86,6 +88,7 @@ Attempt 3, against https://northside-quotes-git-staging-baseleap.vercel.app at c
 **Not shown:** whether real homeowners on phones meet it. Rate: 2 of about 6 runs that uploaded photos from this machine.
 **Unverified:** cause. For devops: check Supabase storage and edge logs around the ids above; compare with a second network.
 **Attempt 4 status: OPEN (monitor). Did not recur.** Two full runs on `0dff609` (2026-11-24, about 10:51 to 11:22 UTC, run ids `kr232` and `lai62`) each uploaded photos in three tests (spine 3 photos, double-tap 3 x 5 MB on the 4G profile, upload-drop): 0 occurrences of `ERR_SSL_BAD_RECORD_MAC_ALERT` or any `net::ERR_` (the run-2 JSON report has none; the console guard fails a test on one). Two clean runs cannot close it: if it still happens about once in three runs (the attempt 3 rate: about 2 of 6), the chance of two clean runs is about 44 percent. For devops, what is observable: storage host `ckhkiarvfrfiwkvspduu.supabase.co`, path `/storage/v1/object/quote-photos/<request id>/photo-N`, failing PUTs from a browser on the QA machine, attempt 3 on 2026-11-23 between about 20:30 and 21:00 local time; the create-call request ids above are the Vercel side. Next step if it recurs: QA records the time, the failing photo and the Vercel request id; devops checks the Supabase storage logs for that window and a second network.
+**Attempt 5 status: OPEN (monitor). Did not recur.** One full run on `04dd79a` (2026-11-25, 22:24 to 22:36 UTC, run id `oxsdn`): 5 photo-uploading tests (spine, double-tap 3 x 5 MB, upload-drop, the new REV-2 swap, the DV1 evidence request), 0 `net::ERR_` in the JSON report and the run output. Three full runs in a row are now clean; at a rate of one in three the chance of that is about 30 percent, so this is suggestive, not a close. Left open for as long as the cause is unknown.
 
 ---
 

@@ -1,11 +1,11 @@
-# Schemathesis 4.0.0 run 2026-11-25T20:59:42.935Z against https://northside-quotes-git-staging-baseleap.vercel.app/api
+# Schemathesis 4.0.0 run 2026-11-26T12:03:12.564Z against https://northside-quotes-git-staging-baseleap.vercel.app/api
 
 ## run: anonymous
 Schemathesis dev
 ━━━━━━━━━━━━━━━━
 
 
- ✅  Loaded specification from docs/openapi.yaml (in 0.16s)                     
+ ✅  Loaded specification from docs/openapi.yaml (in 0.15s)                     
 
      Base URL:         https://northside-quotes-git-staging-baseleap.verce…     
      Specification:    Open API 3.1.0                                           
@@ -16,15 +16,15 @@ Schemathesis dev
 
      Supports NULL byte in headers:    ✘                                        
 
- ✅  Examples (in 1.84s)                                                        
+ ✅  Examples (in 1.78s)                                                        
                                                                                 
      ✅  5 passed  ⏭   6 skipped                                                
 
- ✅  Coverage (in 99.42s)                                                       
+ ✅  Coverage (in 97.28s)                                                       
                                                                                 
      ✅ 11 passed                                                               
 
- ✅  Fuzzing (in 18.31s)                                                        
+ ✅  Fuzzing (in 18.57s)                                                        
                                                                                 
      ✅ 11 passed                                                               
 
@@ -60,12 +60,12 @@ Test cases:
   540 generated, 540 passed
 
 Reports:
-  - JUNIT: /home/admin/baseleap/rehearsal/northside-quotes/.baseleap/tools/fuzz-reports/anonymous/junit-20261125T155943Z.xml
-  - HAR: /home/admin/baseleap/rehearsal/northside-quotes/.baseleap/tools/fuzz-reports/anonymous/har-20261125T155943Z.json
+  - JUNIT: /home/admin/baseleap/rehearsal/northside-quotes/.baseleap/tools/fuzz-reports/anonymous/junit-20261126T070312Z.xml
+  - HAR: /home/admin/baseleap/rehearsal/northside-quotes/.baseleap/tools/fuzz-reports/anonymous/har-20261126T070312Z.json
 
-Seed: 14874201849063217322240082510221691505
+Seed: 271979413657465815535194177091477239256
 
-============================ 10 warnings in 119.76s ============================
+============================ 10 warnings in 117.77s ============================
 
 ## run: staff
 Schemathesis dev
@@ -83,15 +83,15 @@ Schemathesis dev
 
      Supports NULL byte in headers:    ✘                                        
 
- ✅  Examples (in 1.93s)                                                        
+ ✅  Examples (in 1.91s)                                                        
                                                                                 
      ✅  5 passed  ⏭   6 skipped                                                
 
- ✅  Coverage (in 120.63s)                                                      
+ ✅  Coverage (in 118.69s)                                                      
                                                                                 
      ✅ 11 passed                                                               
 
- ✅  Fuzzing (in 23.74s)                                                        
+ ✅  Fuzzing (in 21.68s)                                                        
                                                                                 
      ✅ 11 passed                                                               
 
@@ -140,22 +140,22 @@ Warnings:
   ⚠️ Schema validation mismatch: 2 operations mostly rejected generated data
 
 Test cases:
-  606 generated, 606 passed, 66 skipped
+  600 generated, 600 passed, 60 skipped
 
 Reports:
-  - JUNIT: /home/admin/baseleap/rehearsal/northside-quotes/.baseleap/tools/fuzz-reports/staff/junit-20261125T160143Z.xml
-  - HAR: /home/admin/baseleap/rehearsal/northside-quotes/.baseleap/tools/fuzz-reports/staff/har-20261125T160143Z.json
+  - JUNIT: /home/admin/baseleap/rehearsal/northside-quotes/.baseleap/tools/fuzz-reports/staff/junit-20261126T070511Z.xml
+  - HAR: /home/admin/baseleap/rehearsal/northside-quotes/.baseleap/tools/fuzz-reports/staff/har-20261126T070511Z.json
 
-Seed: 192036138512176486921166341044527035124
+Seed: 315892994304577646765479575981497234848
 
-============================ 2 warnings in 146.46s =============================
+============================ 2 warnings in 142.43s =============================
 
 ## run: jobs
 Schemathesis dev
 ━━━━━━━━━━━━━━━━
 
 
- ✅  Loaded specification from docs/openapi.yaml (in 0.14s)                     
+ ✅  Loaded specification from docs/openapi.yaml (in 0.13s)                     
 
      Base URL:         https://northside-quotes-git-staging-baseleap.verce…     
      Specification:    Open API 3.1.0                                           
@@ -166,7 +166,7 @@ Schemathesis dev
 
      Supports NULL byte in headers:    ✘                                        
 
- ✅  Fuzzing (in 1.09s)                                                         
+ ✅  Fuzzing (in 1.03s)                                                         
                                                                                 
      ✅ 2 passed                                                                
 
@@ -200,12 +200,12 @@ Test cases:
   2 generated, 2 passed
 
 Reports:
-  - JUNIT: /home/admin/baseleap/rehearsal/northside-quotes/.baseleap/tools/fuzz-reports/jobs/junit-20261125T160410Z.xml
-  - HAR: /home/admin/baseleap/rehearsal/northside-quotes/.baseleap/tools/fuzz-reports/jobs/har-20261125T160410Z.json
+  - JUNIT: /home/admin/baseleap/rehearsal/northside-quotes/.baseleap/tools/fuzz-reports/jobs/junit-20261126T070734Z.xml
+  - HAR: /home/admin/baseleap/rehearsal/northside-quotes/.baseleap/tools/fuzz-reports/jobs/har-20261126T070734Z.json
 
-Seed: 162346671598841489292072353408263908005
+Seed: 182967988750680031795867421593841925152
 
-============================= 2 warnings in 1.27s ==============================
+============================= 2 warnings in 1.17s ==============================
 
 ## summary
 anonymous: exit 0, 11 test cases, 0 failures, 0 errors

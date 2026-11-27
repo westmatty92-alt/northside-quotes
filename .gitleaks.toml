@@ -1,6 +1,14 @@
 # .gitleaks.toml: Baseleap secret-scanning config (owned by bl-security; copied from
-# .claude/skills/sec-secrets/templates/gitleaks.toml at SEC1, unchanged). Extends Gitleaks' default rules
+# .claude/skills/sec-secrets/templates/gitleaks.toml at SEC1). Extends Gitleaks' default rules
 # (which already cover Stripe, GitHub, AWS, generic JWTs, private keys …) with stack-specific patterns.
+#
+# Changes from the template (SEC1, "CI scan fix (Release 1)", 2026-11-26), both for false positives that failed CI's
+# `security` job on Release 1 (run 45913652302):
+#   1. Two rule-level allowlists on postgres-connection-string-with-password. Each one is pinned to named files AND to the
+#      exact URL text (condition AND, regexTarget "match"). A different password, user, project ref or host in those same
+#      files still fails, and so does the same URL in any other file.
+#   2. Build output and local tooling are excluded by path: node_modules/, .baseleap/tools/, and everything under .next/
+#      EXCEPT .next/static/ (the client bundle, which stays scanned). See the comment on the [allowlist] below.
 title = "Baseleap gitleaks config"
 
 [extend]
@@ -32,11 +40,52 @@ regex = '''postgres(?:ql)?://[^:\s/]+:([^@\s]{6,})@[^\s'"]+'''
 secretGroup = 1
 keywords = ["postgres://", "postgresql://"]
 
+# Known non-secrets for this rule only. "match" is the whole URL the rule matched (from "postgresql://"), so each regex
+# below is anchored on the full user, password and host, not on the password alone. The "@" is written \x40 (the same
+# character to RE2) so that this file's own text never contains a credentialed URL for the rule to report.
+[[rules.allowlists]]
+description = "Fake staging URL in the env-loader test (project ref fakeref123, password fake-password; tests/api/submission/staging-env.test.ts:14), and the OPS1 report line that quotes it"
+condition = "AND"
+regexTarget = "match"
+paths = [
+  '''(?:^|/)tests/api/submission/staging-env\.test\.ts$''',
+  '''(?:^|/)\.baseleap/reports/OPS1\.md$''',
+]
+regexes = [
+  '''^postgresql://postgres\.fakeref123:fake-password\x40aws-0-ca-central-1''',
+]
+
+[[rules.allowlists]]
+description = "The local Supabase stack's fixed default login on 127.0.0.1, port read from supabase/config.toml (supabase/scripts/db.mjs:109, localTarget()), and the OPS1 report line that quotes it"
+condition = "AND"
+regexTarget = "match"
+paths = [
+  '''(?:^|/)supabase/scripts/db\.mjs$''',
+  '''(?:^|/)\.baseleap/reports/OPS1\.md$''',
+]
+regexes = [
+  '''^postgresql://postgres:postgres\x40127\.0\.0\.1:\$\{port\}/postgres''',
+]
+
+# Global path allowlist. It applies to all three scans in scripts/security-scan.sh (history, tree, bundle), which is why
+# .next/static/ is NOT excluded: the bundle scan reads .next/static/... paths, and excluding them here would blind it.
+# - node_modules/: third-party code, installed by npm ci (Gitleaks' default config also skips it).
+# - .baseleap/tools/: local scanner binaries and the fuzz venv (git-ignored, .gitignore:3; absent in a CI checkout).
+# - .next/<anything but static>/ and .next/<top-level files>: written by every `npm run build`, git-ignored
+#   (.gitignore:7), and holding per-build random keys (previewModeSigningKey and previewModeEncryptionKey in
+#   prerender-manifest.json, encryptionKey in server/server-reference-manifest.json) that the default generic-api-key
+#   rule reports. Secrets in server code are caught in the source (tree and history scans) before they are built.
+#   RE2 has no lookahead, so "first segment is not exactly `static`" is spelled out: a first segment that does not start
+#   with s, or that leaves the word "static" at some letter, or that is a proper prefix of it, or that is longer than it.
+# None of these paths can be in history (all git-ignored), so the history scan loses nothing.
 [allowlist]
-description = "Placeholders and generated reports"
+description = "Placeholders, generated reports, dependencies, local tools, and server-side build output"
 paths = [
   '''\.env\.example$''',
   '''(^|/)\.baseleap/reviews/.*\.json$''',
+  '''(?:^|/)node_modules/''',
+  '''(?:^|/)\.baseleap/tools/''',
+  '''(?:^|/)\.next/(?:[^s/][^/]*|s(?:[^t/][^/]*)?|st(?:[^a/][^/]*)?|sta(?:[^t/][^/]*)?|stat(?:[^i/][^/]*)?|stati(?:[^c/][^/]*)?|static[^/]+)(?:/|$)''',
 ]
 regexes = [
   '''(?i)(your|example|placeholder|changeme|xxx+)[-_a-z0-9]*''',

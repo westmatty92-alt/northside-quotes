@@ -1,9 +1,20 @@
 # .opengrep/baseleap.yml: Baseleap's own Opengrep (Semgrep-compatible) rules for the Next.js + Supabase stack (owned by bl-security).
-# Copied from .claude/skills/sec-appsec/templates/opengrep-baseleap.yml at SEC1, unchanged: the template is the tested set.
-# Project-specific rules proposed in .baseleap/reviews/SEC1.md ("Rule proposals") are NOT added here until opengrep can run
-# and node .claude/skills/sec-appsec/tests/check-rules.mjs reports PASS on their fixtures (opengrep was refused at SEC1).
-# Written for Baseleap; no registry rules copied. Validate: opengrep scan --validate --config .opengrep/baseleap.yml
-# Test: node .claude/skills/sec-appsec/tests/check-rules.mjs (fixture repo with expect: markers).
+# Copied from .claude/skills/sec-appsec/templates/opengrep-baseleap.yml at SEC1. Written for Baseleap; no registry rules copied.
+#
+# Project changes from the template (SEC1, "CI scan fix (Release 1)", 2026-11-26):
+#   - baseleap-route-without-session-guard (template) is REPLACED by baseleap-route-without-auth-guard. The template rule
+#     matched only `export async function GET(...)` and looked for requireSession(); every route in this project is
+#     `export const GET = withApi(...)` and guards with requireStaff() or isCronRequest(), so the template rule could never
+#     fire here (bl-devops, OPS1 "Release 1 CI diagnosis").
+#   - baseleap-request-body-into-write and baseleap-ssrf-fetch-from-request are limited to shipped code (src/, without tests
+#     and the MSW mocks). Their sources match any `x.json()`, so in test code they fire on API *responses* (a test opening a
+#     signed photo URL it was given, a seed helper spreading options into an insert): not request input, not a server.
+#   - baseleap-open-redirect knows the project's sanitizer: safeNextPath() (src/lib/server/auth/next-path.ts), the
+#     invariant-22 allow-list `^/(requests|pipeline)(/[0-9a-f-]{36})?$` with a constant fallback.
+# These changes are proven on every scan: scripts/security-scan.sh builds a small fixture repo and runs
+# node .claude/skills/sec-appsec/tests/check-rules.mjs on it with THIS file (every `expect:` line must fire, nothing else
+# may). A failed self-test fails the scan, so a rule that cannot fire is reported, not trusted.
+# Validate: opengrep scan --validate --config .opengrep/baseleap.yml
 rules:
   - id: baseleap-service-role-import-in-ui
     message: The service-role client bypasses RLS and must never be reachable from UI code. Import it only in the paths SECURITY_MODEL.md allows.
@@ -28,30 +39,48 @@ rules:
     languages: [regex]
     pattern-regex: NEXT_PUBLIC_[A-Z0-9_]*(SECRET|SERVICE_ROLE|PRIVATE|PASSWORD|WEBHOOK|SK_)[A-Z0-9_]*
 
-  - id: baseleap-route-without-session-guard
-    message: Route handler has no requireSession() call. Every API route authenticates (webhooks and health are excluded by path). Confirm by reading the handler.
-    severity: WARNING
+  - id: baseleap-route-without-auth-guard
+    message: >-
+      API route handler with no auth guard. SECURITY_MODEL.md invariant 3: every /api route needs a staff bearer token
+      (requireStaff), except GET /api/health, POST /api/auth/sign-in, the two formToken operations (POST /api/quote-requests,
+      POST /api/quote-requests/[request_id]/submission) and /api/jobs/*, which need CRON_SECRET (isCronRequest, invariant 12).
+      Invariant 11: every handler is `export const <METHOD> = withApi('<METHOD> <path>', ...)`, so a plain
+      `export (async) function <METHOD>` is flagged too. The public list is matched on withApi's route label, which must
+      be the real method and path. A new public operation needs a security-model change first. Confirm by reading the handler.
+    severity: ERROR
     languages: [typescript]
     paths:
       include: ["src/app/api/**/route.ts"]
-      exclude: ["src/app/api/webhooks/**", "src/app/api/health/**"]
     patterns:
-      - pattern: |
-          export async function $METHOD(...) { ... }
+      - pattern-either:
+          - patterns:
+              - pattern-either:
+                  - pattern: export const $METHOD = withApi($ROUTE, ...)
+                  - pattern: export const $METHOD = withApi<$T>($ROUTE, ...)
+              # Skip only the four public operations (exact label, quotes optional).
+              - metavariable-regex:
+                  metavariable: $ROUTE
+                  regex: ^(?!['"]?(?:GET /api/health|POST /api/auth/sign-in|POST /api/quote-requests|POST /api/quote-requests/\[request_id\]/submission)['"]?$)
+          - pattern: export const $METHOD = async (...) => { ... }
+          - pattern: export async function $METHOD(...) { ... }
+          - pattern: export function $METHOD(...) { ... }
       - metavariable-regex:
           metavariable: $METHOD
-          regex: ^(GET|POST|PUT|PATCH|DELETE)$
-      - pattern-not: |
-          export async function $METHOD(...) { ... requireSession(...); ... }
-      - pattern-not: |
-          export async function $METHOD(...) { ... $S = await requireSession(...); ... }
-      - pattern-not: |
-          export async function $METHOD(...) { ... const $S = await requireSession(...); ... }
+          regex: ^(GET|POST|PUT|PATCH|DELETE|HEAD|OPTIONS)$
+      # A withApi handler that calls one of the two guards anywhere in its body is fine. (The 405 handlers,
+      # `export const PUT = notAllowed`, are not withApi calls and never match above.)
+      - pattern-not: export const $METHOD = withApi(..., <... requireStaff(...) ...>)
+      - pattern-not: export const $METHOD = withApi<$T>(..., <... requireStaff(...) ...>)
+      - pattern-not: export const $METHOD = withApi(..., <... isCronRequest(...) ...>)
+      - pattern-not: export const $METHOD = withApi<$T>(..., <... isCronRequest(...) ...>)
 
   - id: baseleap-request-body-into-write
     message: The raw request body is written to the database (mass assignment). Parse it with the generated strict Zod schema and write only contract fields.
     severity: ERROR
     languages: [typescript]
+    paths:
+      include: ["src/**"]
+      exclude: ["**/*.test.ts", "**/*.test.tsx", "src/mocks/**"]
     pattern-either:
       - pattern: $C.from($T).insert(await $REQ.json())
       - pattern: $C.from($T).update(await $REQ.json())
@@ -104,7 +133,7 @@ rules:
       include: ["src/lib/server/**", "src/app/api/**"]
 
   - id: baseleap-open-redirect
-    message: Redirect target comes from the request. Allow-list internal paths.
+    message: Redirect target comes from the request. Allow-list internal paths (safeNextPath, SECURITY_MODEL.md invariant 22).
     severity: WARNING
     languages: [typescript]
     mode: taint
@@ -113,6 +142,8 @@ rules:
       - pattern: $SP.get("next")
       - pattern: $SP.get("redirect")
       - pattern: $SP.get("returnTo")
+    pattern-sanitizers:
+      - pattern: safeNextPath(...)
     pattern-sinks:
       - patterns:
           - pattern-either:
@@ -125,6 +156,9 @@ rules:
     severity: ERROR
     languages: [typescript]
     mode: taint
+    paths:
+      include: ["src/**"]
+      exclude: ["**/*.test.ts", "**/*.test.tsx", "src/mocks/**"]
     pattern-sources:
       - pattern: await $REQ.json()
       - pattern: $REQ.nextUrl.searchParams.get(...)

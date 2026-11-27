@@ -27,14 +27,42 @@ not_run() {
   exit 3
 }
 
+# SEC-25. Hash-locked install. tests/fuzz/requirements.lock must list Schemathesis AND every transitive package with
+# exact versions and --hash lines. It does NOT exist yet (it needs pip and the network to generate; see below). While it
+# is absent this script falls back to the single top-level pin and says so on every run: the dependencies are then
+# floating and unhashed, which is an accepted risk only for as long as the fuzz never gets a secret (run.mjs gives
+# Schemathesis an allow-list environment, so it does not).
+# To create it, once, on Python 3.12 (the version of the venv), from a directory with a one-line input file
+# "schemathesis==4.0.0":  uv pip compile --generate-hashes --python-version 3.12 <input> -o tests/fuzz/requirements.lock
+# (or pip-compile --generate-hashes). Commit the result. Never hand-write hashes.
+LOCK="tests/fuzz/requirements.lock"
+STAMP="$VENV/.lock-sha256"
+lock_id="none"
+if [ -f "$LOCK" ]; then
+  lock_id="$(sha256sum "$LOCK" | cut -d' ' -f1)"
+fi
+
 have="$(installed_version "$VENV_BIN")"
-if [ "$have" != "$SCHEMATHESIS_VERSION" ]; then
-  echo "Schemathesis $SCHEMATHESIS_VERSION is not in $VENV (found: ${have:-nothing}); installing it there."
-  if ! python3 -m venv "$VENV"; then
+stale_lock="no"
+if [ -f "$LOCK" ] && [ "$(cat "$STAMP" 2>/dev/null || true)" != "$lock_id" ]; then
+  stale_lock="yes"
+fi
+if [ "$have" != "$SCHEMATHESIS_VERSION" ] || [ "$stale_lock" = "yes" ]; then
+  echo "Schemathesis $SCHEMATHESIS_VERSION is not in $VENV as the lock describes (found: ${have:-nothing}, lock changed: $stale_lock); installing it there."
+  if ! python3 -m venv --clear "$VENV"; then
     not_run "python3 -m venv $VENV failed (on Debian or Ubuntu the python3-venv package may be missing)."
   fi
-  if ! "$VENV/bin/python" -m pip install --no-input --disable-pip-version-check "schemathesis==$SCHEMATHESIS_VERSION"; then
-    not_run "pip install schemathesis==$SCHEMATHESIS_VERSION failed."
+  # pip runs with a minimal environment: package build code must not see the shell's credentials either.
+  pip_env=(env -i "PATH=$PATH" "HOME=$HOME" "LANG=${LANG:-C.UTF-8}")
+  if [ -f "$LOCK" ]; then
+    if ! "${pip_env[@]}" "$VENV/bin/python" -m pip install --no-input --disable-pip-version-check --require-hashes --only-binary=:all: --no-deps -r "$LOCK"; then
+      not_run "pip install --require-hashes -r $LOCK failed."
+    fi
+    printf '%s\n' "$lock_id" > "$STAMP"
+  else
+    if ! "${pip_env[@]}" "$VENV/bin/python" -m pip install --no-input --disable-pip-version-check "schemathesis==$SCHEMATHESIS_VERSION"; then
+      not_run "pip install schemathesis==$SCHEMATHESIS_VERSION failed."
+    fi
   fi
   have="$(installed_version "$VENV_BIN")"
   if [ "$have" != "$SCHEMATHESIS_VERSION" ]; then
@@ -42,6 +70,11 @@ if [ "$have" != "$SCHEMATHESIS_VERSION" ]; then
   fi
 fi
 echo "Schemathesis installed version: $have (pinned $SCHEMATHESIS_VERSION)"
+if [ -f "$LOCK" ]; then
+  echo "Install source: $LOCK (hash-locked, sha256 $lock_id)."
+else
+  echo "WARNING: $LOCK does not exist. Only schemathesis==$SCHEMATHESIS_VERSION is pinned; its ~54 dependencies are floating and unhashed (SEC-25, lock not done)." >&2
+fi
 
 export SCHEMATHESIS_BIN="$PWD/$VENV_BIN"
 export SCHEMATHESIS_PINNED_VERSION="$SCHEMATHESIS_VERSION"

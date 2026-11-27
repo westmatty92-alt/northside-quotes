@@ -1,0 +1,25 @@
+{
+  "amend_reason": "QA2's fuzz run (staging dfaaa6c, no 5xx) shows the locked contract under-documents correct behaviour: CA-1 version has no maximum although the column is int32 and the backend returns 422 above 2147483647 (BUG-QA2-4 fix); CA-2 a cursor the API did not issue is refused with 400 (orchestrator ruling) but the contract calls any string up to 200 chars valid. Documentation-only contract corrections; no behaviour change.",
+  "tasks": [
+    {
+      "id": "A3",
+      "agent": "architect",
+      "phase": "design",
+      "title": "Contract corrections from fuzz: version maximum, cursor rule",
+      "description": "In docs/openapi.yaml: CA-1 add maximum 2147483647 to version on QuoteSave and StatusChangeCreate (and, for symmetry, QuoteRequestSummary, QuoteRequestDetail, StatusChangeResult); CA-2 in components/parameters/Cursor add pattern '^c1\\.[A-Za-z0-9_-]+$' and the description that a value the API did not issue is refused with 400 bad_request. Optionally fold the deferred wording items (signIn 400 also covers a non-JSON Content-Type; TRACE is answered by the platform). Regenerate the Orval client, Zod schemas and mocks (npm run gen:types) and confirm nothing in src/ breaks. No behaviour change.",
+      "acceptance": [
+        "version carries maximum 2147483647 on both write schemas",
+        "Cursor parameter has the pattern and the 400 description",
+        "generated code matches a fresh run; typecheck, lint and build pass",
+        "redocly lint and check-mock pass"
+      ],
+      "out_of_scope": ["any route or database change", "new status codes"],
+      "depends_on": ["A1"],
+      "files": ["docs/openapi.yaml", "src/lib/api/generated/**", "src/types/database.ts"],
+      "verify": ["npx --yes @redocly/cli lint docs/openapi.yaml", "node scripts/check-mock.mjs", "npm run typecheck", "npm run lint", "npm run build", "node scripts/check-code-guards.mjs generated"],
+      "context": ["docs/qa-reports/QA2-run.md (fuzz section)", ".baseleap/reports/QA2-errors.md", "docs/openapi.yaml"],
+      "model": "sonnet",
+      "estimated_hours": 0.5
+    }
+  ]
+}
