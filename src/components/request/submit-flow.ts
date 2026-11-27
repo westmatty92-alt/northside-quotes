@@ -45,6 +45,20 @@ export class UploadFailure extends Error {
   }
 }
 
+/**
+ * Storage already holds an object at a photo's path, and it is not (or cannot be shown to be) the file this tab put
+ * there: another photo was uploaded to that path earlier. The old photo must never stand in for the new one, so
+ * the send goes again under a fresh form token (new request, new paths).
+ */
+export class PhotoConflict extends Error {
+  readonly positions: readonly number[];
+  constructor(positions: readonly number[]) {
+    super('A different photo is already stored at this path');
+    this.name = 'PhotoConflict';
+    this.positions = positions;
+  }
+}
+
 /** The server answered 2xx with a body that is not what the contract says. */
 export class ContractMismatch extends Error {
   constructor(operation: string) {
@@ -69,6 +83,7 @@ export async function runSubmission(
   }
 
   const failed: number[] = [];
+  const conflicted: number[] = [];
   await Promise.all(
     photos
       .filter((photo) => !photo.alreadyUploaded)
@@ -83,12 +98,15 @@ export async function runSubmission(
         try {
           await deps.upload(target, photo);
           onPhoto(photo.position, 'uploaded');
-        } catch {
+        } catch (error) {
+          if (error instanceof PhotoConflict) conflicted.push(photo.position);
           failed.push(photo.position);
           onPhoto(photo.position, 'failed');
         }
       }),
   );
+  // A conflict outranks a plain failure: the whole send restarts under a fresh token, which re-sends every photo.
+  if (conflicted.length > 0) throw new PhotoConflict([...conflicted].sort((a, b) => a - b));
   if (failed.length > 0) throw new UploadFailure([...failed].sort((a, b) => a - b));
 
   const submitted = SubmitQuoteRequestResponse.safeParse((await deps.submit(started.request_id)).data);
@@ -116,6 +134,8 @@ const PHOTO_FIELD = /^photos\[(\d+)\]$/;
  * unreadable answer are all just `failed`.
  */
 export function classifyFailure(error: unknown): Failure {
+  // the stored photo is not hers: same as a used token, the page gets a fresh one, keeps everything, and she sends again
+  if (error instanceof PhotoConflict) return { kind: 'fresh-token' };
   if (error instanceof UploadFailure) return { kind: 'upload', positions: error.positions };
   if (!(error instanceof ApiProblem)) return { kind: 'failed' };
 
